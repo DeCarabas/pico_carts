@@ -4,12 +4,13 @@ __lua__
 leaves_enabled=true
 
 function reset()
- local base={x=64,y=96,w=0.5}
+ local vec={x=0,y=-1}
+ local base={x=64,y=96,w=0.5,vec=vec}
  segs={base}
  tips={{
   x=base.x,y=base.y,w=0.5,
   p=base,
-  vec={x=0,y=-1},
+  vec=vec,
   leaves={},
  }}
  leaves={}
@@ -35,13 +36,15 @@ function bud(p)
 end
 
 function grow(tip)
+ local roll=rnd(100)
+ 
  -- sprout out a new branch,
  -- yeah?
- if rnd(100)>97 then
+ if roll>97 and #tips<10 then
   return {tip,bud(tip)}
  -- new segment, move in a new
  -- direction.
- elseif rnd(100)>90 then
+ elseif roll>77 then
   add(segs,tip)
   return {bud(tip)}
  else
@@ -81,7 +84,9 @@ function _update()
  local grow_ok=#tips>0
  if grow_ok and rnd(100)>70 then
   for seg in all(segs) do
-   seg.w+=0.2
+   if seg.vec.y<0.5 then
+    seg.w+=0.2
+   end
   end    
  end 
  

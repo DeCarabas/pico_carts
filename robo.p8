@@ -22,12 +22,11 @@ __lua__
 -- [ ] tools
 --   [ ] hands
 --     your fists initially grab
---     and push/pull but later
---     can break stuff after 
---     upgrade.
+--     and lift but later can 
+--     break stuff after upgrade
 --
---     [ ] *push/pull*
---     [ ] *break rocks*
+--     [x] *lift*
+--     [ ] *crush rocks*
 --         provides *gravel*     
 --
 --   [ ] hand plow
@@ -56,18 +55,16 @@ __lua__
 -- [ ] range limiter
 --
 -- == events? ==
+-- [ ] rain
 -- [ ] earthquake
 -- [ ] wind storm
 -- [ ] lightning & fires
 --
 -- todo: zelda rock sprites
--- todo: durability?
 -- player state
 px=1 py=1 d=0
 spd=0.125 walking=false
 idle_time=0
-act_frame=nil
-act_frame_flip=false
 
 -- menu state
 menu_mode=false
@@ -78,7 +75,7 @@ menu_items={}
 -- this is how much of an hr we
 -- tick every frame. (tweak for
 -- fun!)
-hour_inc=0.0018 --*100
+hour_inc=0.0036 --*100
 hour=7
 day=0
 
@@ -108,6 +105,7 @@ function open_item_menu()
  for it in all(items) do
   add(menu_items,it.name)
  end
+ update_fn=update_menu
 end
 
 function looking_at()
@@ -120,7 +118,7 @@ end
 -- flags:
 -- 0: collision
 -- 1: cannot plant
--- 2: pick-able
+-- 2: grab-able
 --
 function map_flag(x,y,f)
  return fget(mget(x,y),f) or
@@ -162,16 +160,6 @@ function update_time()
  end
 end
 
-function update_act()
- if act_frame!=nil then
-  act_duration-=1
-  if act_duration==0 then
-   act_frame=nil
-   act_done()
-  end
- end
-end
-
 function update_walk()
  if btnp(⬅️) then tx = flr(px-1); d=0 end
  if btnp(➡️) then tx = ceil(px+1); d=1 end
@@ -191,10 +179,15 @@ function update_walk()
 	walking=not (tx == px and ty == py)
  if walking then idle_time=0 end
  
- if btnp(❎) then open_item_menu() end
- if btnp(🅾️) and not walking then
-  use_thing()
-  idle_time=0
+ if not walking then
+  if btnp(❎) and 
+     grabbed_item==nil then 
+   open_item_menu() 
+  end
+  if btnp(🅾️) then
+   use_thing()
+   idle_time=0
+  end
  end
  
  idle_time+=0.0333
@@ -207,19 +200,18 @@ function update_menu()
  if btnp(🅾️) then item_sel=menu_sel; menu_mode=false end
  if menu_sel < 1 then menu_sel = 1 end
  if menu_sel > #menu_items then menu_sel=#menu_items end
+ if not menu_mode then
+  update_fn=update_walk
+ end
 end
+
+update_fn=update_walk
 
 function _update()
  update_time()
  update_plants()
  
- if act_frame then
-  update_act()
- elseif menu_mode then
-  update_menu()
- else
-  update_walk()
- end
+ update_fn()
 end
 
 function draw_box(x, y, w, h)
@@ -325,26 +317,37 @@ function draw_map()
 end
 
 function draw_player()
- palt(0, false)
- palt(12, true)
+ local idx=1
+ local fl=false
  
- if act_frame!=nil then
-  idx=act_frame
-  fl=act_frame_flip
+ --if d==2 then fl=false end 
+ if     d==3 then idx+=8
+ elseif d==1 then idx+=4
+ elseif d==0 then idx+=4 fl=true
+ end
+ if grabbed_item==nil then
+  if (flr(time() * 4) % 2) == 0 then idx += 2 end
  else
-  idx=1
+  idx+=34
  end
  
- local fl=false
- --if d==2 then fl=false end 
- if d==3 then idx+=8; end
- if d==1 then idx+=4; end
- if d==0 then idx+=4; fl=true end
- if (flr(time() * 4) % 2) == 0 then idx += 2 end
-
  local sc=world_to_screen(px,py)
+ 
+ palt(0, false)
+ palt(12, true)
  spr(idx,sc.x-8,sc.y-12,2,2,fl)
  pal()
+
+ if grabbed_item~=nil then
+  local dx=0 local dy=-14
+  if     d==0 then dx=-14  
+  elseif d==1 then dx=6
+  elseif d==2 then dx=-4
+  elseif d==3 then dx=-4
+  end
+  spr(grabbed_item,sc.x+dx,sc.y+dy,1,1)
+ end
+
 end
 
 function _draw()
@@ -430,19 +433,25 @@ end
 function i_shovel(item,tx,ty)
 end
 
-function i_pick(item,tx,ty)
- if fget(mget(tx+32,ty),2) then
-  act_frame=33
-  act_duration=24
-  act_done=function()
-   mset(tx+32,ty,0)
+function i_grab(item,tx,ty)
+ local tgt=mget(tx+32,ty)
+ if grabbed_item~=nil then
+  if fget(tgt,0) then
+   -- nopers
+   buzz=3
+  else
+   mset(tx+32,ty,grabbed_item)
+   grabbed_item=nil
   end
+ elseif fget(tgt,2) then
+  grabbed_item=tgt
+  mset(tx+32,ty,0)
  end
 end
 
 items={
  -- pick axe hoe water
- {icon=141,name="pick",fn=i_pick},
+ {icon=141,name="grab",fn=i_grab},
  -- or just shovel
  --{icon=131,name="shovel",fn=i_shovel},
  --{icon=132,name="carrot"},

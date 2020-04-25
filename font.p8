@@ -7,49 +7,50 @@ function _init()
  font=load_font()
 end
 
+copy_time=0
 function _update()
  if btnp(❎) or btnp(🅾️) then
   printh("[["..hex.."]]","@clip")  
+  copy_time=100
+ elseif copy_time>0 then
+  copy_time-=1
  end
 end
 
 function _draw()
  cls(0)
- color(7)
  draw_string(
-  "^the quick brown fox jumped",
-  0,0)
- draw_string(
+  "^the quick brown fox jumped\n"..
   "over the lazy dog.",
-  0,10)
+  0,0,7)
 
  color(12)  
  draw_string(
-  "^here's the whole alphabet:",
+  "^here's the whole alphabet:\n",
   0,25)
  color(10)
  draw_string(
-  "^aa^bb^cc^dd^ee^ff^gg^hh^ii^jj^kk^ll^mm",
-  0,35)
- draw_string(
-  "^nn^oo^pp^qq^rr^ss^tt^uu^vv^ww^xx^yy",
-  0,45)
- draw_string(
+  "^aa^bb^cc^dd^ee^ff^gg^hh^ii^jj^kk^ll^mm\n"..
+  "^nn^oo^pp^qq^rr^ss^tt^uu^vv^ww^xx^yy\n"..
   "^zz0123456789!?.:,'",
-  0,55)
+  0,35)
  
  color(11)
  draw_string(
-  "^it takes "..#hex.." bytes.",
-  0,100)
- draw_string(
-  "^press a button to copy it to",
-  0,110)
- draw_string(
-  "your clipboard.",
-  0,120)
-  
- --draw_string("^hey buddy!",10,10)
+  "^it takes "..#hex.." bytes "..
+  "and 298\ntokens.",
+  0,90)
+ if copy_time>0 then
+  draw_string(
+   "^font copied!",0,120)
+ else
+  draw_string(
+   "^press a button to copy the",
+   0,110)
+  draw_string(
+   "font to your clipboard.",
+   0,120)
+ end
 end
 
 -->8
@@ -260,11 +261,14 @@ end
 
 function draw_string(str,x,y,c)
  if c~=nil then color(c) end
+ local lx,ly=x,y
  local i,font=1,_jd_font
  while i<=#str do
   local c=sub(str,i,i) i+=1
   if c==" " then
-   x+=4
+   lx+=4
+  elseif c=="\n" then
+   lx=x ly+=10
   else
    if c=="^" then
     c=sub(str,i,i) i+=1
@@ -274,8 +278,8 @@ function draw_string(str,x,y,c)
    end
    
    local glyph=font[c]
-   draw_font_glyph(glyph,x,y)
-   x+=glyph.w+1
+   draw_font_glyph(glyph,lx,ly)
+   lx+=glyph.w+1
   end
  end
 end

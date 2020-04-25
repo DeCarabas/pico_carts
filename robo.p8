@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 18
+version 22
 __lua__
 -- robo gardening game
 -- (c) 2020 john doty
@@ -143,6 +143,8 @@ function place_rand(count, sp)
 end
 
 function _init()
+ load_font()
+ 
  init_menu()
  init_time()
  init_base()
@@ -155,18 +157,18 @@ function _init()
  place_rand(320,65)  --rock
  
  do_script({
-  {text="ok...\ndeep breath...",
+  {text="^o^k...\n^deep breath...",
    top=192,bot=228},
-  {text="rx-228! activate!!",
+  {text="^r^x228! ^activate!!",
    top=194,bot=230},
-  {text="it...it works!",
+  {text="^it...it works!",
    top=194,bot=226},
-  {text="hey penny! dinner!"},
-  {text="ok mom! coming!",
+  {text="^hey ^penny! ^dinner!"},
+  {text="^o^k ^mom! ^coming!",
    top=194,bot=226},
-  {text="ok. that's enough for\ntoday.",
+  {text="^o^k. ^that's enough\nfor today.",
    top=192,bot=224},
-  {text="you sit tight. i'll be\nback soon.",
+  {text="^you sit tight. ^i'll be\nback soon.",
    top=192,bot=224},
  },
  function() 
@@ -887,8 +889,13 @@ function draw_text()
  draw_box(0,96,14,2)
  
  -- actual text
- print(sub(text,1,1+text_time),
-       28,114-8,7)
+ local ss=sub(text,1,1+text_time)
+ if sub(ss,-1,-1)=="^" then
+  ss=sub(ss,1,-2)
+ end
+ draw_string(
+  ss,
+  28,114-11,7)
  if text_time==text_limit and
     time()%2>1 then
   print("🅾️",128-16,128-14,7)
@@ -896,8 +903,87 @@ function draw_text()
 
  -- portrait
  if text_sprite_top~=nil then
-  spr(text_sprite_top,8,114-26,2,2)
-  spr(text_sprite_bot,8,114-10,2,2)
+  spr(text_sprite_top,8,114-24,2,2)
+  spr(text_sprite_bot,8,114-8,2,2)
+ end
+end
+-->8
+-- big font code (282 tokens)
+--
+-- call load_font() then when
+-- you want call draw_string()
+-- to draw what you want. 
+-- the font has upper case a-z,
+-- lower case a-z, digits 0-9,
+-- and some punctuation.
+function load_font()
+ local enc=[[414869999f994248caae999e4348699889964448e999999e4548f88e888f4648f88e888847486998b9964848999f99994918ff4a48111111964b48999e99994c488888888f4d58dd6b18c6314e489ddbb9994f48699999965048e99e8888515864a5295a4d5248e99e99995348698611965438e9249255489999999656588c6315294457588c6318d6aa58588a9442295159588c62a210845a48f122448f615664a52934624888e999966346698896644811799996654669f8966648254e4444674769971960684888e999996918bf6a3820926a6b488899e9996c28aaa96d56556b18c46e46ad99996f466999967046699e8871466997117246ad9888734669429674384ba492754699999676568c54a21077568c6b5aa878568a884544794699971e7a46f1248f3048699bd996313859249732486911248f3348691211963448aaaf22223548f88e11963648698e99963748f11248883848699699963948699711112118fd3f5874622210042e11803a16902c235827285800]]
+ 
+ local bytes={}
+ for i=1,#enc,2 do
+  add(bytes,tonum("0x"..sub(enc,i,i+1)))
+ end
+ 
+ local font,bi={},1
+ while bi<#bytes do
+  local c=bytes[bi] bi+=1
+  
+  local bmap={bytes[bi]}
+  local b=bmap[1]
+  local w,h=(b&0xf0)>>4,b&0x0f
+  local bytec=ceil(w*h/8)
+  for j=1,bytec do
+   add(bmap,bytes[bi+j])
+  end
+  bi+=bytec+1
+  
+  font[c]={w=w,h=h,bmap=bmap}
+ end
+ 
+ _jd_font=font
+end
+
+function draw_font_glyph(glyph,x,y)
+ local bi,bits=2,0
+ local bmap=glyph.bmap
+ local byte=bmap[bi]
+ for iy=8-glyph.h,7 do
+  for ix=0,glyph.w-1 do
+   if byte&0x80>0 then
+    pset(x+ix,y+iy)    
+   end
+   -- advance bits
+   byte<<=1 bits+=1
+   if bits==8 then
+    -- advance bytes
+    bi+=1 byte=bmap[bi] bits=0
+   end
+  end
+ end
+end
+
+function draw_string(str,x,y,c)
+ if c~=nil then color(c) end
+ local lx,ly=x,y
+ local i,font=1,_jd_font
+ while i<=#str do
+  local c=sub(str,i,i) i+=1
+  if c==" " then
+   lx+=4
+  elseif c=="\n" then
+   lx=x ly+=10
+  else
+   if c=="^" then
+    c=sub(str,i,i) i+=1
+    c=ord(c)-32
+   else
+    c=ord(c)
+   end
+   
+   local glyph=font[c]
+   draw_font_glyph(glyph,lx,ly)
+   lx+=glyph.w+1
+  end
  end
 end
 __gfx__

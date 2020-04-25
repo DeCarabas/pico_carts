@@ -1,12 +1,30 @@
 pico-8 cartridge // http://www.pico-8.com
-version 21
+version 22
 __lua__
--- stats, for tuning.
--- the font itself is *big*
-max_glyph_runs=0
-max_run_length=0
-zero_starts=0
-total_bytes=0
+-- utilities
+-- return a new table that is 
+-- the merge of the a and b.
+function merge(a,b)
+ local new_tbl,k,v={}
+ for k,v in pairs(a) do
+  new_tbl[k]=v
+ end
+ for k,v in pairs(b) do
+  new_tbl[k]=v
+ end
+ return new_tbl
+end
+
+function concat(a,b)
+ local r,i={}
+ for i=1,#a do add(r,a[i]) end
+ for i=1,#b do add(r,b[i]) end
+ return r
+end
+
+function cons(a,v)
+ return concat(a,{v})
+end
 
 -- figure out the dimensions
 -- of the sprite. bottom-left
@@ -32,127 +50,10 @@ function analyze(s)
  return {w=width,h=height}
 end
 
--- rle-compress the given 
--- sprite with the given width 
--- and height. returns the runs
--- as a series of numbers to be
--- interpreted as the number of
--- `set` pixels, followed by the 
--- number of `blank` pixels, 
--- followed by the number of 
--- `set` pixels, etc.
-function compress(s,w,h)
- -- we can rle encode, i guess
- -- if we have w and h.
- local px=8*flr(s%16)
- local py=8*flr(s/16)
- 
- local runs={}
- local run_len=0
- local current=7
- 
- for x=0,(w-1) do
-  for y=8-h,7 do
-   local clr=sget(px+x,py+y)
-   if clr==current then
-    run_len+=1
-   else 
-    add(runs,run_len)
-    run_len=1
-    current=clr
-   end
-  end
- end
- 
- if current~=0 then
-  add(runs,run_len)
- end
- 
- return runs 
-end
-
-goobers=0
-
-
--- encode the rle compressed
--- glyph into an array of bytes
-function encode(w,h,runs)
- -- convert the run stream to
- -- a count stream, which is
- -- the same *except* each value
- -- in a count stream fits in 3
- -- bits. runs greater than 7
- -- are encoded as a series of
- -- 7s followed by the remainder.
- -- this is not optimal but is
- -- simple and pretty good for 
- -- our input set.
- local count_stream,r={}
- for r in all(runs) do
-  while r>=7 do
-   add(count_stream, 7)
-   r-=7
-   goobers+=1
-  end
-  add(count_stream,r)
- end
- 
- -- start writing the output 
- -- byte stream. first the width
- -- and height of the glyph.
- -- high 4 bits: w
- --  low 4 bits: h
- local bytes={}
- add(bytes,w<<4|h)
-
- -- write the length of the 
- -- count stream to the output 
- -- bytes.
- add(bytes,#count_stream)
- 
- -- 3 bits/run,8 runs in 24bit
- -- value.
- --
- --    2         1  
- -- 321098765432109876543210
- -- aaabbbcccdddeeefffggghhh
- -- xxxxxxxxyyyyyyyyzzzzzzzz
- --
- local i=1
- while i<=#count_stream do
-  -- accumulate 8 3bit numbers 
-  -- into 1 24bit integer, and
-  -- count the number of bits
-  -- we actually emit.
-  local acc,bitc,j=0,0
-  for j=1,8 do
-   acc <<= 3
-   if i<=#count_stream then
-    acc |= count_stream[i]>>16
-    i+=1
-    bitc+=3
-   end
-  end
-  
-  -- figure out how many bytes 
-  -- we need to emit: for the 
-  -- last set of counts we can
-  -- get away with fewer than 3.
-  local bytec=ceil(bitc/8)
-  -- print("+++ "..bitc.." "..bytec.." "..i.." "..#count_stream)
-  
-  -- unpack 1 24bit integer into
-  -- 3 8bit bytes 
-  for j=1,bytec do
-   add(bytes, acc&0x00ff)
-   acc=acc<<8
-  end
- end
- 
- return bytes
-end
-
-function dumbo(s,w,h)
+-- convert sprite s into an 
+-- actual 1bpp bitmap, complete
+-- with encoded thing.
+function bitmap(s,w,h)
  local px=8*flr(s%16)
  local py=8*flr(s/16)
  
@@ -196,66 +97,57 @@ function build_glyphs(s,e)
  for i=s,e do
   r=analyze(i)
   dbg(i..": "..r.w.."x"..r.h)
-  runs=compress(i, r.w, r.h)
 
   add(glyphs,{
    s=i,
    w=r.w,
    h=r.h,
-   runs=runs
+   bmap=bitmap(i,r.w,r.h)
   })
  end
  return glyphs
 end
 
-glyphs=build_glyphs(1,66)
-for g in all(glyphs) do
- -- keep track: zero starts are
- -- wasteful so we want to 
- -- minimize them.
- if g.runs[1]==0 then
-  zero_starts+=1
- end
- 
- max_glyph_runs=max(
-  #g.runs,
-  max_glyph_runs)
- 
- for run_i=1,#runs do
-  max_run_length=max(
-   g.runs[run_i],
-   max_run_length)
- end
- 
- rl=""
- for run_i=1,#g.runs do
-  rl=rl.." "..g.runs[run_i]
-  if #rl>30 then
-   dbg(rl)
-   rl=""
-  end
- end
- if #rl>0 then
-  dbg(rl)
- end
-  
- bytes=encode(g.w,g.h,g.runs)
- dbg(" "..#runs.." runs "..#bytes.." bytes")
- total_bytes+=#bytes
- 
--- if i%5==0 then
---  repeat
---  until btn(🅾️)
--- end
+function hexdigit(b)
+ return sub(
+  "0123456789abcdef",b+1,b+1)
 end
 
--- 
-print ""
-print("max glyph runs: "..max_glyph_runs)
-print("max run length: "..max_run_length)
-print("   zero starts: "..zero_starts.."/66")
-print("   total bytes: "..total_bytes)
-print("       goobers: "..goobers)
+function tohex(bytes)
+ local txt=""
+ for b in all(bytes) do
+  txt=txt..hexdigit((b&0xf0)>>4)
+  txt=txt..hexdigit(b&0x0f)
+ end
+ return txt
+end
+
+
+function _init()
+ glyphs=build_glyphs(1,66)
+
+ stream={}
+ for g in all(glyphs) do
+  stream=concat(stream,g.bmap)
+ end
+ total_bytes=#stream
+
+ print("   total bytes: "..total_bytes)
+ hex=tohex(stream)
+ print("    hex length: "..#hex)
+ printh("[["..hex.."]]","@clip")  
+
+ font=load_font()
+end
+
+function _draw()
+ cls(0)
+ color(7)
+ draw_string("^the quick brown fox jumped",0,0)
+ draw_string("over the lazy dog.",0,10)
+ --draw_string("^hey buddy!",10,10)
+end
+
 -->8
 -- huffman encoding
 
@@ -273,32 +165,6 @@ function sort_by_freq(nodes)
    end
   end
  end
-end
-
--- return a new table that is 
--- the merge of the a and b.
-function merge(a,b)
- local new_tbl,k,v={}
- for k,v in pairs(a) do
-  new_tbl[k]=v
- end
- for k,v in pairs(b) do
-  new_tbl[k]=v
- end
- return new_tbl
-end
-
--- return a new array that has
--- v appended to it.
-function cons(a,v)
- local n={}
- if a~=nil then
-  for i=1,#a do
-   n[i]=a[i]
-  end
- end
- add(n,v)
- return n
 end
 
 -- build the encoding table for
@@ -326,13 +192,9 @@ function print_table(tbl)
  end
 end
 
-function count(freq,r)
- if freq[r]==nil then
-  freq[r]=0
- end
- freq[r] = freq[r]+1
-end
-
+-- create a new bit-packing 
+-- stream, which lets you write
+-- bits at a time into bytes.
 function new_bs()
  return {bytes={},acc=0,bits=0}
 end
@@ -357,31 +219,35 @@ function flush_bs(bs)
  return bs.bytes
 end
 
-function huffman_code(glyphs)
- -- compute the run freq of the
- -- glyphs
+function compute_freq(bytes)
  local freq={}
- for g in all(glyphs) do
-  count(freq,g.w)
-  count(freq,g.h)
-  count(freq,#g.runs) --?
-  for r in all(g.runs) do
-   count(freq,r)
+ for b in all(bytes) do
+  if freq[b]==nil then
+   freq[b]=0
   end
+  freq[b] = freq[b]+1
  end
- 
- -- build the initial node set
+ return freq
+end
+
+function build_tree(freq)
+ -- add the initial nodes...
  local nodes={}
  for k,v in pairs(freq) do
   add(nodes,{val=k,freq=v})
  end
- 
- -- build the huffman tree
+
+ -- ...then build the huffman 
+ -- tree by combining the two
+ -- nodes with the smallest 
+ -- frequency into an internal
+ -- node.
  while #nodes>1 do
   sort_by_freq(nodes)
   
   -- make a new inner node from
-  -- the two smallest freq nodes
+  -- the two smallest freq 
+  -- nodes
   local inner={
    left=nodes[1],
    right=nodes[2],
@@ -389,40 +255,145 @@ function huffman_code(glyphs)
   }
   
   -- replace the two smallest 
-  -- freq nodes with the new inner
-  -- node
+  -- freq nodes with the new 
+  -- inner node.
   del(nodes,nodes[2])
   nodes[1]=inner
  end
 
- local tbl=build_table(nodes[1])
- print_table(tbl)
-
- -- compress the runs with the
- -- table.
- for g in all(glyphs) do
-  -- todo: fewer bits for runs
-  local bs=new_bs()
-  write_bs(bs,tbl[g.w])
-  write_bs(bs,tbl[g.h])
-  write_bs(bs,tbl[#g.runs])
-  for r in all(g.runs) do
-   write_bs(bs,tbl[r])
-  end
-  g.compressed=flush_bs(bs)
- end
- 
- local total=0
- for g in all(glyphs) do
-  total+=#g.compressed
-  --print(g.s.." "..#g.runs.." "..#g.compressed)
- end
- print("total: "..total)
- print(#tbl)
+ -- there is only one node, it
+ -- is the root.
+ return nodes[1]
 end
 
-huffman_code(glyphs)
+function compress(bytes)
+ -- yr basic huffman compression
+ local freq=compute_freq(bytes)
+ local tree=build_tree(freq)
+ local tbl=build_table(tree)
+ -- print_table(tbl)
+ 
+ local bs=new_bs()
+ for byte in all(bytes) do
+  write_bs(bs,tbl[byte])
+ end
+ 
+ -- todo: need to write the 
+ -- table too, dude.
+ 
+ return flush_bs(bs)
+end
 
+function huffman_code(glyphs)
+ -- compute the run freq of the
+ -- glyphs
+ local serialized={}
+ for g in all(glyphs) do
+  add(serialized,g.w)
+  add(serialized,g.h)
+  add(serialized,#g.runs)
+  for r in all(g.runs) do
+   add(serialized,r)
+  end
+ end
+
+ local comp=compress(serialized)
+ print("total: "..#comp)
+end
+
+-- huffman_code(glyphs)
+
+-->8
+-- big font code
+--
+-- call load_font() then when
+-- you want call draw_string()
+-- to draw what you want. 
+-- the font has upper case a-z,
+-- lower case a-z, digits 0-9,
+-- and some punctuation.
+function load_font()
+ local enc=[[4869999f9948caae999e486998899648e999999e48f88e888f48f88e8888486998b99648999f999918ff481111119648999e9999488888888f58dd6b18c631489ddbb999486999999648e99e88885864a5295a4d48e99e9999486986119638e924924899999996588c63152944588c6318d6aa588a94422951588c62a2108448f122448f5664a529344888e999964669889648117999964669f89648254e444447699719604888e9999918bf3820926a488899e99928aaa956556b18c446ad99994669999646699e884669971146ad988846694296384ba49246999996568c54a210568c6b5aa8568a8845444699971e46f1248f48699bd99638592497486911248f486912119648aaaf222248f88e119648698e999648f11248884869969996486997111118fd587462221004118051a8]]
+ 
+ -- decode the encoded hex
+ -- string to a byte array 
+ local bytes={}
+ for i=1,#enc,2 do
+  add(bytes,tonum("0x"..sub(enc,i,i+1)))
+ end
+ 
+ -- decode byte array into 
+ -- glyphs
+ local glyphs,bi={},1
+ while bi<#bytes do
+  local bmap={bytes[bi]}
+  local b=bmap[1]
+  local w,h=(b&0xf0)>>4,b&0x0f
+  local bytec=ceil(w*h/8)
+  for j=1,bytec do
+   add(bmap,bytes[bi+j])
+  end
+  bi+=bytec+1
+  add(glyphs,{w=w,h=h,bmap=bmap})
+ end
+ 
+ -- now we know the mapping...
+ -- todo: save some tokens by 
+ -- putting the mapping in the
+ -- binary encoded data. 
+ -- probably even easier!
+ _jd_font={}
+ for i=0,25 do
+  _jd_font["^"..chr(ord("a")+i)]=glyphs[i+1]
+ end
+ for i=0,25 do
+  _jd_font[chr(ord("a")+i)]=glyphs[27+i]
+ end
+ for i=0,9 do
+  _jd_font[chr(ord("0")+i)]=glyphs[53+i]
+ end
+ _jd_font["!"]=glyphs[63]
+ _jd_font["?"]=glyphs[64]
+ _jd_font["."]=glyphs[65]
+ _jd_font["…"]=glyphs[66]
+end
+
+function draw_font_glyph(glyph,x,y)
+ local bi,bits=2,0
+ local bmap=glyph.bmap
+ local byte=bmap[bi]
+ for iy=8-glyph.h,7 do
+  for ix=0,glyph.w-1 do
+   if byte&0x80>0 then
+    pset(x+ix,y+iy)    
+   end
+   -- advance bits
+   byte<<=1 bits+=1
+   if bits==8 then
+    -- advance bytes
+    bi+=1 byte=bmap[bi] bits=0
+   end
+  end
+ end
+end
+
+function draw_string(str,x,y)
+ local i,font=1,_jd_font
+ while i<=#str do
+  local c=sub(str,i,i)
+  i+=1
+  if c==" " then
+   x+=4
+  else
+   if c=="^" then
+    c=c..sub(str,i,i) i+=1
+   end
+   local glyph=font[c]
+   draw_font_glyph(glyph,x,y)
+   x+=glyph.w+1
+  end
+ end
+end
 __gfx__
 00000000077000007700000007700000777000007777000077770000077000007007000070000000000700007007000070000000770770007007000007700000
 00000000700700007070000070070000700700007000000070000000700700007007000070000000000700007007000070000000707070007707000070070000

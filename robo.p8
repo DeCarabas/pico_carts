@@ -144,7 +144,8 @@ end
 
 function _init()
  load_font()
- 
+
+ init_items() 
  init_menu()
  init_time()
  init_base()
@@ -316,7 +317,7 @@ function update_walk()
  if not walking then
   if btnp(❎) and 
      grabbed_item==nil then 
-   open_item_menu() 
+   open_item_menu()
   end
   if btnp(🅾️) then
    use_thing()
@@ -590,7 +591,6 @@ function _draw()
  draw_weather()
  
  -- print("x "..x.." y "..y)
- if false then
  if menu_mode then
   draw_menu(menu_items,menu_sel)
  elseif idle_time>1 then
@@ -599,7 +599,6 @@ function _draw()
   draw_meters()
  elseif (energy_level/max_energy)<0.25 then
   draw_meters()
- end
  end
  draw_text()
 end
@@ -722,16 +721,17 @@ function i_till(item,tx,ty)
 	 end)
 end
 
-items={
- -- pick axe hoe water
- {icon=142,name="grab",fn=i_grab},
- {icon=141,name="till",fn=i_till},
- {icon=143,name="water",fn=i_water},
- {icon=147,name="grass",fn=i_plant,plant=grass},
- --{icon=163,name="mum",fn=i_plant,plant=mum},
-}
-item_sel=1
-
+function init_items()
+ items={
+  -- pick axe hoe water
+  {icon=142,name="grab",fn=i_grab},
+  {icon=141,name="till",fn=i_till},
+  {icon=143,name="water",fn=i_water},
+  {icon=147,name="grass",fn=i_plant,plant=grass},
+  --{icon=163,name="mum",fn=i_plant,plant=mum},
+ }
+ item_sel=1
+end
 -->8
 -- water
 function init_water()
@@ -872,6 +872,7 @@ function show_text(t,top,bot,next_fn)
 end
 
 function update_text()
+ idle_time=0
  text_time=min(
   text_limit, 
   text_time+2)

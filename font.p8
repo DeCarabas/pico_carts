@@ -1,6 +1,59 @@
 pico-8 cartridge // http://www.pico-8.com
 version 22
 __lua__
+-- demo for custom font
+function _init()
+ hex=build_font()
+ font=load_font()
+end
+
+function _update()
+ if btnp(❎) or btnp(🅾️) then
+  printh("[["..hex.."]]","@clip")  
+ end
+end
+
+function _draw()
+ cls(0)
+ color(7)
+ draw_string(
+  "^the quick brown fox jumped",
+  0,0)
+ draw_string(
+  "over the lazy dog.",
+  0,10)
+
+ color(12)  
+ draw_string(
+  "^here's the whole alphabet:",
+  0,25)
+ color(10)
+ draw_string(
+  "^aa^bb^cc^dd^ee^ff^gg^hh^ii^jj^kk^ll^mm",
+  0,35)
+ draw_string(
+  "^nn^oo^pp^qq^rr^ss^tt^uu^vv^ww^xx^yy",
+  0,45)
+ draw_string(
+  "^zz0123456789!?.:,'",
+  0,55)
+ 
+ color(11)
+ draw_string(
+  "^it takes "..#hex.." bytes.",
+  0,100)
+ draw_string(
+  "^press a button to copy it to",
+  0,110)
+ draw_string(
+  "your clipboard.",
+  0,120)
+  
+ --draw_string("^hey buddy!",10,10)
+end
+
+-->8
+-- encoding
 -- utilities
 -- return a new table that is 
 -- the merge of the a and b.
@@ -122,187 +175,34 @@ function tohex(bytes)
  return txt
 end
 
+function build_font()
+ glyphs=build_glyphs(1,68)
 
-function _init()
- glyphs=build_glyphs(1,66)
+ for i=0,25 do
+  glyphs[i+1].c=ord("a")+i-32
+ end
+ for i=0,25 do
+  glyphs[27+i].c=ord("a")+i
+ end
+ for i=0,9 do
+  glyphs[53+i].c=ord("0")+i
+ end
+ glyphs[63].c=ord("!")
+ glyphs[64].c=ord("?")
+ glyphs[65].c=ord(".")
+ glyphs[66].c=ord(":")
+ glyphs[67].c=ord(",")
+ glyphs[68].c=ord("'")
 
  stream={}
  for g in all(glyphs) do
+  add(stream,g.c)
   stream=concat(stream,g.bmap)
  end
  total_bytes=#stream
 
- print("   total bytes: "..total_bytes)
- hex=tohex(stream)
- print("    hex length: "..#hex)
- printh("[["..hex.."]]","@clip")  
-
- font=load_font()
+ return tohex(stream)
 end
-
-function _draw()
- cls(0)
- color(7)
- draw_string("^the quick brown fox jumped",0,0)
- draw_string("over the lazy dog.",0,10)
- --draw_string("^hey buddy!",10,10)
-end
-
--->8
--- huffman encoding
-
--- bubble sort of nodes by freq
-function sort_by_freq(nodes)
- local changed=true
- while changed do
-  changed=false
-  for i=1,#nodes-1 do
-   if nodes[i].freq>nodes[i+1].freq then
-    local tmp=nodes[i]
-    nodes[i]=nodes[i+1]
-    nodes[i+1]=tmp
-    changed = true
-   end
-  end
- end
-end
-
--- build the encoding table for
--- the given huffman tree and 
--- path
-function build_table(node,path)
- if node.left~=nil then
-  return merge(
-   build_table(node.left,cons(path,0)),
-   build_table(node.right,cons(path,1)))
- else
-  local result={}
-  result[node.val]=path
-  return result
- end
-end
-
-function print_table(tbl)
- for k,v in pairs(tbl) do
-  local bitstr=""
-  for b in all(v) do
-   bitstr=bitstr..b
-  end
-  print("  "..k.." "..bitstr)
- end
-end
-
--- create a new bit-packing 
--- stream, which lets you write
--- bits at a time into bytes.
-function new_bs()
- return {bytes={},acc=0,bits=0}
-end
-
-function write_bs(bs,bits)
- for bit in all(bits) do
-  bs.acc=bs.acc<<1|bit
-  bs.bits=bs.bits+1
-  if bs.bits==8 then
-   add(bs.bytes,bs.acc)
-   bs.bits=0
-   bs.acc=0
-  end
- end
-end
-
-function flush_bs(bs)
- if bs.bits>0 then
-  bs.acc=bs.acc<<(8-bs.bits)
-  add(bs.bytes,bs.acc)
- end
- return bs.bytes
-end
-
-function compute_freq(bytes)
- local freq={}
- for b in all(bytes) do
-  if freq[b]==nil then
-   freq[b]=0
-  end
-  freq[b] = freq[b]+1
- end
- return freq
-end
-
-function build_tree(freq)
- -- add the initial nodes...
- local nodes={}
- for k,v in pairs(freq) do
-  add(nodes,{val=k,freq=v})
- end
-
- -- ...then build the huffman 
- -- tree by combining the two
- -- nodes with the smallest 
- -- frequency into an internal
- -- node.
- while #nodes>1 do
-  sort_by_freq(nodes)
-  
-  -- make a new inner node from
-  -- the two smallest freq 
-  -- nodes
-  local inner={
-   left=nodes[1],
-   right=nodes[2],
-   freq=nodes[1].freq+nodes[2].freq
-  }
-  
-  -- replace the two smallest 
-  -- freq nodes with the new 
-  -- inner node.
-  del(nodes,nodes[2])
-  nodes[1]=inner
- end
-
- -- there is only one node, it
- -- is the root.
- return nodes[1]
-end
-
-function compress(bytes)
- -- yr basic huffman compression
- local freq=compute_freq(bytes)
- local tree=build_tree(freq)
- local tbl=build_table(tree)
- -- print_table(tbl)
- 
- local bs=new_bs()
- for byte in all(bytes) do
-  write_bs(bs,tbl[byte])
- end
- 
- -- todo: need to write the 
- -- table too, dude.
- 
- return flush_bs(bs)
-end
-
-function huffman_code(glyphs)
- -- compute the run freq of the
- -- glyphs
- local serialized={}
- for g in all(glyphs) do
-  add(serialized,g.w)
-  add(serialized,g.h)
-  add(serialized,#g.runs)
-  for r in all(g.runs) do
-   add(serialized,r)
-  end
- end
-
- local comp=compress(serialized)
- print("total: "..#comp)
-end
-
--- huffman_code(glyphs)
-
 -->8
 -- big font code
 --
@@ -313,19 +213,17 @@ end
 -- lower case a-z, digits 0-9,
 -- and some punctuation.
 function load_font()
- local enc=[[4869999f9948caae999e486998899648e999999e48f88e888f48f88e8888486998b99648999f999918ff481111119648999e9999488888888f58dd6b18c631489ddbb999486999999648e99e88885864a5295a4d48e99e9999486986119638e924924899999996588c63152944588c6318d6aa588a94422951588c62a2108448f122448f5664a529344888e999964669889648117999964669f89648254e444447699719604888e9999918bf3820926a488899e99928aaa956556b18c446ad99994669999646699e884669971146ad988846694296384ba49246999996568c54a210568c6b5aa8568a8845444699971e46f1248f48699bd99638592497486911248f486912119648aaaf222248f88e119648698e999648f11248884869969996486997111118fd587462221004118051a8]]
+ local enc=[[414869999f994248caae999e4348699889964448e999999e4548f88e888f4648f88e888847486998b9964848999f99994918ff4a48111111964b48999e99994c488888888f4d58dd6b18c6314e489ddbb9994f48699999965048e99e8888515864a5295a4d5248e99e99995348698611965438e9249255489999999656588c6315294457588c6318d6aa58588a9442295159588c62a210845a48f122448f615664a52934624888e999966346698896644811799996654669f8966648254e4444674769971960684888e999996918bf6a3820926a6b488899e9996c28aaa96d56556b18c46e46ad99996f466999967046699e8871466997117246ad9888734669429674384ba492754699999676568c54a21077568c6b5aa878568a884544794699971e7a46f1248f3048699bd996313859249732486911248f3348691211963448aaaf22223548f88e11963648698e99963748f11248883848699699963948699711112118fd3f5874622210042e11803a16902c235827285800]]
  
- -- decode the encoded hex
- -- string to a byte array 
  local bytes={}
  for i=1,#enc,2 do
   add(bytes,tonum("0x"..sub(enc,i,i+1)))
  end
  
- -- decode byte array into 
- -- glyphs
- local glyphs,bi={},1
+ local font,bi={},1
  while bi<#bytes do
+  local c=bytes[bi] bi+=1
+  
   local bmap={bytes[bi]}
   local b=bmap[1]
   local w,h=(b&0xf0)>>4,b&0x0f
@@ -334,28 +232,11 @@ function load_font()
    add(bmap,bytes[bi+j])
   end
   bi+=bytec+1
-  add(glyphs,{w=w,h=h,bmap=bmap})
+  
+  font[c]={w=w,h=h,bmap=bmap}
  end
  
- -- now we know the mapping...
- -- todo: save some tokens by 
- -- putting the mapping in the
- -- binary encoded data. 
- -- probably even easier!
- _jd_font={}
- for i=0,25 do
-  _jd_font["^"..chr(ord("a")+i)]=glyphs[i+1]
- end
- for i=0,25 do
-  _jd_font[chr(ord("a")+i)]=glyphs[27+i]
- end
- for i=0,9 do
-  _jd_font[chr(ord("0")+i)]=glyphs[53+i]
- end
- _jd_font["!"]=glyphs[63]
- _jd_font["?"]=glyphs[64]
- _jd_font["."]=glyphs[65]
- _jd_font["…"]=glyphs[66]
+ _jd_font=font
 end
 
 function draw_font_glyph(glyph,x,y)
@@ -377,17 +258,21 @@ function draw_font_glyph(glyph,x,y)
  end
 end
 
-function draw_string(str,x,y)
+function draw_string(str,x,y,c)
+ if c~=nil then color(c) end
  local i,font=1,_jd_font
  while i<=#str do
-  local c=sub(str,i,i)
-  i+=1
+  local c=sub(str,i,i) i+=1
   if c==" " then
    x+=4
   else
    if c=="^" then
-    c=c..sub(str,i,i) i+=1
+    c=sub(str,i,i) i+=1
+    c=ord(c)-32
+   else
+    c=ord(c)
    end
+   
    local glyph=font[c]
    draw_font_glyph(glyph,x,y)
    x+=glyph.w+1
@@ -427,11 +312,11 @@ __gfx__
 07070000707070000070000007770000070000007007000007000000070000000007000000700000000700007007000070000000700700000007000070000000
 00700000707070000707000000070000700000007007000007000000700000007007000000700000700700007007000070000000700700000007000000000000
 00700000070700007000700077700000777700000770000077700000777700000770000000700000077000000770000070000000077000000007000070000000
-07770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-70007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-70007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+07770000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+70007000000000000000000000000000070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+70007000000000007000000000000000700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700000700000007070700000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700000000000007000000007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000007000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700000700000000000000070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

@@ -112,7 +112,7 @@ end
 
 function init_base()
  base_x=2+flr(rnd(12))
- base_y=3+flr(rnd(11))
+ base_y=3+flr(rnd(8))
  
  -- the base points.
  mset(base_x-1,base_y,83)
@@ -877,9 +877,15 @@ cs_intro={
   "^it... it works?",
   "^it works!"},
  {"^p^e^n^n^y? ^w^h^e^r^e ^a^r^e\n^y^o^u??"},
- {p=py_shout,
+ {pre=function()
+   penny_show(penny_x,penny_y,2)
+  end,
+  p=py_shout,
   "^c^o^m^i^n^g ^m^o^m!"},
- {p=py_frend,
+ {pre=function()
+   penny_show(penny_x,penny_y,0)
+  end,
+  p=py_frend,
   "^o^k. ^that's enough\nfor today.",
   "^you sit tight.",
   "^i'll be back soon to\nfinish up."}

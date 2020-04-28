@@ -109,7 +109,7 @@ end
 -- fun!)
 function init_time()
  hour_inc=0.0036 --*100
- hour=7
+ hour=16
  day=0
  
  recharge_rate=100*hour_inc/4
@@ -152,6 +152,7 @@ end
 
 function _init()
  load_font()
+ init_fx()
 
  init_items() 
  init_menu()
@@ -165,13 +166,14 @@ function _init()
  -- init the item sprite layer
  place_rand(320,147) --grass
  place_rand(320,65)  --rock
- 
+
+--[[ 
  do_script(
   cs_intro,
   function() 
    penny_run(1)
    update_fn=update_walk 
-  end)
+  end)]]
 end
 
 function open_item_menu()
@@ -287,7 +289,6 @@ function update_time()
 end
 
 function update_walk()
- -- todo: this movement sucks
  if px==tx and py==ty then
   if btnp(⬅️) then tx=px-1 d=0 end
   if btnp(➡️) then tx=px+1 d=1 end
@@ -530,7 +531,7 @@ function draw_player()
  palt(0, false)
  palt(12, true)
  spr(idx,sc.x-8,sc.y-12,2,2,fl)
- pal()
+ palt()
 
  if grabbed_item~=nil and 
     d~=3 then
@@ -564,12 +565,7 @@ function draw_base()
 end
 
 function draw_game()
- if (hour>=18 and hour<20) or 
-    (hour>=4 and hour<6) then
-  dark(1)
- elseif hour>=20 or hour<4 then
-  dark(2)
- end
+ enable_sunshine(hour)
 	
 	draw_map()
 	if py<=base_y then
@@ -587,6 +583,8 @@ function draw_game()
  --rectfill(sc.x-4,sc.y-4,sc.x+4,sc.y+4,10)
  
  draw_weather()
+
+ disable_dark()
  
  -- print("x "..x.." y "..y)
  if menu_mode then
@@ -820,35 +818,72 @@ function draw_weather()
 end
 -->8
 -- fx
-dark_map={
- 0, --0
- 0, --1
- 1, --2
- 5, --3
- 5, --4
- 2, --5
- 5, --6
- 6, --7
- 5, --8
- 8, --9
- 9, --10
- 3, --11
- 13,--12
- 1, --13
- 13,--14
- 14 --15
-}
-
-function dark(n)
- local dm=dark_map
- for i=0,15 do
-  local tgt=i
-  for j=1,n do
-   tgt=dm[tgt+1]
+function init_fx()
+ dark_levels={}
+ for x=0,5 do
+  local ramp={}
+  for y=0,15 do
+   ramp[y]=sget(x,y+40)
   end
-  pal(i,tgt)
+  dark_levels[x]=ramp
+ end
+ original_pal=pal
+ 
+ -- dark levels by hour.
+ -- todo: should also factor in
+ --       phase of moon?
+ local sm={}
+ for i=0,4   do sm[i]=3    end
+ for i=5,8   do sm[i]=i-8  end
+ for i=9,16  do sm[i]=0    end
+ for i=17,19 do sm[i]=i-16 end
+ for i=20,24 do sm[i]=3    end
+ sunshine_map=sm
+end
+
+function enable_sunshine(t)
+ enable_dark(sunshine_map[flr(t)])
+end
+
+function enable_dark(d)
+ assert(pal==original_pal)
+ dark_level=dark_levels[d]
+ pal(dark_level)
+ pal=fx_pal
+end
+
+function disable_dark()
+ pal=original_pal
+ pal()
+end
+
+function fx_pal(s,t,p)
+ local lvl=dark_level
+ local opal=original_pal
+ if type(s)=="table" then
+  for k,v in all(s) do
+   opal(k,lvl[v],p)
+  end
+ elseif s==nil and t==nil then
+  opal(lvl,p)
+ else
+  opal(s,lvl[t],p)
  end
 end
+
+--[[
+function dump_darkness()
+ pal()
+ for ilvl=1,#dark_levels do
+  local lvl=dark_levels[ilvl]
+  for ic=1,#lvl do
+   local y=(ilvl-1)*4
+   local x=(ic-1)*4
+   rectfill(x,y,x+3,y+3,lvl[ic])
+  end
+ end
+end
+]]
 
 -->8
 -- cutscene stuff

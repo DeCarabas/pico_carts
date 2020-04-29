@@ -1,20 +1,33 @@
 pico-8 cartridge // http://www.pico-8.com
 version 22
 __lua__
-cl=32
-
+-- birdsong generator
+-- (c) 2020 john doty
+--
+-- generates random birdsong.
+--
 function lerp(a,b,t)
  return a+(b-a)*t
 end
 
-function gen_call(i)
+function gen_chirp(i)
  local base=0x3200+(68*i)
  
- cl=rnd(16)+8
+ local cl=rnd(8)+16
  for i=0,63,1 do
   poke(base+i,0)
  end
+
+ -- set speed to 1.
+ poke(base+65,1) 
    
+ -- set pitches. 
+ -- it sounds better (i found) 
+ -- if you lerp over 4 tones 
+ -- between points. 
+ -- discontinuities sound gross,
+ -- but you still want the pitch
+ -- changes quick.
  local old=rnd(8)+56
  for i=0,cl,4 do
   local new=rnd(8)+56
@@ -31,7 +44,7 @@ song={}
 function gen_song()
  local notes=ceil(rnd(4))
  for i=0,notes-1 do
-  gen_call(i)
+  gen_chirp(i)
  end
  
  song={}
@@ -40,6 +53,7 @@ function gen_song()
   add(song, flr(rnd(notes)))
  end
  
+ -- these are in frames.
  note_delay=rnd(3)+2
  song_delay=rnd(15)+15
 end
@@ -72,9 +86,10 @@ function _update()
      -- generate the song.
      -- nothing is playing so 
      -- we'll wait this long 
-     -- before playing. you'd expect
-     -- it to be a trailing gap not
-     -- a leading gap but :shrug:.
+     -- before playing. you'd 
+     -- expect it to be a 
+     -- trailing gap not a 
+     -- leading gap but :shrug:
      delay=song_delay
      pd=delay
     end

@@ -6,6 +6,10 @@ __lua__
 --
 -- generates random birdsong.
 --
+
+------------------------------
+-- song
+------------------------------
 function lerp(a,b,t)
  return a+(b-a)*t
 end
@@ -53,65 +57,171 @@ function gen_song()
   add(song, flr(rnd(notes)))
  end
  
- -- these are in frames.
- note_delay=rnd(3)+2
- song_delay=rnd(15)+15
+ -- these are in frames, or 1/30
+ -- of a second.
+ note_delay=rnd(5)+2
 end
 
-playing=false
-note_idx=1
-delay=0
-
-function _update()
- if btnp(🅾️) then
-  playing=not playing
- end
- if playing then
-  if stat(20)==-1 then
-   -- no note, where are we?   
-   delay-=1
-   if delay<0 then
-    if note_idx<#song then
-     note_idx+=1
-     sfx(song[note_idx])
+function update_song()
+ if stat(20)==-1 then
+  -- no note, where are we?   
+  delay-=1
+  if delay<0 then
+   if note_idx<#song then
+    note_idx+=1
+    sfx(song[note_idx])
      
-     -- when the note is done
-     -- wait this amount of time
-     delay=note_delay
-     pd=delay
-    else
-     gen_song()
-     note_idx=0
-     
-     -- generate the song.
-     -- nothing is playing so 
-     -- we'll wait this long 
-     -- before playing. you'd 
-     -- expect it to be a 
-     -- trailing gap not a 
-     -- leading gap but :shrug:
-     delay=song_delay
-     pd=delay
-    end
+    -- when the note is done
+    -- wait this amount of time
+    delay=note_delay
+    pd=delay
+   else
+    playing=false
+    note_idx=0
    end
   end
  end
 end
 
+-------------------------------
+-- bird
+-------------------------------
+bird_colors={10,9,4,8}
+bird_min=96
+bird_max=127
+bird={
+ {{-2,0},
+  {-2,-3},
+  {0,0},
+  {0,-4},
+  {0,0},
+  {2,-3},
+  {2,0}},
+ {{-5,-3},
+  {-2,-3},
+  {0,0},
+  {2,-3},
+  {5,-3}},
+ {{-5,-4},
+  {-2,-3},
+  {0,0},
+  {2,-3},
+  {5,-4}},
+ {{-5,-1},
+  {-2,-3},
+  {0,0},
+  {2,-3},
+  {5,-1}},
+}
+
+function init_bird()
+ bird_x=110 bird_y=1
+ bird_state="incoming"
+ bird_frame=3
+ bird_color=bird_colors[flr(rnd(#bird_colors))+1]
+ gen_song()
+end
+
+function move_bird(ydir)
+ bird_y+=ydir*2
+ bird_x+=rnd(4)-2
+ if bird_x>bird_max then bird_x=bird_max end
+ if bird_x<bird_min then bird_x=bird_min end
+ 
+ bird_frame+=1
+	if bird_frame>#bird then
+	 bird_frame=2
+	end
+end
+
+function update_bird()
+ if bird_state=="incoming" then
+  move_bird(1)
+  if bird_y>=96 then
+   bird_y=96
+   bird_state="sitting"
+	  playing=true
+  end
+ elseif bird_state=="sitting" then
+  bird_frame=1
+ elseif bird_state=="leaving" then
+  move_bird(-1)
+  if bird_y<0 then
+   bird_y=0
+   init_bird()
+  end
+ end
+end
+
+function draw_bird()
+ rectfill(
+  bird_min-5,0,
+  bird_max,96,
+  12)
+ rectfill(
+  bird_min-5,96,
+  bird_max,128,
+  11)
+
+ local x,y=bird_x,bird_y
+ color(bird_color)
+ -- wings
+ local b=bird[bird_frame]
+ line(x+b[1][1],y+b[1][2],
+      x+b[2][1],y+b[2][2])
+ for i=3,#b do
+  line(x+b[i][1],y+b[i][2])
+ end
+end
+
+-------------------------------
+-- yada
+-------------------------------
+function _init()
+ init_bird()
+ note_idx=0
+ playing=false
+ delay=0
+end
+
+function _update()
+ if btnp(🅾️) then
+  playing=not playing
+ end
+ if btnp(❎) then
+  note_idx=0
+  bird_state="leaving"
+ end
+ if playing then
+  update_song()
+ end
+ update_bird()
+end
+
 function _draw()
  cls(0)
- print(flr(pd).." "..stat(16).." "..stat(20))
-	local s=stat(16)
-	if s>=0 then
+ draw_bird()
+ draw_song()
+end
+
+function draw_song()
+ local i,ni
+ 
+ for ni=1,#song do
+  local s=song[ni]
 	 local base=0x3200+(68*s)
-  for i=0,32 do
+  for i=0,31 do
    local pitch=peek(base+(i*2))
-   local x=(i*3)+2
-   local c=14
-   if i==stat(20) then
-    c=7
+   if pitch>0 then
+    local x=(ni-1)*32+i
+    local c=1
+    if ni==note_idx and 
+       i==stat(20) then
+     c=7
+    end
+    line(x,96,x,96-pitch,c)
+    pset(x,96-pitch,bird_color)
    end
-   line(x,96,x,96-pitch,c)
   end
  end
 end

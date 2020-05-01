@@ -109,7 +109,7 @@ end
 -- fun!)
 function init_time()
  hour_inc=0.0036 --*100
- hour=3
+ hour=8
  day=0
  
  recharge_rate=100*hour_inc/4
@@ -167,13 +167,12 @@ function _init()
  place_rand(320,147) --grass
  place_rand(320,65)  --rock
 
---[[ 
  do_script(
   cs_intro,
   function() 
    penny_run(1)
    update_fn=update_walk 
-  end)]]
+  end)
 end
 
 function open_item_menu()
@@ -731,10 +730,10 @@ function init_items()
  items={
   -- pick axe hoe water
   {icon=142,name="grab",fn=i_grab},
-  {icon=141,name="till",fn=i_till},
-  {icon=143,name="water",fn=i_water},
-  {icon=147,name="grass",fn=i_plant,plant=grass},
-  --{icon=163,name="mum",fn=i_plant,plant=mum},
+  -- {icon=141,name="till",fn=i_till},
+  -- {icon=143,name="water",fn=i_water},
+  -- {icon=147,name="grass",fn=i_plant,plant=grass},
+  -- {icon=163,name="mum",fn=i_plant,plant=mum},
  }
  item_sel=1
 end
@@ -776,7 +775,9 @@ end
 
 -->8
 -- weather
-
+--
+-- :todo: random weather on hour
+-- and season. 
 function init_weather()
  raining=false
  rain={}
@@ -799,6 +800,7 @@ function update_weather()
  
  for drop in all(rain) do
   drop.y+=3
+  drop.x+=1
   drop.life-=1
   if drop.y>=128 
    or drop.life < 0 then
@@ -812,7 +814,7 @@ function draw_weather()
   if r.life==0 then
    circ(r.x,r.y,1,12)
   else
-   line(r.x,r.y-2,r.x,r.y,12)
+   line(r.x,r.y-2,r.x+1,r.y,12)
   end
  end
 end
@@ -1306,4 +1308,4 @@ __map__
 4040404040404040404040404040404000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 4040404040404040404040404040404000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __sfx__
-010500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

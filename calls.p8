@@ -7,59 +7,99 @@ __lua__
 -- generates random birdsong.
 --
 
-------------------------------
--- song
-------------------------------
 function lerp(a,b,t)
  return a+(b-a)*t
 end
 
-function gen_chirp(i)
- local base=0x3200+(68*i)
- 
- local cl=rnd(8)+16
- for i=0,63,1 do
-  poke(base+i,0)
+function repr(v)
+ if type(v)=="table" then
+  local r="{"
+  local comma=false
+  for k,v in pairs(v) do
+   if comma then
+    r=r..","
+   end
+   r=r..repr(k).."="..repr(v)
+   comma=true
+  end
+  r=r.."}"
+  return r
+ elseif type(v)=="string" then
+  return "\""..v.."\""
+ elseif v==nil then
+  return "nil"
+ else
+  return tostr(v)
  end
+end
 
- -- set speed to 1.
- poke(base+65,1) 
-   
- -- set pitches. 
+------------------------------
+-- song
+------------------------------
+
+function gen_chirp()
+ local pitches={}
+ 
  -- it sounds better (i found) 
  -- if you lerp over 4 tones 
  -- between points. 
  -- discontinuities sound gross,
  -- but you still want the pitch
  -- changes quick.
+ local cl=rnd(8)+16
  local old=rnd(8)+56
  for i=0,cl,4 do
   local new=rnd(8)+56
   for j=0,3 do
-   local addr=base+(i+j)*2
    local pitch=lerp(old,new,j/4)
-   poke2(addr, 0x0a00|pitch)
+   add(pitches,flr(pitch))
   end
   old=new
  end
+ 
+ return pitches
 end
 
-song={}
+function load_chirp(i,chirp)
+ local base=0x3200+(68*i)
+ 
+ for i=0,63,1 do
+  poke(base+i,0)
+ end
+
+ -- set speed to 1.
+ poke(base+65,1) 
+
+ -- set pitches. 
+ local addr=base
+ for pitch in all(chirp) do
+  poke2(addr,0x0a00|pitch)
+  addr+=2
+ end
+end
+
 function gen_song()
- local notes=ceil(rnd(4))
- for i=0,notes-1 do
-  gen_chirp(i)
+ local notes={}
+ for i=1,ceil(rnd(4)) do
+  add(notes,gen_chirp())
  end
  
- song={}
- local sl=ceil(rnd(3))
- for i=1,sl do
-  add(song, flr(rnd(notes)))
+ local song={}
+ for i=1,ceil(rnd(3)) do
+  local ni=ceil(rnd(#notes))
+  add(song, notes[ni])
  end
  
  -- these are in frames, or 1/30
  -- of a second.
- note_delay=rnd(5)+2
+ song.note_delay=rnd(5)+2
+ return song 
+end
+
+function load_song(song)
+ for i=1,#song do
+  load_chirp(i-1,song[i])
+ end 
 end
 
 function update_song()
@@ -69,11 +109,11 @@ function update_song()
   if delay<0 then
    if note_idx<#song then
     note_idx+=1
-    sfx(song[note_idx])
+    sfx(note_idx-1)
      
     -- when the note is done
     -- wait this amount of time
-    delay=note_delay
+    delay=song.note_delay
     pd=delay
    else
     playing=false
@@ -95,15 +135,14 @@ function init_bird()
  bird_state="incoming"
  bird_frame=3
  bird_color=bird_colors[flr(rnd(#bird_colors))+1]
- gen_song()
+ song=gen_song()
+ load_song(song)
 end
 
 function move_bird()
  bird_x+=2
  bird_y=96-32*abs(64-bird_x)/64
- --bird_y+=rnd(4)-2
  if bird_y>bird_max then bird_y=bird_max end
- --if bird_y<bird_min then bird_y=bird_min end
  
  bird_frame+=0.5
 	if bird_frame>=4 then
@@ -179,8 +218,7 @@ function draw_song()
  local i,ni
  
  for ni=1,#song do
-  local s=song[ni]
-	 local base=0x3200+(68*s)
+	 local base=0x3200+(68*(ni-1))
   for i=0,31 do
    local pitch=peek(base+(i*2))
    if pitch>0 then

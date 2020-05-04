@@ -164,78 +164,100 @@ bird_colors={10,9,4,8}
 bird_min=64
 bird_max=100
 
-function init_bird()
- bird_x=0 bird_y=(bird_max+bird_min)/2
- bird_state="incoming"
- bird_frame=3
- bird_color=bird_colors[flr(rnd(#bird_colors))+1]
- bird_song=song:new()
+bird={
+ x=0,
+ y=(bird_max+bird_min)/2,
+ frame=3,
+}
+function bird:new(sfx_index,channel)
+ local b={
+  c=bird_colors[flr(rnd(#bird_colors))+1],
+  song=song:new(),
+  state=state_incoming,
+  sfx_index=sfx_index,
+  channel=channel,
+ }
+ return setmetatable(
+  b,
+  {__index=self})
 end
 
-function move_bird()
- bird_x+=2
- bird_y=96-32*abs(64-bird_x)/64
- if bird_y>bird_max then bird_y=bird_max end
- 
- bird_frame+=0.5
-	if bird_frame>=4 then
-	 bird_frame=2
+function bird:move()
+ self.x+=2
+ self.y=96-32*abs(64-self.x)/64
+ self.frame+=0.5
+	if self.frame>=4 then
+	 self.frame=2
 	end
 end
 
-function update_bird()
- bird_song:update()
- if bird_state=="incoming" then
-  move_bird()
-  if bird_x>=64 then
-   bird_x=64
-   bird_state="sitting"
-   bird_song:play(0,0)
-  end
- elseif bird_state=="sitting" then
-  bird_frame=1
- elseif bird_state=="leaving" then
-  move_bird()
-  if bird_x>128 then
-   bird_x=0
-   init_bird()
-  end
+function bird:update()
+ self.song:update()
+ self:state()
+end
+
+function state_incoming(self)
+ self:move()
+ if self.x>=64 then
+  self.x=64
+  self.state=state_sitting
+  self:sing()
  end
 end
 
-function draw_bird()
+function state_sitting(self)
+ self.frame=1
+end
+
+function state_leaving(self)
+  self:move()
+  if self.x>128 then
+   self.x=0
+   self.song=song:new()
+   self.state=state_incoming
+  end
+end
+
+function bird:leave()
+ self.state=state_leaving
+end
+
+function bird:draw()
  rectfill(0,56,128,96,12)
  rectfill(0,96,128,128,11)
 
- local x,y=bird_x,bird_y
- spr(flr(bird_frame),x-4,y-8)
+ local x,y=self.x,self.y
+ spr(flr(self.frame),x-4,y-8)
+end
+
+function bird:sing()
+ self.song:play(
+  self.sfx_index,
+  self.channel)
 end
 
 -------------------------------
 -- yada
 -------------------------------
 function _init()
- init_bird()
- note_idx=0
- playing=false
- delay=0
+ boid=bird:new(0,0)
 end
 
 function _update()
  -- todo: stop? reset?
  if btnp(🅾️) then
-  bird_song:play(0,0)
+  boid:sing()
  end
  if btnp(❎) then
-  bird_state="leaving"
+  boid:leave()
  end
- update_bird()
+ boid:update()
 end
 
 function _draw()
  cls(0)
- draw_bird()
- bird_song:draw(bird_color)
+ boid:draw()
+ boid.song:draw(boid.c)
 end
 
 -- nb: this is a helper function 

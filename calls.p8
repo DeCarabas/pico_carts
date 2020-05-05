@@ -37,6 +37,38 @@ function repr(v)
 end
 
 ------------------------------
+-- vectors
+------------------------------
+vecmt={
+ __unm=function(a)
+  return vec2(-a.x,-a.y)
+ end,
+ __add=function(a,b)
+  return vec2(a.x+b.x,a.y+b.y)
+ end,
+ __sub=function(a,b)
+  return a+(-b)
+ end,
+ __mul=function(a,b)
+  return vec2(a.x*b,a.y*b)
+ end,
+ __div=function(a,b)
+  return vec2(a.x/b,a.y/b)
+ end,
+ __len=function(a)
+  return sqrt(a.x^2+a.y^2)
+ end,
+ __eq=function(a,b)
+  return a.x==b.x and a.y==b.y
+ end,
+}
+
+function vec2(x,y)
+	return setmetatable(
+	 {x=x,y=y},vecmt)
+end
+
+------------------------------
 -- bird song
 ------------------------------
 -- a chirp is a series of notes
@@ -161,15 +193,11 @@ end
 -- bird
 -------------------------------
 bird_colors={10,9,4,8}
-bird_min=64
-bird_max=100
 
-bird={
- x=0,
- y=(bird_max+bird_min)/2,
- frame=3,
-}
-function bird:new(sfx_index,channel)
+bird={pos=vec2(0,64),frame=3}
+function bird:new(
+ sfx_index,
+ channel)
  local b={
   c=bird_colors[flr(rnd(#bird_colors))+1],
   song=song:new(),
@@ -182,52 +210,41 @@ function bird:new(sfx_index,channel)
   {__index=self})
 end
 
-function bird:move()
- self.x+=2
- self.y=96-32*abs(64-self.x)/64
- self.frame+=0.5
-	if self.frame>=4 then
-	 self.frame=2
-	end
+function bird:fly(to,callback)
+ self.target=to
+ self.callback=callback
 end
 
 function bird:update()
+ -- what?
  self.song:update()
- self:state()
-end
 
-function state_incoming(self)
- self:move()
- if self.x>=64 then
-  self.x=64
-  self.state=state_sitting
-  self:sing()
+ -- fly wherever we might be
+ -- going.
+ if self.target~=nil then
+  local delta=self.target-self.pos
+  local delta_len=#delta
+  if delta_len<=2 then
+   self.pos=self.target
+   self.target=nil
+   self.frame=1
+
+   self.callback()
+  else 
+   self.pos+=(delta/delta_len)*2
+   self.frame+=0.5
+	  if self.frame>=4 then
+	   self.frame=2
+	  end
+  end
  end
 end
 
-function state_sitting(self)
- self.frame=1
-end
-
-function state_leaving(self)
-  self:move()
-  if self.x>128 then
-   self.x=0
-   self.song=song:new()
-   self.state=state_incoming
-  end
-end
-
-function bird:leave()
- self.state=state_leaving
-end
-
 function bird:draw()
- rectfill(0,56,128,96,12)
- rectfill(0,96,128,128,11)
-
- local x,y=self.x,self.y
- spr(flr(self.frame),x-4,y-8)
+ spr(
+  flr(self.frame),
+  self.pos.x-4,
+  self.pos.y-8)
 end
 
 function bird:sing()
@@ -241,6 +258,11 @@ end
 -------------------------------
 function _init()
  boid=bird:new(0,0)
+ boid:fly(
+  vec2(64,96),
+  function()
+   boid:sing() 
+  end)
 end
 
 function _update()
@@ -249,13 +271,16 @@ function _update()
   boid:sing()
  end
  if btnp(❎) then
-  boid:leave()
+  boid:fly(vec2(128,64),_init)
  end
  boid:update()
 end
 
 function _draw()
  cls(0)
+ rectfill(0,56,128,96,12)
+ rectfill(0,96,128,128,11)
+
  boid:draw()
  boid.song:draw(boid.c)
 end

@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 22
+version 27
 __lua__
 -- birdsong generator
 -- (c) 2020 john doty
@@ -68,8 +68,58 @@ function vec2(x,y)
 	 {x=x,y=y},vecmt)
 end
 
-------------------------------
--- bird song
+function every(coll,fn)
+ for i in all(coll) do
+  if (not fn(i)) return false
+ end
+ return true 
+end
+ 
+-------------------------------
+-- yada
+-------------------------------
+function _init()
+ init_judges()
+ stage_coro=cocreate(stage_demo)
+end
+
+function stage_demo()
+ while true do
+  local boid=bird:new(0,0)  
+  boid:flyto(64,80)
+  
+  boid:sing()
+  while (not btnp(🅾️)) yield()
+  
+  boid:flyto(128,32)
+  boid:done()
+ end
+end
+
+function _update()
+ assert(coresume(stage_coro))
+
+ flock:update()
+ for judge in all(judges) do
+  judge:update()
+ end
+end
+
+function _draw()
+ cls(0)
+ rectfill(0,0,128,64,12)
+ rectfill(0,64,128,114,11)
+
+ flock:draw()
+ for j in all(judges) do
+  j:draw()
+ end
+ -- boid.song:draw(boid.c)
+end
+
+
+-->8
+-- songs
 ------------------------------
 -- a chirp is a series of notes
 -- (a single sound effect)
@@ -196,10 +246,51 @@ function song:update()
  end
 end
 
--------------------------------
--- bird
+-- nb: this is a helper function 
+-- that really shouldn't live 
+-- anywhere but here. :p
+function song:draw(tip_col)
+ local pi,i,ni
+ 
+ if self.channel~=nil then
+  pi=stat(20+self.channel)
+ end
+
+ for ni=1,#self do
+  local note=self[ni]
+  for i=1,#note do
+   local c,x=1,(ni-1)*32+i+1
+   if ni==self.note_idx and 
+      i==pi then
+    c=7
+   end
+   
+   -- pitch is 0-63, but we use
+   -- so little of it! just take
+   -- 32 off.
+   local pitch=note[i]-32
+   line(x,48,x,48-pitch,c)
+   pset(x,48-pitch,tip_col)
+  end
+ end
+end
+-->8
+-- birds
 -------------------------------
 bird_colors={10,9,4,8}
+
+flock={}
+function flock:update()
+ for b in all(flock) do
+  b:update()
+ end
+end
+
+function flock:draw()
+ for b in all(flock) do
+  b:draw()
+ end
+end
 
 bird={pos=vec2(0,32),frame=3}
 function bird:new(
@@ -213,9 +304,9 @@ function bird:new(
   channel=channel,
  }
  
- return setmetatable(
-  b,
-  {__index=self})
+ b=setmetatable(b,{__index=self})
+ add(flock,b)
+ return b
 end
 
 function bird:fly(to,callback)
@@ -258,6 +349,21 @@ function bird:sing()
  self.song:play(
   self.sfx_index,
   self.channel)
+end
+
+function bird:flyto(x,y)
+ -- todo: this could be cleaner!
+ local done=false
+ self:fly(vec2(x,y), function()
+  done=true
+ end)
+ while not done do
+  yield()
+ end
+end
+
+function bird:done()
+ del(flock,self)
 end
 
 -------------------------------
@@ -314,7 +420,7 @@ function bird:score()
  return self.stats
 end
 
--------------------------------
+-->8
 -- judges
 -------------------------------
 judge={
@@ -414,80 +520,51 @@ function init_judges()
   },
  }
 end
- 
--------------------------------
--- yada
--------------------------------
-function _init()
- init_boid()
- init_judges()
-end
 
-function init_boid()
- boid=bird:new(0,0)
- boid:fly(
-  vec2(64,80),
-  function()
-   boid:sing() 
-  end)
-end
+-->8
+-- round 1: blind auditions
+---------------------------
 
-function _update()
- -- todo: stop? reset?
- if btnp(🅾️) then
-  boid:sing()
- end
- if btnp(❎) then
-  boid:fly(
-   vec2(128,32),init_boid)
- end
+-- in this round birds fly in
+-- and the judges pick them.
 
- boid:update()
- for judge in all(judges) do
-  judge:update()
- end
-end
-
-function _draw()
- cls(0)
- rectfill(0,0,128,64,12)
- rectfill(0,64,128,114,11)
-
- boid:draw() 
-
+function round1()
  for j in all(judges) do
-  j:draw()
+  j.turn=false
  end
- -- boid.song:draw(boid.c)
-end
-
--- nb: this is a helper function 
--- that really shouldn't live 
--- anywhere but here. :p
-function song:draw(tip_col)
- local pi,i,ni
  
- if self.channel~=nil then
-  pi=stat(20+self.channel)
- end
+ local b=bird:new()
+ b:flyto(64,80)
 
- for ni=1,#self do
-  local note=self[ni]
-  for i=1,#note do
-   local c,x=1,(ni-1)*32+i+1
-   if ni==self.note_idx and 
-      i==pi then
-    c=7
-   end
-   
-   -- pitch is 0-63, but we use
-   -- so little of it! just take
-   -- 32 off.
-   local pitch=note[i]-32
-   line(x,48,x,48-pitch,c)
-   pset(x,48-pitch,tip_col)
+ for i=1,10*30 do
+  if btnp(🅾️) then
+   -- you turn
+   judges[1].turn=true 
   end
+  
+  for j=2,#judges do
+   -- check if the judge likes
+   -- this bird and wants to 
+   -- turn
+   if judges[j]:likes(b) then
+    judges[j].turn=true
+   end
+  end
+ 
+  if every(judges, function(j) 
+   return j.turn 
+  end) then
+   break
+  end
+  
+  yield() -- back to nothing
  end
+ 
+ -- ok if only one judge turned
+ -- then you get this bird for
+ -- free...
+ 
+ 
 end
 __gfx__
 00000000000000004440000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -554,8 +631,8 @@ __gfx__
 16666777777771111117777777766661000000000000000016666777777777777777777777766661000000000000000000000000000000000000000000000000
 12222222222222222222222222222221000000000000000012222222222222222222222222222221000000000000000000000000000000000000000000000000
 12222222222222222222222222222221000000000000000012222222222222222222222222222221000000000000000000000000000000000000000000000000
-0044444444444400001111111111110000aaaaaaaaaaaa0000000000000000000000000000000000000000000000000000000000000000000000000000000000
-044444444444444001111111111111100aaaaaaaaaaaaaa000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00444444444444000011111111111100000aaaaaaaaaa00000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0444444444444440011111111111111000aaaaaaaaaaaa0000000000000000000000000000000000000000000000000000000000000000000000000000000000
 044fffff44fff44001144444444441100aaaaaaffaaaaaa000000000000000000000000000000000000000000000000000000000000000000000000000000000
 044ffffff4fff44001144444444441100aaaaffffffaaaa000000000000000000000000000000000000000000000000000000000000000000000000000000000
 44ffffffffffff441144444444444411aaaaffffffffaaaa00000000000000000000000000000000000000000000000000000000000000000000000000000000

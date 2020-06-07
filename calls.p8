@@ -527,8 +527,30 @@ function judge:update()
  end
 end 
 
+function judge:judge(b)
+ -- score=1.0 range=5  100%
+ -- score=0.5 range=10  50%
+ -- score=0.1 range=100 10%
+ -- ...etc...
+ local s=b:score()[self.fav]
+ local r=rnd()*5/s
+ self.range=r
+ self.like_time=time()+r
+end
+
 function judge:likes(b)
- return flr(rnd(1000))==0
+ return time()>=self.like_time
+end
+
+function like_score(name)
+ return function(self,b)
+  if self[b]==nil then
+   
+   local s=b:score()[name]
+   self[b]=time()+rnd(10*(1-s))
+  end
+  return time()>self[b]
+ end
 end
 
 function init_judges() 
@@ -537,7 +559,8 @@ function init_judges()
    i=0,
    name="you",
    body=134,
-   likes=function(b)
+   fav="pattern",
+   likes=function(self,b)
     return btnp(🅾️)
    end,
   },
@@ -545,16 +568,19 @@ function init_judges()
    i=1,
    name="beak shelton",
    body=128,
+   fav="variety",
   },
   judge:new{
    i=2,
    name="swan legend",
    body=130,
+   fav="length",
   },
   judge:new{
    i=3,
    name="kelly cluckson",
    body=132,
+   fav="pattern",
   },
  }
 end
@@ -621,12 +647,21 @@ function bird_perform(b)
  -- n seconds; this is how long 
  -- you have to vote.
  --
+ -- we want to ask every frame
+ -- so you can push the button.
+ --
+ for j in all(judges) do
+  j:judge(b)
+ end
+ 
  local start=time()
- while time()-start<5 do
+ while true do
   b:sing(0,0)
   while b.song:playing() do
+   if (time()-start>5) return
+    
    for j in all(judges) do
-    if (j:likes(b)) j.turn=true
+    if(j:likes(b)) j.turn=true
    end
    
    yield() -- back to nothing   

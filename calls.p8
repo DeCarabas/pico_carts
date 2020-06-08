@@ -533,7 +533,7 @@ function judge:judge(b)
  -- score=0.1 range=100 10%
  -- ...etc...
  local s=b:score()[self.fav]
- local r=rnd()*5/s
+ local r=rnd()*6/s -- fudge!!!
  self.range=r
  self.like_time=time()+r
 end

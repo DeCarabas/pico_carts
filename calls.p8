@@ -539,6 +539,9 @@ function judge:judge(b)
 end
 
 function judge:likes(b)
+ if self.team and #self.team==4 then
+  return false
+ end
  return time()>=self.like_time
 end
 

@@ -73,6 +73,52 @@ function print_center(s,x,y)
 end
 
 -------------------------------
+-- menu
+-------------------------------
+menu_p=nil
+menu_opts=nil
+menu_cur=1
+menu_sel=nil
+
+function show_menu(p,opts)
+ menu_p=p
+ menu_opts=opts
+ menu_sel=nil
+ menu_cur=1
+ 
+ while (menu_sel==nil) yield()
+ 
+ menu_p,menu_opts,menu_cur=nil,nil,nil
+ return menu_sel
+end
+
+function update_menu()
+ if (menu_p==nil) return
+ 
+ if (btnp(⬆️)) menu_cur-=1
+ if (btnp(⬇️)) menu_cur+=1
+ 
+ if (menu_cur>#menu_opts) menu_cur=1
+ if (menu_cur<1) menu_cur=#menu_opts
+
+ if (btnp(🅾️)) menu_sel=menu_opts[menu_cur]
+end
+
+function draw_menu()
+ if (menu_p==nil) return
+ 
+ rectfill(2,2,125,52,0)
+ print_center(menu_p,64,4)
+ 
+ for i=1,#menu_opts do
+  local my=8+(8*i)
+  print(menu_opts[i].t,11,my,7)
+  if (i==menu_cur) print(">",4,my,7)
+ end
+ clip()
+end
+
+-------------------------------
 -- yada
 -------------------------------
 function _init()
@@ -87,6 +133,7 @@ function _update()
  for judge in all(judges) do
   judge:update()
  end
+ update_menu()
 end
 
 function _draw()
@@ -102,6 +149,12 @@ function _draw()
 	if announce~=nil then
 	 print_center(announce,64,56)
 	end
+
+ if error~=nil then
+  print_center(error,64,66)
+ end
+	
+	draw_menu()
 end
 
 
@@ -533,15 +586,16 @@ function judge:judge(b)
  -- score=0.1 range=100 10%
  -- ...etc...
  local s=b:score()[self.fav]
- local r=rnd()*6/s -- fudge!!!
+ local r=rnd()*7/s -- fudge!!!
  self.range=r
  self.like_time=time()+r
 end
 
 function judge:likes(b)
- if self.team and #self.team==4 then
+ if self.team and #self.team>=4 then
   return false
  end
+ 
  return time()>=self.like_time
 end
 
@@ -564,7 +618,14 @@ function init_judges()
    body=134,
    fav="pattern",
    likes=function(self,b)
-    return btnp(🅾️)
+    if btnp(🅾️) then
+     if self.team and #self.team>=4 then
+      error="(your team is already full!)"
+     else
+      return true
+     end 
+    end
+    return false
    end,
   },
   judge:new{
@@ -598,7 +659,8 @@ end
 function round1()
  for j in all(judges) do
   j.status="0"
-	end 
+  j.energy=10
+	end
 	
 	while (true) do_contestant()
 end
@@ -610,23 +672,22 @@ function do_contestant()
  
  local b=bird:new()
  announce="here is a bird!" -- bird name
+	error=nil
 
  b:flyto(64,80)
  bird_perform(b)
  
- -- todo:handle ties
  local candidates={}
  for j in all(judges) do
   if (j.turn) add(candidates,j)
  end
- 
- -- todo: max team!
- 
+
  if #candidates==1 then
   join_team(b,candidates[1])
  elseif #candidates>0 then
-  -- todo: spend points!
-  join_team(b,candidates[1])
+  join_team(
+   b,
+   convince_bird(candidates))
  else
   announce="nobody liked it"
  end
@@ -635,12 +696,44 @@ function do_contestant()
  b:hide()
 end
 
+function convince_bird(judges)
+
+ -- am i in the set?
+ -- how do i judge?
+ -- fair for everybody in
+ -- contest: points and 
+ --
+ local sels={}
+ for j in all(judges) do
+  local effort
+  if j.name=="you" then
+   local sel=show_menu(
+    "how much do you care?",
+    {{t="meh",v=0},
+     {t="we could work together...",v=1},
+     {t="yeah, i'm feeling it",v=2},
+     {t="i *need* this bird!",v=3}})
+   effort=sel.v
+  else
+   effort=flr(rnd(4))
+  end
+  effort=min(j.energy,effort)
+  j.energy-=effort
+  for i=1,1+effort do
+   add(sels,j)
+  end
+ end
+
+ return sels[ceil(rnd(#sels))]
+end
+
 function join_team(b,j)
  -- have bird b join judge j's
  -- team.
  add(j.team, b)
  j.status=tostr(#j.team)
  announce="bird joins team "..j.first_name.."!"
+ error=nil
 end
 
 function bird_perform(b)

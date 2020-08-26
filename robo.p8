@@ -294,6 +294,19 @@ function update_time()
 end
 
 function update_walk()
+ -- this is the core update fn
+ -- of the game: what runs while
+ -- you're "playing" the game.
+ -- 
+ -- most of the subsystems only
+ -- update while you're playing,
+ -- and are paused any other 
+ -- time (cutscenes, etc.)
+ update_time()
+ update_base()
+ update_plants()
+ update_penny()
+
  if px==tx and py==ty then
   if btnp(⬅️) then tx=px-1 d=0 end
   if btnp(➡️) then tx=px+1 d=1 end
@@ -328,6 +341,21 @@ function update_walk()
   end
  end
  
+ if energy_level<=0 then
+  -- uh oh, trouble.
+  fade_out(function()
+   px=base_x py=base_y d=2
+   tx=px ty=py walking=false
+   day+=1 hour=8
+   energy_level=max_energy
+   if chapter<2 then
+    do_script(cs_firstcharge)
+   else
+    do_script(cs_nobattery)
+   end
+  end)
+ end
+ 
  idle_time+=0.0333
 end
 
@@ -357,18 +385,8 @@ function update_base()
 end
 
 function _update()
- -- todo: should not do time 
- --       while we're doing 
- --       a story. or...like..
- --       anything... except 
- --       weather?
- -- 
- update_time()
- update_base()
- update_plants()
  update_animation()
  update_weather()
- update_penny()
  
  if animation==nil then
   update_fn()
@@ -908,6 +926,11 @@ function fx_pal(s,t,p)
  end
 end
 
+function fade_out(fn)
+ -- todo: actually fade
+ fn()
+end
+
 --[[
 function dump_darkness()
  pal()
@@ -930,6 +953,9 @@ py_think={top=192,bot=228}
 py_shout={top=194,bot=230}
 py_shock={top=194,bot=226}
 py_frend={top=192,bot=224}
+py_serio={top=194,bot=228}
+py_talk={top=192,bot=226}
+py_whelm={top=196,bot=224}
 
 -- cutscenes.
 cs_intro={
@@ -966,10 +992,70 @@ cs_intro={
   "^you sit tight.",
   "^i'll be back soon to\nfinish up."},
  post=function()
-  energy_level=max_energy/3
+  energy_level=0.1 --max_energy/3
   penny_run(1)
   update_fn=update_walk
   chapter=1
+ end
+}
+
+cs_firstcharge={
+ {pre=function()
+   cls(0)
+   penny_show(base_x*8+4,base_y*8+16,0)
+   blank_screen=true
+  end,
+  "^hey... how'd you get\nover there?",
+  "^whoops!",
+  "^there you go."},
+ {pre=function()
+   blank_screen=false
+  end,
+  p=py_frend,
+  "^i guess you really\n^d^o work!"},
+ {p=py_shout,
+  "^i ^a^m ^t^h^e ^b^e^s^t!"},
+ {p=py_talk,
+  "^well, ^i've finished\nthis base.",
+  "^if you stand here,\nyou'll recharge.",
+  "^try not to run out\nof power, ok?"},
+ {"^p^e^n^n^y!",
+  "^t^h^a^t ^f^i^e^l^d ^c^l^e^a^r\n^y^e^t?"},
+ {p=py_talk,
+  "^hey, help me clear\nthis field?",
+  "^we need a clear 5x5\nspace..."},
+ {p=py_whelm,
+  "...but these rocks\nare so big."},
+ {p=py_shock,
+  "^help me move these,\n^o^k?"},
+ post=function()
+  penny_run(1)
+  update_fn=update_walk
+  chapter=2
+ end
+}
+
+cs_nobattery={
+ {pre=function()
+   cls(0)
+   penny_show(base_x*8+4,base_y*8+16,0)
+   blank_screen=true
+  end,
+  "^robo?\n^can you hear me?"},
+ {pre=function()
+   blank_screen=false
+  end,
+  p=py_frend,
+  "^oh, thank goodness."},
+ {p=py_serio,
+  "^robo, you need to be\nmore careful!",
+  "^if you don't charge,\nyou'll get stuck!"},
+ {p=py_frend,
+  "^don't worry.",
+  "^i'll always be there\nto help."},
+ post=function()
+  penny_run(1)
+  update_fn=update_walk
  end
 }
 
@@ -1065,6 +1151,7 @@ end
 function penny_show(x,y,d)
  penny_x=x penny_y=y penny_d=d
  penny_running=false
+ penny_frame=0
 end
 
 function penny_run(d)
@@ -1197,6 +1284,7 @@ function draw_string(str,x,y,c)
    end
    
    local glyph=font[c]
+   assert(glyph~=nil, "char "..c.." not in font")
    draw_font_glyph(glyph,lx,ly)
    lx+=glyph.w+1
   end
@@ -1302,19 +1390,19 @@ cc53350000000000cc53350076500000980000000000000000555500005555000055550000555500
 0000000000000ff00ff0000000000ff0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000000000000fef00fef00000000fef0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000feeeffeeef000000feeef000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000ffff000feeeeffeeeef0000feeeef000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00ffffff00feeeeffeeeef0000feeeef000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0fffffff00feeeeffeeeef0000feeeef000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0fffffff00feeeeffeeeef0000feeeef000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-ffffffef0feeeeeffeeeeef00feeeeef000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-fffffeef0feeeeeffeeeeef00feeeeef000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-fffffeef0feeeef00feeeeef0feeeef0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-ffffeeef0feeeef00feeeeef0feeeef0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-ffffeeef0feeef0000feeeef0feeef00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-ffffeeef0feeef0000feeeef0feeef00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-ff0feeef0feeef0000feeeef0feeef00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-f00feeef0feef000000feeef0feef000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000feeef0feef000000feeef0feef000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000ffff000feeeeffeeeef0000feeeef000ffff000fff00000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00ffffff00feeeeffeeeef0000feeeef00ffffff00fffff000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0fffffff00feeeeffeeeef0000feeeef0fffffff00fffff000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0fffffff00feeeeffeeeef0000feeeef0fffffff00fffff000000000000000000000000000000000000000000000000000000000000000000000000000000000
+ffffffef0feeeeeffeeeeef00feeeeefffffffef0fffffff00000000000000000000000000000000000000000000000000000000000000000000000000000000
+fffffeef0feeeeeffeeeeef00feeeeeffffffeef0fefffff00000000000000000000000000000000000000000000000000000000000000000000000000000000
+fffffeef0feeeef00feeeeef0feeeef0fffffeef0feeffff00000000000000000000000000000000000000000000000000000000000000000000000000000000
+ffffeeef0feeeef00feeeeef0feeeef0ffffeeef0feeffff00000000000000000000000000000000000000000000000000000000000000000000000000000000
+ffffeeef0feeef0000feeeef0feeef00ffffeeef0feeefff00000000000000000000000000000000000000000000000000000000000000000000000000000000
+ffffeeef0feeef0000feeeef0feeef00ffffeeef0feeefff00000000000000000000000000000000000000000000000000000000000000000000000000000000
+ff0feeef0feeef0000feeeef0feeef00ff0feeef0feeeff000000000000000000000000000000000000000000000000000000000000000000000000000000000
+f00feeef0feef000000feeef0feef000f00feeef0feef00000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000feeef0feef000000feeef0feef000000feeef0feef00000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000feffffffef000000feffffffef000000feffffffef000000feffffffef0000000000000000000000000000000000000000000000000000000000000000000
 000ffffffffff000000ffffffffff000000ffffffffff000000ffffffffff0000000000000000000000000000000000000000000000000000000000000000000
 00ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff000000000000000000000000000000000000000000000000000000000000000000

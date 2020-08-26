@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 22
+version 29
 __lua__
 -- robo gardening game
 -- (c) 2020 john doty
@@ -70,6 +70,15 @@ __lua__
 --        advances to 6a next 
 --        day for simplicity.
 --
+
+-- flags: for game state
+--
+
+-- game progress
+--  chapter 0: pre-intro
+--  chapter 1: walking/no charge
+chapter=0
+
 -- player state
 function init_player()
  px=base_x py=base_y d=2
@@ -167,12 +176,9 @@ function _init()
  place_rand(320,147) --grass
  place_rand(320,65)  --rock
 
- do_script(
-  cs_intro,
-  function() 
-   penny_run(1)
-   update_fn=update_walk 
-  end)
+ if chapter==0 then
+  do_script(cs_intro)
+ end
 end
 
 function open_item_menu()
@@ -340,6 +346,9 @@ end
 update_fn=update_walk
 
 function update_base()
+ -- before penny fixes the base
+ if (chapter<2) return
+ 
  if px==base_x and 
     py==base_y then
   tank_level=min(max_tank, tank_level+water_rate)
@@ -563,10 +572,20 @@ function draw_base()
  pal()
 end
 
+-- the main rendering function
+-- since almost everything is 
+-- always on the screen at the
+-- same time.
 function draw_game()
+ -- first, we adjust the pals so
+ -- that it looks like the right
+ -- time of day.  
  enable_sunshine(hour)
 	
 	draw_map()
+	
+	-- make sure we draw the world
+	-- objects in the right order.
 	if py<=base_y then
   draw_player()	
   draw_base()
@@ -576,15 +595,23 @@ function draw_game()
   draw_penny()
   draw_player()
  end
+ 
+ -- (debugging garbage)
  --rectfill(sc.x-4,sc.y-4,sc.x+4,sc.y+4,7) 
  --local tc=looking_at()
  --sc=world_to_screen(tc.x,tc.y)
  --rectfill(sc.x-4,sc.y-4,sc.x+4,sc.y+4,10)
  
+ -- now rain and stuff
  draw_weather()
-
+ 
+ -- now turn off the palettes so
+ -- that the menu and stuff don't
+ -- get affected by the time of
+ -- day.
  disable_dark()
  
+ -- hud and debug stuff
  -- print("x "..x.." y "..y)
  if menu_mode then
   draw_menu(menu_items,menu_sel)
@@ -597,14 +624,22 @@ function draw_game()
  end
 end
 
-blank_screen=false
+blank_screen=false 
 
 function _draw()
+ -- dirty hack: if you set 
+ -- blank_screen to true then we
+ -- won't bother drawing the 
+ -- game. (cut-scenes use this
+ -- to do a blackout.)
 	if blank_screen then
 	 cls(0)
 	else
   draw_game()
  end
+ 
+ -- the little box where people
+ -- talk. (in 'cutscene stuff')
  draw_text()
 end
 -->8
@@ -929,14 +964,22 @@ cs_intro={
   p=py_frend,
   "^o^k. ^that's enough\nfor today.",
   "^you sit tight.",
-  "^i'll be back soon to\nfinish up."}
+  "^i'll be back soon to\nfinish up."},
+ post=function()
+  energy_level=max_energy/3
+  penny_run(1)
+  update_fn=update_walk
+  chapter=1
+ end
 }
 
-function do_script(script,next_fn)
+function do_script(script)
  local _step
  _step=function(i_stage,i_line)
   if i_stage>#script then
-   next_fn()
+   if script.post then
+    script:post()
+   end
   else
    local stage=script[i_stage]
    

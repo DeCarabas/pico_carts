@@ -269,12 +269,13 @@ function buzz()
  buzz_time=3
 end
 
-function update_time()
+function update_time(inc)
  if buzz_time > 0 then 
   buzz_time -= 0.75 
  end
 
- hour+=hour_inc
+ if (inc==nil) inc=hour_inc
+ hour+=inc
  if hour>24 then 
   day+=1 
   hour-=24
@@ -598,7 +599,9 @@ function draw_game()
  -- first, we adjust the pals so
  -- that it looks like the right
  -- time of day.  
- enable_sunshine(hour)
+ if pal==original_pal then
+  enable_sunshine(hour)
+ end
 	
 	draw_map()
 	
@@ -901,7 +904,7 @@ function enable_sunshine(t)
 end
 
 function enable_dark(d)
- assert(pal==original_pal)
+ --assert(pal==original_pal)
  dark_level=dark_levels[d]
  pal(dark_level)
  pal=fx_pal
@@ -927,8 +930,24 @@ function fx_pal(s,t,p)
 end
 
 function fade_out(fn)
- -- todo: actually fade
- fn()
+ fade_t=5
+ fade_lvl=sunshine_map[flr(hour)]
+ update_fn=update_fade
+ fade_cb=fn
+end
+
+function update_fade()
+ enable_dark(fade_lvl)
+ fade_t-=1
+ if fade_t<=0 then
+  fade_lvl+=1
+  if fade_lvl>5 then
+   disable_dark()
+   fade_cb()
+  else
+   fade_t=5
+  end
+ end
 end
 
 --[[
@@ -992,7 +1011,7 @@ cs_intro={
   "^you sit tight.",
   "^i'll be back soon to\nfinish up."},
  post=function()
-  energy_level=0.1 --max_energy/3
+  energy_level=max_energy/4
   penny_run(1)
   update_fn=update_walk
   chapter=1

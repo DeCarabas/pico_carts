@@ -77,6 +77,7 @@ __lua__
 -- game progress
 --  chapter 0: pre-intro
 --  chapter 1: walking/no charge
+--  chapter 2: clear field
 chapter=0
 
 -- player state
@@ -90,11 +91,11 @@ function init_player()
  
  max_energy=100
  energy_level=max_energy
- walk_cost=0.1
- grab_cost=0.5
- plow_cost=0.5
- water_cost=0.3
- plant_cost=0.3
+ walk_cost=0.2
+ grab_cost=1
+ plow_cost=1
+ water_cost=0.5
+ plant_cost=0.5
  
  grabbed_item=nil
  tx=px ty=py
@@ -574,7 +575,8 @@ function draw_base()
  local bsx=8*base_x
  local bsy=8*base_y
 
- if px~=base_x or 
+ if chapter<2 or
+    px~=base_x or 
     py~=base_y then
   pal(10,6) -- no glow
  end
@@ -591,6 +593,20 @@ function draw_base()
  pal()
 end
 
+function sort(ks,vs)
+ local swapped=true
+ while swapped do
+  swapped=false
+  for i=1,#ks-1 do
+   if ks[i]>ks[i+1] then
+    ks[i],ks[i+1]=ks[i+1],ks[i]
+    vs[i],vs[i+1]=vs[i+1],vs[i]
+    swapped=true
+   end
+  end
+ end
+end
+
 -- the main rendering function
 -- since almost everything is 
 -- always on the screen at the
@@ -598,7 +614,10 @@ end
 function draw_game()
  -- first, we adjust the pals so
  -- that it looks like the right
- -- time of day.  
+ -- time of day. (but if we get
+ -- here and the palette is 
+ -- already dark then just let it
+ -- be.)
  if pal==original_pal then
   enable_sunshine(hour)
  end
@@ -607,15 +626,12 @@ function draw_game()
 	
 	-- make sure we draw the world
 	-- objects in the right order.
-	if py<=base_y then
-  draw_player()	
-  draw_base()
-  draw_penny()
- else 
-  draw_base()
-  draw_penny()
-  draw_player()
- end
+	local draws={draw_player,draw_base,draw_penny}
+	local ys={py,base_y,penny_y/8}
+	sort(ys,draws)
+	for dd in all(draws) do
+	 dd()
+	end
  
  -- (debugging garbage)
  --rectfill(sc.x-4,sc.y-4,sc.x+4,sc.y+4,7) 
@@ -627,9 +643,9 @@ function draw_game()
  draw_weather()
  
  -- now turn off the palettes so
- -- that the menu and stuff don't
- -- get affected by the time of
- -- day.
+ -- that the menu and stuff 
+ -- don't get affected by the 
+ -- time of day.
  disable_dark()
  
  -- hud and debug stuff
@@ -1012,7 +1028,7 @@ cs_intro={
   "^i'll be back soon to\nfinish up."},
  post=function()
   energy_level=max_energy/4
-  penny_run(1)
+  penny_run(128,penny_y)
   update_fn=update_walk
   chapter=1
  end
@@ -1023,6 +1039,10 @@ cs_firstcharge={
    cls(0)
    penny_show(base_x*8+4,base_y*8+16,0)
    blank_screen=true
+   
+   -- ♪: set the chapter early
+   --     so the base glows.
+   chapter=2
   end,
   "^hey... how'd you get\nover there?",
   "^whoops!",
@@ -1042,20 +1062,21 @@ cs_firstcharge={
   "^t^h^a^t ^f^i^e^l^d ^c^l^e^a^r\n^y^e^t?"},
  {p=py_talk,
   "^hey, help me clear\nthis field?",
-  "^we need a clear 5x5\nspace..."},
+  "^we need a big clear\nspace..."},
  {p=py_whelm,
   "...but these rocks\nare so big."},
  {p=py_shock,
   "^help me move these,\n^o^k?"},
  post=function()
-  penny_run(1)
+  penny_wander()
   update_fn=update_walk
-  chapter=2
  end
 }
 
 cs_nobattery={
  {pre=function()
+   old_penny_x=penny_x
+
    cls(0)
    penny_show(base_x*8+4,base_y*8+16,0)
    blank_screen=true
@@ -1073,7 +1094,9 @@ cs_nobattery={
   "^don't worry.",
   "^i'll always be there\nto help."},
  post=function()
-  penny_run(1)
+  if old_penny_x==nil then
+   penny_run(128,penny_y)
+  end
   update_fn=update_walk
  end
 }
@@ -1157,59 +1180,142 @@ function draw_text()
 end
 
 function init_penny()
- penny_x=nil penny_y=nil
- penny_tx=0 penny_ty=0
+ update_penny=nop
+ 
+ penny_x=nil penny_y=0
  penny_t=0 penny_speed=0.09
  penny_frame=0
  penny_atime=0
  
- penning_running=false
  penny_d=0 -- -1,1,0,2
 end
 
 function penny_show(x,y,d)
  penny_x=x penny_y=y penny_d=d
- penny_running=false
  penny_frame=0
 end
 
-function penny_run(d)
- penny_d=d penny_t=0
- penny_running=true
+function penny_wander()
+ function _next()
+  local dst=flr(rnd()*16)
+  local tx,ty=penny_x,penny_y
+  if rnd()>=0.5 then
+   tx=dst*8
+  else
+   ty=dst*8
+  end
+  tx=mid(8,tx,111)
+  ty=mid(8,ty,111)
+  penny_run(tx,ty,_idle)
+ end
+
+ function _sleep()
+  local sd=day 
+  penny_x=nil 
+  update_penny=function()
+   -- wait for morning.
+   if day>sd and hour>=8 then
+    penny_x=128
+    penny_y=flr(rnd()*103)+8
+    local tx=flr(rnd()*103)+8
+    penny_run(tx,penny_y,_idle)
+   end
+  end
+ end
+ 
+ function _idle()
+  local t=(rnd()*30)+20
+  update_penny=function()
+   if hour>=18 then
+    -- penny, it's late! run 
+    -- home to mom!
+    penny_run(128,penny_y,_sleep)
+   else
+    t-=1
+    if (t<=0) _next()
+   end
+  end
+ end
+ 
+ _next()
 end
 
-function update_penny()
- if penny_running then
-  penny_t+=penny_speed
-  penny_x+=(sin(penny_t)+1)*3*penny_d
+function penny_stop_wander()
+ update_penny=nop
+ penny_frame=0
+end
 
+function penny_run(tx,ty,fn)
+ local dx=tx-penny_x
+ local dy=ty-penny_y
+ if abs(dx)>abs(dy) then
+  if dx>0 then 
+   penny_d=1 
+  else
+   penny_d=-1
+  end
+ else
+  if dy>0 then
+   penny_d=2
+  else
+   penny_d=0
+  end
+ end
+ 
+ penny_t=0
+ update_penny=function()
+  penny_t+=penny_speed
+  
   penny_atime+=penny_speed
   while penny_atime>=1 do
    penny_atime-=1
   end
- 
+
+  local dist=(sin(penny_t)+1)*3
+  if penny_d==0 then
+   penny_y-=dist
+   if (penny_y<ty) penny_y=ty
+  elseif penny_d==2 then
+   penny_y+=dist
+   if (penny_y>ty) penny_y=ty
+  elseif penny_d==-1 then
+   penny_x-=dist
+   if (penny_x<tx) penny_x=tx
+  else
+   penny_x+=dist
+   if (penny_x>tx) penny_x=tx
+	 end
+  
   -- 2 frames, 2 wide
   penny_frame=flr(penny_atime*2)*2
-   
-  if penny_x<-16 or penny_x>127 then
-   penny_x=nil
-   penny_running=false
+  
+  if penny_x==tx and
+     penny_y==ty then
+   penny_frame=0
+   update_penny=nop
+   if fn then 
+    fn() 
+   else
+    penny_x=nil
+   end
   end
  end
 end
 
+function nop() end
+
 function draw_penny()
  if penny_x~=nil then
-  local base,w,f=74,1,false
+  local base,w,f,m=74,1,false,16
   if penny_d==1 then
-   base=76 w=2
+   base=76 w=2 m=1
   elseif penny_d==-1 then
-   base=76 w=2 f=true
+   base=76 w=2 m=1 f=true
   elseif penny_d==2 then
    base=75
   end
   spr(
-   base+penny_frame,
+   base+(penny_frame*m),
    penny_x-4,
    penny_y-16,
    w,2,
@@ -1358,22 +1464,22 @@ c000000cccc000e00e000ccc0e7007e00e7007e0cc0ee00e0000070ccc0ee0077000070cccc00700
 551110555511000000000000444554440000000000000000000000000000000000000000000000000fffff000fffff0077fffff0000000000000000000000000
 66d5106666dd51000000000044455444000000000000000000000000000000000000000000000000fff7fff0ffefeff0fffefff0000000000000000000000000
 776d1077776dd5500000000044444444000000000000000000000000000000000000000000000000ff777ff0ffefeff0ffffefff000000000000000000000000
-88221018888221000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-9422104c999421000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-a9421047aa9942100000000000000111000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-bb3310bbbbb3310000000000000001a1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-ccd510ccccdd51100000000000001161000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-d55110dddd5110000000000000001aa1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-ee82101eee8822100000000000111661000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-f94210f7fff9421000000000001aaaa1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000006666666600116661000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000666666660001aaa1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000006656656601116661000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000006656656601aaaaa1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000006656656601166661000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000000000066566566001aaaa1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000006656656611166661000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000000000666666661aaaaaa1000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+88221018888221000000000000000000000000000000000000000000000000000000000000000000f00000f0f00000f000000000000000000000000000000000
+9422104c999421000000000000000000000000000000000000000000000000000000000000000000f0fff0f0ff000ff000000000000000000000000000000000
+a9421047aa9942100000000000000111000000000000000000000000000000000000000000000000f0fef0f0ff000ff000000000000000000000000000000000
+bb3310bbbbb3310000000000000001a100000000000000000000000000000000000000000000000007dfd7000f070f0000000000000000000000000000000000
+ccd510ccccdd51100000000000001161000000000000000000000000000000000000000000000000ff7f7ff00f777f0000000000000000000000000000000000
+d55110dddd5110000000000000001aa1000000000000000000000000000000000000000000000000fdfffdf00ff7ff0000000000000000000000000000000000
+ee82101eee8822100000000000111661000000000000000000000000000000000000000000000000fdfffdf00fffff0000000000000000000000000000000000
+f94210f7fff9421000000000001aaaa1000000000000000000000000000000000000000000000000fdfffdf0fffffff000000000000000000000000000000000
+00000000000000006666666600116661000000000000000000000000000000000000000000000000fffffff0fefffef000000000000000000000000000000000
+0000000000000000666666660001aaa1000000000000000000000000000000000000000000000000fffffff0fefffef000000000000000000000000000000000
+000000000000000066566566011166610000000000000000000000000000000000000000000000000ff7ff00fefffef000000000000000000000000000000000
+00000000000000006656656601aaaaa10000000000000000000000000000000000000000000000000f777f000f7f7f0000000000000000000000000000000000
+000000000000000066566566011666610000000000000000000000000000000000000000000000000f070f00f7dfd7f000000000000000000000000000000000
+000000000000000066566566001aaaa1000000000000000000000000000000000000000000000000ff000ff0f0fef0f000000000000000000000000000000000
+00000000000000006656656611166661000000000000000000000000000000000000000000000000ff000ff0f0fff0f000000000000000000000000000000000
+0000000000000000666666661aaaaaa1000000000000000000000000000000000000000000000000f00000f0f00000f000000000000000000000000000000000
 cccccccccccccccccc53350000000500000000000000000000555500005555000055550000555500005555000055550000000000665555000006666000076000
 cccccccccccccccccc53350000000050000005000990909005777750057777500577755005777550057755500555555000000000566777500067777607666660
 cccc555555555555cc53350000000505000033500099999057777775577777555777755557775555577555555555555500000000056677656677666600000000

@@ -627,7 +627,7 @@ function draw_game()
 	-- make sure we draw the world
 	-- objects in the right order.
 	local draws={draw_player,draw_base,draw_penny}
-	local ys={py,base_y,penny_y/8}
+	local ys={py*8+4,base_y*8,penny_y}
 	sort(ys,draws)
 	for dd in all(draws) do
 	 dd()
@@ -1044,15 +1044,18 @@ cs_firstcharge={
    --     so the base glows.
    chapter=2
   end,
+  "...",
   "^hey... how'd you get\nover there?",
-  "^whoops!",
-  "^there you go."},
+  "^oof.",
+  "^there you go!"},
  {pre=function()
    blank_screen=false
   end,
   p=py_frend,
+  "^huh...",
   "^i guess you really\n^d^o work!"},
  {p=py_shout,
+  "^ha! ^i knew it!",
   "^i ^a^m ^t^h^e ^b^e^s^t!"},
  {p=py_talk,
   "^well, ^i've finished\nthis base.",
@@ -1061,8 +1064,9 @@ cs_firstcharge={
  {"^p^e^n^n^y!",
   "^t^h^a^t ^f^i^e^l^d ^c^l^e^a^r\n^y^e^t?"},
  {p=py_talk,
+  "^oh, uh...",
   "^hey, help me clear\nthis field?",
-  "^we need a big clear\nspace..."},
+  "^mom wants a big\nclear space..."},
  {p=py_whelm,
   "...but these rocks\nare so big."},
  {p=py_shock,
@@ -1070,8 +1074,32 @@ cs_firstcharge={
  post=function()
   penny_wander()
   update_fn=update_walk
+  object_fn=check_bigspace
  end
 }
+
+function check_bigspace()
+ function check(x,y)
+  for iy=0,4 do
+   for ix=0,4 do
+    if map_flag(x+ix,y+iy,0) then
+     return false
+    end
+   end
+  end
+  return true
+ end
+ 
+ if (penny_x==nil or grabbed_item) return
+ 
+ for y=0,10 do
+  for x=0,10 do
+   if check(x,y) then
+    do_script(cs_didclear)
+   end
+  end
+ end
+end
 
 cs_nobattery={
  {pre=function()
@@ -1100,6 +1128,22 @@ cs_nobattery={
   update_fn=update_walk
  end
 }
+
+cs_didclear={
+ {p=py_shock,
+  "^hooray!\n^you did it!",
+  "^you win the game!"},
+ post=function()
+  object_fn=nil
+  update_fn=update_walk
+ end
+}
+
+function check_objective()
+ if object_fn then
+  object_fn()
+ end
+end
 
 function do_script(script)
  local _step
@@ -1154,7 +1198,7 @@ function update_text()
 end
 
 function draw_text()
- if text==nil then return end
+ if (text==nil) return
 
  -- outline box
  draw_box(0,96,14,2)
@@ -1232,7 +1276,11 @@ function penny_wander()
     penny_run(128,penny_y,_sleep)
    else
     t-=1
-    if (t<=0) _next()
+    if t<=0 then
+     _next()
+    else
+     check_objective()
+    end 
    end
   end
  end

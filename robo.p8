@@ -78,6 +78,7 @@ __lua__
 --  chapter 0: pre-intro
 --  chapter 1: walking/no charge
 --  chapter 2: clear field
+--  chapter 3: till and plant
 chapter=0
 
 -- player state
@@ -185,10 +186,7 @@ end
 function open_item_menu()
  menu_mode=true
  menu_sel=item_sel
- menu_items=items
- -- for it in all(items) do
- --  add(menu_items,it.name)
- -- end
+ menu_items=get_items()
  update_fn=update_menu
 end
 
@@ -218,6 +216,7 @@ function map_flag_all(x,y,f)
 end
 
 function use_thing()
+ local items=get_items()
  local item=items[item_sel]
  if item.fn~=nil then
   local tgt=looking_at()
@@ -480,6 +479,7 @@ end
 function draw_item()
  draw_box(96,104,2,1) 
  print("🅾️",103,114,7)
+ local items=get_items()
  spr(items[item_sel].icon,112,112)
 end
 
@@ -627,7 +627,7 @@ function draw_game()
 	-- make sure we draw the world
 	-- objects in the right order.
 	local draws={draw_player,draw_base,draw_penny}
-	local ys={py*8+4,base_y*8,penny_y}
+	local ys={py*8+4,base_y*8+4,penny_y}
 	sort(ys,draws)
 	for dd in all(draws) do
 	 dd()
@@ -799,15 +799,18 @@ function i_till(item,tx,ty)
 end
 
 function init_items()
- items={
+ item_sel=1
+end
+
+function get_items()
+ return {
   -- pick axe hoe water
   {icon=142,name="grab",fn=i_grab},
   -- {icon=141,name="till",fn=i_till},
   -- {icon=143,name="water",fn=i_water},
   -- {icon=147,name="grass",fn=i_plant,plant=grass},
   -- {icon=163,name="mum",fn=i_plant,plant=mum},
- }
- item_sel=1
+ } 
 end
 -->8
 -- water
@@ -1046,7 +1049,7 @@ cs_firstcharge={
   end,
   "...",
   "^hey... how'd you get\nover there?",
-  "^oof.",
+  "^oof...",
   "^there you go!"},
  {pre=function()
    blank_screen=false
@@ -1059,11 +1062,12 @@ cs_firstcharge={
   "^i ^a^m ^t^h^e ^b^e^s^t!"},
  {p=py_talk,
   "^well, ^i've finished\nthis base.",
-  "^if you stand here,\nyou'll recharge.",
+  "^if you stand there,\nyou'll recharge."},
+ {p=py_frend,
   "^try not to run out\nof power, ok?"},
  {"^p^e^n^n^y!",
   "^t^h^a^t ^f^i^e^l^d ^c^l^e^a^r\n^y^e^t?"},
- {p=py_talk,
+ {p=py_frend,
   "^oh, uh...",
   "^hey, help me clear\nthis field?",
   "^mom wants a big\nclear space..."},
@@ -1074,14 +1078,14 @@ cs_firstcharge={
  post=function()
   penny_wander()
   update_fn=update_walk
-  object_fn=check_bigspace
+  objective_fn=check_bigspace
  end
 }
 
 function check_bigspace()
  function check(x,y)
-  for iy=0,4 do
-   for ix=0,4 do
+  for iy=0,6 do
+   for ix=0,6 do
     if map_flag(x+ix,y+iy,0) then
      return false
     end
@@ -1090,7 +1094,8 @@ function check_bigspace()
   return true
  end
  
- if (penny_x==nil or grabbed_item) return
+ if (penny_x==nil) return
+ if (grabbed_item) return
  
  for y=0,10 do
   for x=0,10 do
@@ -1100,6 +1105,34 @@ function check_bigspace()
   end
  end
 end
+
+cs_didclear={
+ {p=py_shock,
+  "^hey!\n^you did it!"},
+ {p=py_talk,
+  "^wait a bit, i'll be back!"},
+ post=function()
+  penny_run(128,penny_y)
+  update_fn=update_walk
+
+  local start_hour=hour
+  objective_fn=function()
+   -- we'll use the objective
+   -- hook to just wait an hour.
+   if hour-start_hour>=1 then
+    do_script(cs_up_tools)
+   end
+  end
+ end
+}
+
+cs_up_tools={
+ post=function()
+  chapter=3
+ end
+}
+
+--
 
 cs_nobattery={
  {pre=function()
@@ -1129,19 +1162,11 @@ cs_nobattery={
  end
 }
 
-cs_didclear={
- {p=py_shock,
-  "^hooray!\n^you did it!",
-  "^you win the game!"},
- post=function()
-  object_fn=nil
-  update_fn=update_walk
- end
-}
+--
 
 function check_objective()
- if object_fn then
-  object_fn()
+ if objective_fn then
+  objective_fn()
  end
 end
 

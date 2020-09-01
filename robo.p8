@@ -1171,33 +1171,27 @@ function check_objective()
 end
 
 function do_script(script)
- local _step
- _step=function(i_stage,i_line)
-  if i_stage>#script then
-   if script.post then
-    script:post()
-   end
-  else
-   local stage=script[i_stage]
-   
-   if i_line==1 and stage.pre then
-    stage.pre()
-   end
-   
+ local _coro=nil
+ _coro=cocreate(function()
+  local stage,s_line
+  for stage in all(script) do
+   if (stage.pre) stage.pre()
    local p=stage.p or {}
-   show_text(
-    stage[i_line], 
-    p.top, p.bot,
-    function()
-     if i_line==#stage then
-      _step(i_stage+1,1)
-     else
-      _step(i_stage,i_line+1)
-     end 
-    end)
+   for s_line in all(stage) do
+    show_text(
+     s_line,
+     p.top, p.bot,
+     function()
+      assert(coresume(_coro))
+     end)
+    yield()
+   end
   end
- end
- _step(1,1)
+  if script.post then
+   script:post()
+  end
+ end)
+ assert(coresume(_coro))
 end
 
 function show_text(t,top,bot,next_fn)

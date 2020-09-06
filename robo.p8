@@ -79,7 +79,30 @@ __lua__
 --  chapter 1: walking/no charge
 --  chapter 2: clear field
 --  chapter 3: till and plant
-chapter=0
+
+function new_game()
+ base_x=2+flr(rnd(12))
+ base_y=3+flr(rnd(8))
+ chapter=0
+ 
+ -- init the item sprite layer
+ function place_rand(count, sp)
+  local cnt=0
+  while cnt<count do
+   local x=1+flr(rnd(14))
+   local y=1+flr(rnd(14))
+   if x~=base_x and 
+      y~=base_y and 
+      not fget(mget(x,y),0) then
+    mset(x+32,y,sp)
+    cnt+=1
+   end
+  end
+ end
+  
+ place_rand(80,147) --grass
+ place_rand(80,65)  --rock
+end
 
 -- player state
 function init_player()
@@ -128,9 +151,6 @@ function init_time()
 end
 
 function init_base()
- base_x=2+flr(rnd(12))
- base_y=3+flr(rnd(8))
- 
  -- the base points.
  mset(base_x-1,base_y,83)
  mset(base_x+1,base_y,83)
@@ -147,24 +167,8 @@ end
 -- (each region is further 
 -- divided into 4 16x16 
 -- screens.)
-function place_rand(count, sp)
- local cnt=0
- while cnt<count do
-  local x=1+flr(rnd(14))
-  local y=1+flr(rnd(14))
-  if x~=base_x and 
-     y~=base_y and 
-     not fget(mget(x,y),0) then
-   mset(x+32,y,sp)
-   cnt+=1
-  end
- end
-end
 
-function _init()
- load_font()
- init_fx()
-
+function init_game()
  init_items() 
  init_menu()
  init_time()
@@ -173,11 +177,15 @@ function _init()
  init_weather()
  init_water()
  init_penny()
- 
- -- init the item sprite layer
- place_rand(80,147) --grass
- place_rand(80,65)  --rock
+end
 
+function _init()
+ load_font()
+ init_fx()
+ new_game()
+
+ init_game()
+ 
  if chapter==0 then
   do_script(cs_intro)
  end
@@ -388,7 +396,10 @@ end
 function _update()
  update_animation()
  update_weather()
- 
+
+ --todo: this is kinda not how
+ --we're doing this right now,
+ --maybe we should modernize?
  if animation==nil then
   update_fn()
  end

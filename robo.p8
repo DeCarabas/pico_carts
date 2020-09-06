@@ -71,35 +71,41 @@ __lua__
 --        day for simplicity.
 --
 
--- flags: for game state
+-- the map is divided into 4 
+-- regions, horizontally.
+-- x=[0,32)   base layer
+-- x=[32,64)  item sprite layer
+-- x=[64,96)  ?? water level?
+-- x=[96,128) ??
 --
+-- in theory we can do so much
+-- here but we have to be able
+-- to save our game in 256 bytes
+-- and there's only so much we
+-- can throw away when we load
+function place_rand(count, sp)
+ local cnt=0
+ while cnt<count do
+  local x=1+flr(rnd(14))
+  local y=1+flr(rnd(14))
+  if not map_flag(x,y,1) then
+   mset(x+32,y,sp)
+   cnt+=1
+  end
+ end
+end
 
 -- game progress
 --  chapter 0: pre-intro
 --  chapter 1: walking/no charge
 --  chapter 2: clear field
 --  chapter 3: till and plant
-
 function new_game()
  base_x=2+flr(rnd(12))
  base_y=3+flr(rnd(8))
  chapter=0
  
- -- init the item sprite layer
- function place_rand(count, sp)
-  local cnt=0
-  while cnt<count do
-   local x=1+flr(rnd(14))
-   local y=1+flr(rnd(14))
-   if x~=base_x and 
-      y~=base_y and 
-      not fget(mget(x,y),0) then
-    mset(x+32,y,sp)
-    cnt+=1
-   end
-  end
- end
-  
+ -- init the item sprite layer  
  place_rand(80,147) --grass
  place_rand(80,65)  --rock
 end
@@ -156,17 +162,6 @@ function init_base()
  mset(base_x+1,base_y,83)
  mset(base_x,base_y,114)
 end
-
--- the map is divided into 4 
--- regions, horizontally.
--- x=[0,32)   base layer
--- x=[32,64)  item sprite layer
--- x=[64,96)  ?? water level?
--- x=[96,128) ??
---
--- (each region is further 
--- divided into 4 16x16 
--- screens.)
 
 function init_game()
  init_items() 

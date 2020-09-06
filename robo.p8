@@ -150,8 +150,8 @@ end
 function place_rand(count, sp)
  local cnt=0
  while cnt<count do
-  local x=flr(rnd(32))
-  local y=flr(rnd(32))
+  local x=1+flr(rnd(14))
+  local y=1+flr(rnd(14))
   if x~=base_x and 
      y~=base_y and 
      not fget(mget(x,y),0) then
@@ -175,8 +175,8 @@ function _init()
  init_penny()
  
  -- init the item sprite layer
- place_rand(320,147) --grass
- place_rand(320,65)  --rock
+ place_rand(80,147) --grass
+ place_rand(80,65)  --rock
 
  if chapter==0 then
   do_script(cs_intro)
@@ -313,10 +313,10 @@ function update_walk()
   if btnp(➡️) then tx=px+1 d=1 end
   if btnp(⬇️) then ty=py+1 d=2 end
   if btnp(⬆️) then ty=py-1 d=3 end
-  if tx<0  then buzz() tx=0  end
-  if tx>15 then buzz() tx=15 end
-  if ty<0  then buzz() ty=0  end
-  if ty>15 then buzz() ty=15 end
+  if tx<1  then buzz() tx=1  end
+  if tx>14 then buzz() tx=14 end
+  if ty<1  then buzz() ty=1  end
+  if ty>14 then buzz() ty=14 end
   if collide(px,py,tx,ty) then
    tx=flr(px) ty=flr(py)
   end

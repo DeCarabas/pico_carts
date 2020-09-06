@@ -105,8 +105,11 @@ function new_game()
  base_y=3+flr(rnd(8))
  chapter=0
  
- -- init the item sprite layer  
- place_rand(80,147) --grass
+ -- init the item sprite layer
+ place_rand(20,144) --grass
+ place_rand(20,145) --grass
+ place_rand(20,146) --grass
+ place_rand(20,147) --grass
  place_rand(80,65)  --rock
 end
 
@@ -165,6 +168,7 @@ end
 
 function init_game()
  init_items() 
+ init_plants()
  init_menu()
  init_time()
  init_base()
@@ -689,28 +693,45 @@ end
 -- plants and items
 grass={
  name="grass",
- rate=0.025,
+ rate=0.0025,
  stages={144,145,146,147}
 }
 mum={
  name="mum",
- rate=0.025,
+ rate=0.0025,
  stages={160,161,162,163}
 }
 
 plant_classes={grass,mum}
 
--- init the reverse-lookup table
--- for the plant data.
-plant_spr={}
-for p in all(plant_classes) do
- for s in all(p.stages) do
-  plant_spr[s]=p
- end
-end 
+function init_plants()
+ -- init the reverse-lookup 
+ -- table for the plant data.
+ plant_spr={}
+ for p in all(plant_classes) do
+  for s in all(p.stages) do
+   plant_spr[s]=p
+  end
+ end 
 
--- these are all the live plants
-plants={}
+ -- these are all the live 
+ -- plants
+ plants={}
+ for y=1,15 do
+  for x=1,15 do
+   local sp,age=mget(32+x,y),1
+   local pl=plant_spr[sp]
+   if pl~=nil then
+    while pl.stages[age]~=sp do
+     age+=1
+    end
+    add(
+     plants,
+     {age=age,x=x,y=y,cls=pl})
+   end
+  end
+ end
+end
 
 function update_plants()
  for p in all(plants) do
@@ -736,6 +757,13 @@ function remove_plant(x,y)
  end
 end
 
+function add_plant(p,st,tx,ty)
+ add(
+  plants, 
+  {age=1,x=tx,y=ty,cls=p})
+ mset(tx+32,ty,p.stages[st])
+end
+
 function i_plant(item,tx,ty)
  if map_flag(tx,ty,1) then
   buzz()
@@ -749,10 +777,7 @@ function i_plant(item,tx,ty)
  
  energy_level-=plant_cost
  local p=item.plant
- add(
-  plants, 
-  {age=1,x=tx,y=ty,cls=p})
- mset(tx+32,ty,p.stages[1])
+ add_plant(p,1,tx,ty)
 end
 
 function i_grab(item,tx,ty)

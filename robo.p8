@@ -101,9 +101,13 @@ end
 --  chapter 2: clear field
 --  chapter 3: till and plant
 function new_game()
+ chapter=0
  base_x=2+flr(rnd(12))
  base_y=3+flr(rnd(8))
- chapter=0
+ day=0
+ hour=8 
+ px=base_x 
+ py=base_y 
  
  -- init the item sprite layer
  place_rand(20,144) --grass
@@ -122,10 +126,46 @@ function new_game()
  end
 end
 
+function save_game()
+ -- compare with new_game
+ local p=0x5e00
+ poke4(p,chapter)      p+=4--  4
+ poke4(p,base_x)       p+=4--  8
+ poke4(p,base_y)       p+=4-- 12
+ poke4(p,day)          p+=4-- 16
+ poke4(p,hour)         p+=4-- 20
+ poke4(p,px)           p+=4-- 24
+ poke4(p,py)           p+=4-- 28
+ poke4(p,tank_level)   p+=4-- 32
+ poke4(p,energy_level) p+=4-- 36
+ 
+ for y=1,14 do
+  for x=1,14 do
+   poke(p,mget(x+32,y)) p+=1
+  end
+ end
+end
+
+function load_game()
+ -- compare with save_game
+ local p=0x5e00
+ chapter=$p p+=4
+ base_x=$p  p+=4
+ base_y=$p  p+=4
+ day=$p     p+=4
+ hour=$p    p+=4
+ px=$p      p+=4
+ py=$p      p+=4
+ for y=1,14 do
+  for x=1,14 do
+   mset(x+32,y,@p) p+=1
+  end
+ end
+end
+
 -- player state
 function init_player()
- px=base_x py=base_y d=2
- spd=0.125 walking=false
+ d=2 spd=0.125 walking=false
  idle_time=0
 
  max_tank=100
@@ -161,8 +201,6 @@ end
 -- fun!)
 function init_time()
  hour_inc=0.0036 --*100
- hour=8
- day=0
  
  recharge_rate=100*hour_inc/4
  water_rate=100*hour_inc/2
@@ -176,6 +214,8 @@ function init_base()
 end
 
 function init_game()
+ blank_screen=false 
+
  init_items() 
  init_plants()
  init_menu()
@@ -184,16 +224,17 @@ function init_game()
  init_player()
  init_weather()
  init_water()
+ init_text()
  init_penny()
 end
 
 function _init()
  load_font()
  init_fx()
- new_game()
-
- init_game()
  
+ new_game()
+ init_game()
+  
  if chapter==0 then
   do_script(cs_intro)
  end
@@ -391,11 +432,12 @@ end
 update_fn=update_walk
 
 function update_base()
- -- before penny fixes the base
+  -- before penny fixes the base
  if (chapter<2) return
  
  if px==base_x and 
     py==base_y then
+  save_game() -- auto-save
   tank_level=min(max_tank, tank_level+water_rate)
   energy_level=min(max_energy, energy_level+recharge_rate)
  end
@@ -679,8 +721,6 @@ function draw_game()
   draw_meters()
  end
 end
-
-blank_screen=false 
 
 function _draw()
  -- dirty hack: if you set 
@@ -1234,6 +1274,10 @@ function do_script(script)
  assert(coresume(_coro))
 end
 
+function init_text()
+ text=nil
+end
+
 function show_text(t,top,bot,next_fn)
  text=t
  text_time=0
@@ -1516,7 +1560,7 @@ function draw_string(str,x,y,c)
    end
    
    local glyph=font[c]
-   assert(glyph~=nil, "char "..c.." not in font")
+   assert(glyph~=nil, "char "..chr(c).." not in font")
    draw_font_glyph(glyph,lx,ly)
    lx+=glyph.w+1
   end

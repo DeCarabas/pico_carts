@@ -882,15 +882,31 @@ function init_items()
  item_sel=1
 end
 
+tl_grab={
+ icon=142,name="grab",
+ fn=i_grab}
+tl_till={
+ icon=141,name="till",
+ fn=i_till}
+tl_water={
+ icon=143,name="water",
+ fn=i_water}
+tl_grass={
+ icon=147,name="grass",
+ fn=i_plant,plant=grass}
+tl_mum={
+ icon=163,name="mum",
+ fn=i_plant,plant=mum}
+
 function get_items()
- return {
-  -- pick axe hoe water
-  {icon=142,name="grab",fn=i_grab},
-  -- {icon=141,name="till",fn=i_till},
-  -- {icon=143,name="water",fn=i_water},
-  -- {icon=147,name="grass",fn=i_plant,plant=grass},
-  -- {icon=163,name="mum",fn=i_plant,plant=mum},
- } 
+ if chapter<3 then
+  return {tl_grab}
+ else
+  return {
+   tl_grab,tl_till,tl_water,
+   tl_grass,tl_mum
+  }
+ end
 end
 -->8
 -- water
@@ -1042,7 +1058,7 @@ function update_fade()
   fade_lvl+=1
   if fade_lvl>5 then
    disable_dark()
-   fade_cb()
+   resume(fade_cb)
   else
    fade_t=5
   end
@@ -1190,7 +1206,7 @@ cs_didclear={
  {p=py_shock,
   "^hey!\n^you did it!"},
  {p=py_talk,
-  "^wait a bit, i'll be back!"},
+  "^wait a bit, ^i'll be\nback!"},
  post=function()
   penny_run(128,penny_y)
   update_fn=update_walk
@@ -1207,8 +1223,30 @@ cs_didclear={
 }
 
 cs_up_tools={
+ {pre=function(c)
+   penny_x=128
+   penny_y=(py*8)+16 d=2
+   penny_run(px*8+4,penny_y,c)
+   yield()
+   penny_d=0
+  end,
+  p=py_frend,
+  "^now, don't move, ^o^k?",
+  "^just gonna open you\nup..."},
+ {"buzz buzz buzz"},
+ {p=py_talk,
+  "^done!",
+  "^ok, check it out.\n^tools!",
+  "^i've given you some\nuseful stuff.",
+  "^you've got a\nwatering can...",
+  "...and this neat\nroto-tiller...",
+  "...and then this little\nseed pouch!"},
+ {p=py_frend,
+  "^press 🅾️ to open the\nmenu to see."},
  post=function()
   chapter=3
+  penny_run(128,penny_y)
+  update_fn=update_walk
  end
 }
 
@@ -1219,7 +1257,10 @@ cs_nobattery={
    old_penny_x=penny_x
 
    cls(0)
-   penny_show(base_x*8+4,base_y*8+16,0)
+   penny_show(
+    base_x*8+4,
+    base_y*8+16,
+    0)
    blank_screen=true
   end,
   "^robo?\n^can you hear me?"},
@@ -1250,20 +1291,27 @@ function check_objective()
  end
 end
 
+function resume(cb)
+ local cbt=type(cb)
+ if cbt=="function" then
+  cb()
+ elseif cbt=="thread" then
+  assert(coresume(cb))
+ end
+end
+
 function do_script(script)
  local _coro=nil
  _coro=cocreate(function()
   local stage,s_line
   for stage in all(script) do
-   if (stage.pre) stage.pre()
+   if (stage.pre) stage.pre(_coro)
    local p=stage.p or {}
    for s_line in all(stage) do
     show_text(
      s_line,
      p.top, p.bot,
-     function()
-      assert(coresume(_coro))
-     end)
+     _coro)
     yield()
    end
   end
@@ -1296,7 +1344,7 @@ function update_text()
  
  if btnp(🅾️) then
   text=nil
-  text_next_fn()
+  resume(text_next_fn)
  end
 end
 
@@ -1445,7 +1493,7 @@ function penny_run(tx,ty,fn)
    penny_frame=0
    update_penny=nop
    if fn then 
-    fn() 
+    resume(fn) 
    else
     penny_x=nil
    end
@@ -1482,7 +1530,7 @@ end
 -- the font has upper case a-z,
 -- lower case a-z, digits 0-9,
 -- and some punctuation.
-font_enc=[[414869999f994248caae999e4348699889964448e999999e4548f88e888f4648f88e888847486998b9964848999f99994918ff4a48111111964b48999e99994c488888888f4d58dd6b18c6314e489ddbb9994f48699999965048e99e8888515864a5295a4d5248e99e99995348698611965438e9249255489999999656588c6315294457588c6318d6aa58588a9442295159588c62a210845a48f122448f615564a52680624788e999606345698960644711799960654569f8706647254e444067456971e0684788e999906917be6a47101119606b478899e9906c27aaa46d55556b18806e45ad99906f456999607045699e8071456997107245ad988073457861e074374ba490754599996076558c54a20077558c6b550078558a88a88079459971e07a45f168f03048699bd996313859249732486911248f3348691211963448aaaf22223548f88e11963648698e99963748f11248883848699699963948699711112118fd3f5874622210042e11803a16902c2358272858002d44f000]]
+font_enc=[[414869999f994248caae999e4348699889964448e999999e4548f88e888f4648f88e888847486998b9964848999f99994918ff4a48111111964b48999e99994c488888888f4d58dd6b18c6314e489ddbb9994f48699999965048e99e8888515864a5295a4d5248e99e99995348698611965438e9249255489999999656588c6315294457588c6318d6aa58588a9442295159588c62a210845a48f122448f615564a52680624788e999606345698960644711799960654569f8706647254e444067456971e0684788e999906917be6a47101119606b478899e9906c27aaa46d55556b18806e45ad99906f456999607045699e8071456997107245ad988073457861e074374ba490754599996076558c54a20077558c6b550078558a88a88079459971e07a45f168f03048699bd996313859249732486911248f3348691211963448aaaf22223548f88e11963648698e99963748f11248883848699699963948699711112118fd3f5874622210042e11803a16902c2358272858002d44f00028382a491129388892548e767d8f5e37c00097767dafbeb7c000]]
 
 function load_font()
  local enc,bytes=font_enc,{}

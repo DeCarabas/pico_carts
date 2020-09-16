@@ -438,8 +438,10 @@ function update_base()
  if px==base_x and 
     py==base_y then
   save_game() -- auto-save
-  tank_level=min(max_tank, tank_level+water_rate)
   energy_level=min(max_energy, energy_level+recharge_rate)
+  if chapter>=3 then
+   tank_level=min(max_tank, tank_level+water_rate)
+  end
  end
 end
 
@@ -546,8 +548,10 @@ end
 
 function draw_meters()
  draw_box(104,50,1,5)
- local tank_frac=(max_tank-tank_level)/max_tank
- rectfill(111,57+41*tank_frac,115,98,12)
+ if tank_level>0 then
+  local tank_frac=(max_tank-tank_level)/max_tank
+  rectfill(111,57+41*tank_frac,115,98,12)
+ end
  
  local nrg_frac=(max_energy-energy_level)/max_energy
  local nrg_color
@@ -668,6 +672,12 @@ function sort(ks,vs)
  end
 end
 
+function draw_objective()
+ if objective then
+  print("goal: "..objective,2,122,7)
+ end
+end
+
 -- the main rendering function
 -- since almost everything is 
 -- always on the screen at the
@@ -717,6 +727,7 @@ function draw_game()
   draw_item()
   draw_time()
   draw_meters()
+  draw_objective()
  elseif (energy_level/max_energy)<0.25 then
   draw_meters()
  end
@@ -742,12 +753,12 @@ end
 -- plants and items
 grass={
  name="grass",
- rate=0.0025,
+ rate=0.0006,
  stages={144,145,146,147}
 }
 mum={
  name="mum",
- rate=0.0025,
+ rate=0.0006,
  stages={160,161,162,163}
 }
 
@@ -774,6 +785,7 @@ function init_plants()
     while pl.stages[age]~=sp do
      age+=1
     end
+    age+=rnd()
     add(
      plants,
      {age=age,x=x,y=y,cls=pl})
@@ -1127,6 +1139,7 @@ cs_intro={
   "^i'll be back soon to\nfinish up."},
  post=function()
   energy_level=max_energy/4
+  tank_level=0
   penny_run(128,penny_y)
   update_fn=update_walk
   chapter=1
@@ -1174,6 +1187,7 @@ cs_firstcharge={
  post=function()
   penny_wander()
   update_fn=update_walk
+  objective="clear a 6x6 field"
   objective_fn=check_bigspace
  end
 }
@@ -1196,6 +1210,7 @@ function check_bigspace()
  for y=0,10 do
   for x=0,10 do
    if check(x,y) then
+    objective=nil
     do_script(cs_didclear)
    end
   end
@@ -1244,7 +1259,7 @@ cs_up_tools={
  {p=py_frend,
   "^press 🅾️ to open the\nmenu to see."},
  post=function()
-  chapter=3
+  chapter=3 tank_level=max_tank
   penny_run(128,penny_y)
   update_fn=update_walk
  end

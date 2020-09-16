@@ -234,6 +234,10 @@ function _init()
  
  new_game()
  init_game()
+
+ -- cheatz
+ menuitem(1,"+energy",function() energy_level=max_energy end)
+ menuitem(2,"+8hrs",function() hour+=8 end)
   
  if chapter==0 then
   do_script(cs_intro)
@@ -709,6 +713,13 @@ function draw_game()
  --local tc=looking_at()
  --sc=world_to_screen(tc.x,tc.y)
  --rectfill(sc.x-4,sc.y-4,sc.x+4,sc.y+4,10)
+ -- for dy=1,15 do
+ --  for dx=1,15 do
+ --   if mget(dx+64,dy)==1 then
+ --    rect(dx*8,dy*8,dx*8+8,dy*8+8,7)
+ --   end
+ --  end
+ -- end 
  
  -- now rain and stuff
  draw_weather()
@@ -853,6 +864,7 @@ function i_grab(item,tx,ty)
   else
    mset(tx,ty,64) -- bare dirt
    mset(tx+32,ty,grabbed_item)
+   remove_plant(tx,ty)   
    grabbed_item=nil
   end
  elseif fget(tgt,2) then
@@ -1194,8 +1206,8 @@ cs_firstcharge={
 
 function check_bigspace()
  function check(x,y)
-  for iy=0,6 do
-   for ix=0,6 do
+  for iy=0,5 do
+   for ix=0,5 do
     if map_flag(x+ix,y+iy,0) then
      return false
     end
@@ -1203,15 +1215,16 @@ function check_bigspace()
   end
   return true
  end
- 
+
  if (penny_x==nil) return
  if (grabbed_item) return
  
- for y=0,10 do
-  for x=0,10 do
+ for y=1,9 do
+  for x=1,9 do
    if check(x,y) then
     objective=nil
     do_script(cs_didclear)
+    return
    end
   end
  end

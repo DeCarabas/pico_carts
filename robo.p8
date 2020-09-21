@@ -1107,13 +1107,20 @@ end
 -- cutscene stuff
 
 -- portraits
-py_think={top=192,bot=228}
-py_shout={top=194,bot=230}
-py_shock={top=194,bot=226}
-py_frend={top=192,bot=224}
-py_serio={top=194,bot=228}
-py_talk={top=192,bot=226}
-py_whelm={top=196,bot=224}
+--  py_ear_up=194
+--  py_ear_mid=192
+--  py_ear_down=196
+--  py_head_wry=224
+--  py_head_talk=226
+--  py_head_closed=228
+--  py_head_intense=230
+py_mid_wry={top=192,bot=224}
+py_mid_talk={top=192,bot=226}
+py_mid_closed={top=192,bot=228}
+py_up_talk={top=194,bot=226}
+py_up_closed={top=194,bot=228}
+py_up_intense={top=194,bot=230}
+py_down_wry={top=196,bot=224}
 
 -- cutscenes.
 cs_intro={
@@ -1126,26 +1133,26 @@ cs_intro={
   "^p^e^n^n^y!",
   "...",
   "^where is that girl?"},
- {p=py_think,  
+ {p=py_mid_closed,  
   "^o^k...\n^deep breath..."},
- {p=py_shout,
+ {p=py_up_intense,
   "^r^x-228! ^activate!!!"},
  {pre=function()
    blank_screen=false
   end,
-  p=py_shock,
+  p=py_up_talk,
   "^it... it works?",
   "^it works!"},
  {"^p^e^n^n^y? ^w^h^e^r^e ^a^r^e\n^y^o^u??"},
  {pre=function()
    penny_show(penny_x,penny_y,2)
   end,
-  p=py_shout,
+  p=py_up_intense,
   "^c^o^m^i^n^g ^m^o^m!"},
  {pre=function()
    penny_show(penny_x,penny_y,0)
   end,
-  p=py_frend,
+  p=py_mid_wry,
   "^o^k. ^that's enough\nfor today.",
   "^you sit tight.",
   "^i'll be back soon to\nfinish up."},
@@ -1175,26 +1182,26 @@ cs_firstcharge={
  {pre=function()
    blank_screen=false
   end,
-  p=py_frend,
+  p=py_mid_wry,
   "^huh...",
   "^i guess you really\n^d^o work!"},
- {p=py_shout,
+ {p=py_up_intense,
   "^ha! ^i knew it!",
   "^i ^a^m ^t^h^e ^b^e^s^t!"},
- {p=py_talk,
+ {p=py_mid_talk,
   "^well, ^i've finished\nthis base.",
   "^if you stand there,\nyou'll recharge."},
- {p=py_frend,
+ {p=py_mid_wry,
   "^try not to run out\nof power, ok?"},
  {"^p^e^n^n^y!",
   "^t^h^a^t ^f^i^e^l^d ^c^l^e^a^r\n^y^e^t?"},
- {p=py_frend,
+ {p=py_mid_wry,
   "^oh, uh...",
   "^hey, help me clear\nthis field?",
   "^mom wants a big\nclear space..."},
- {p=py_whelm,
+ {p=py_down_wry,
   "...but these rocks\nare so big."},
- {p=py_shock,
+ {p=py_up_talk,
   "^help me move these,\n^o^k?"},
  post=function()
   penny_wander()
@@ -1231,9 +1238,9 @@ function check_bigspace()
 end
 
 cs_didclear={
- {p=py_shock,
+ {p=py_up_talk,
   "^hey!\n^you did it!"},
- {p=py_talk,
+ {p=py_mid_talk,
   "^wait a bit, ^i'll be\nback!"},
  post=function()
   penny_run(128,penny_y)
@@ -1258,19 +1265,20 @@ cs_up_tools={
    yield()
    penny_d=0
   end,
-  p=py_frend,
+  p=py_mid_wry,
   "^now, don't move, ^o^k?",
   "^just gonna open you\nup..."},
  {"buzz buzz buzz"},
- {p=py_talk,
+ {p=py_mid_talk,
   "^done!",
   "^ok, check it out.\n^tools!",
   "^i've given you some\nuseful stuff.",
   "^you've got a\nwatering can...",
   "...and this neat\nroto-tiller...",
   "...and then this little\nseed pouch!"},
- {p=py_frend,
+ {p=py_mid_wry,
   "^press 🅾️ to open the\nmenu to see."},
+ {"^p^e^n^n^y!"},
  post=function()
   chapter=3 tank_level=max_tank
   penny_run(128,penny_y)
@@ -1295,12 +1303,12 @@ cs_nobattery={
  {pre=function()
    blank_screen=false
   end,
-  p=py_frend,
+  p=py_mid_wry,
   "^oh, thank goodness."},
- {p=py_serio,
+ {p=py_up_closed,
   "^robo, you need to be\nmore careful!",
   "^if you don't charge,\nyou'll get stuck!"},
- {p=py_frend,
+ {p=py_mid_wry,
   "^don't worry.",
   "^i'll always be there\nto help."},
  post=function()

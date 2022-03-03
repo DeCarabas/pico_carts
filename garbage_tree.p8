@@ -12,8 +12,8 @@ function _init()
 end
 
 function _update()
- if btnp(❎) or btnp(🅾️) or the_flower==nil then
-  the_flower=tree:new()
+ if btnp(❎) or btnp(🅾️) or the_tree==nil then
+  the_tree=tree:new()
  end
 end
 
@@ -25,7 +25,7 @@ end
 function _draw()
  cls()
  princ("a pretty tree", 16, 7)
- the_flower:draw(64,64)
+ the_tree:draw(64,64)
  princ("press 🅾️ or ❎ for another", 96, 7)
 end
 -->8

@@ -1,19 +1,19 @@
 pico-8 cartridge // http://www.pico-8.com
-version 29
+version 35
 __lua__
 -- robo gardening game
 -- (c) 2020 john doty
--- 
+--
 -- == basic idea ==
 -- you are a robot repaired and
--- rebuilt by a lop, in the 
+-- rebuilt by a lop, in the
 -- hopes that you will be able
 -- to help her with gardening
 -- and the like.
 --
 -- == core game loop ==
 -- - gather resources
--- - turn in resources to lop 
+-- - turn in resources to lop
 --   for upgrades
 -- - upgrades let you do more
 --   stuff
@@ -22,12 +22,12 @@ __lua__
 -- [ ] tools
 --   [ ] hands
 --     your fists initially grab
---     and lift but later can 
+--     and lift but later can
 --     break stuff after upgrade
 --
 --     [x] *lift*
 --     [ ] *crush rocks*
---         provides *gravel*     
+--         provides *gravel*
 --
 --   [x] hand plow
 --     kind of a till attachment
@@ -35,22 +35,22 @@ __lua__
 --     which can turn the soil
 --     and prepare it to grow.
 --
---     [x] *prepare land*   
+--     [x] *prepare land*
 --         some plants won't
---         grow without it  
+--         grow without it
 --
 --   [ ] sprinkler system
 --     upgrades increase water
 --     capacity.
 --
 --     [x] *water ground*
---     [ ] tank capacity     
+--     [ ] tank capacity
 --
 --   [ ] seed dispenser
 --     upgrades increase seed
 --     capacity.
 --
---     [ ] *plant seeds* 
+--     [ ] *plant seeds*
 --
 -- [ ] battery
 -- [ ] range limiter
@@ -64,14 +64,15 @@ __lua__
 -- :todo: zelda rock sprites
 -- :todo: walk change dir first
 -- :todo: energy fn
--- :todo: save data 4b item 
+-- :todo: save data 4b item
 --        4b qual. reduce game
 --        to single screen. save
---        advances to 6a next 
+--        advances to 6a next
 --        day for simplicity.
 --
+-- :todo: tweak power usage
 
--- the map is divided into 4 
+-- the map is divided into 4
 -- regions, horizontally.
 -- x=[0,32)   base layer
 -- x=[32,64)  item sprite layer
@@ -105,17 +106,17 @@ function new_game()
  base_x=2+flr(rnd(12))
  base_y=3+flr(rnd(8))
  day=0
- hour=8 
- px=base_x 
- py=base_y 
- 
+ hour=8
+ px=base_x
+ py=base_y
+
  -- init the item sprite layer
  place_rand(20,144) --grass
  place_rand(20,145) --grass
  place_rand(20,146) --grass
  place_rand(20,147) --grass
  place_rand(70,65)  --rock
- 
+
  -- clear off base
  for y=base_y-1,base_y+1 do
   for x=base_x-1,base_x+1 do
@@ -138,7 +139,7 @@ function save_game()
  poke4(p,py)           p+=4-- 28
  poke4(p,tank_level)   p+=4-- 32
  poke4(p,energy_level) p+=4-- 36
- 
+
  for y=1,14 do
   for x=1,14 do
    poke(p,mget(x+32,y)) p+=1
@@ -170,7 +171,7 @@ function init_player()
 
  max_tank=100
  tank_level=max_tank
- 
+
  max_energy=100
  energy_level=max_energy
  walk_cost=0.2
@@ -178,10 +179,10 @@ function init_player()
  plow_cost=1
  water_cost=0.5
  plant_cost=0.5
- 
+
  grabbed_item=nil
  tx=px ty=py
- 
+
  animation=nil
  anim_index=nil
  anim_duration=nil
@@ -201,7 +202,7 @@ end
 -- fun!)
 function init_time()
  hour_inc=0.0036 --*100
- 
+
  recharge_rate=100*hour_inc/4
  water_rate=100*hour_inc/2
 end
@@ -214,9 +215,9 @@ function init_base()
 end
 
 function init_game()
- blank_screen=false 
+ blank_screen=false
 
- init_items() 
+ init_items()
  init_plants()
  init_menu()
  init_time()
@@ -231,14 +232,15 @@ end
 function _init()
  load_font()
  init_fx()
- 
+
  new_game()
  init_game()
 
  -- cheatz
  menuitem(1,"+energy",function() energy_level=max_energy end)
- menuitem(2,"+8hrs",function() hour+=8 end)
-  
+ menuitem(2,"-energy",function() energy_level=mid(max_energy,0,energy_level/2) end)
+ menuitem(3,"+8hrs",function() hour+=8 end)
+
  if chapter==0 then
   do_script(cs_intro)
  end
@@ -252,7 +254,7 @@ function open_item_menu()
 end
 
 function looking_at()
- if d==0 then return {x=px-1,y=py} end --left 
+ if d==0 then return {x=px-1,y=py} end --left
  if d==1 then return {x=px+1,y=py} end --right
  if d==2 then return {x=px,y=py+1} end --down
  return {x=px,y=py-1} --up
@@ -289,7 +291,7 @@ function animate(anim,done)
  animation=anim
  anim_done=done
  anim_index=1
- 
+
  local frame=anim[1]
  anim_duration=frame.duration
 end
@@ -331,23 +333,23 @@ function buzz()
 end
 
 function update_time(inc)
- if buzz_time > 0 then 
-  buzz_time -= 0.75 
+ if buzz_time > 0 then
+  buzz_time -= 0.75
  end
 
  if (inc==nil) inc=hour_inc
  hour+=inc
- if hour>24 then 
-  day+=1 
+ if hour>24 then
+  day+=1
   hour-=24
-  
+
   -- every night at midnight we
   -- dry everything out.
   for y=0,31 do
    for x=0,31 do
     local wet=mget(x,y)
     local dry=dry_map[wet]
-    if dry~=nil then 
+    if dry~=nil then
      mset(x,y,dry)
     end
    end
@@ -359,10 +361,10 @@ function update_walk()
  -- this is the core update fn
  -- of the game: what runs while
  -- you're "playing" the game.
- -- 
+ --
  -- most of the subsystems only
  -- update while you're playing,
- -- and are paused any other 
+ -- and are paused any other
  -- time (cutscenes, etc.)
  update_time()
  update_base()
@@ -386,15 +388,15 @@ function update_walk()
  if px < tx then px += spd end
  if py > ty then py -= spd end
  if py < ty then py += spd end
-	walking=not (tx == px and ty == py)
+    walking=not (tx == px and ty == py)
  if walking then
   energy_level-=walk_cost
   idle_time=0
  end
- 
+
  if not walking then
-  if btnp(❎) and 
-     grabbed_item==nil then 
+  if btnp(❎) and
+     grabbed_item==nil then
    open_item_menu()
   end
   if btnp(🅾️) then
@@ -402,7 +404,7 @@ function update_walk()
    idle_time=0
   end
  end
- 
+
  if energy_level<=0 then
   -- uh oh, trouble.
   fade_out(function()
@@ -417,7 +419,7 @@ function update_walk()
    end
   end)
  end
- 
+
  idle_time+=0.0333
 end
 
@@ -438,8 +440,8 @@ update_fn=update_walk
 function update_base()
   -- before penny fixes the base
  if (chapter<2) return
- 
- if px==base_x and 
+
+ if px==base_x and
     py==base_y then
   save_game() -- auto-save
   energy_level=min(max_energy, energy_level+recharge_rate)
@@ -519,7 +521,7 @@ function draw_time()
  local sp=133
  local fl=false
 
- local is_day=true 
+ local is_day=true
  local frc
  if hour>=6 and hour<18 then
   frc=(hour-6)/12
@@ -537,14 +539,14 @@ function draw_time()
   fl=mun.flipped
   bg=0 fg=5
  end
- 
+
  rectfill(16,2,110,11,bg)
  rect(16,2,110,11,fg)
  spr(sp,16+(87*frc),3,1,1,fl)
 end
 
 function draw_item()
- draw_box(96,104,2,1) 
+ draw_box(96,104,2,1)
  print("🅾️",103,114,7)
  local items=get_items()
  spr(items[item_sel].icon,112,112)
@@ -556,7 +558,7 @@ function draw_meters()
   local tank_frac=(max_tank-tank_level)/max_tank
   rectfill(111,57+41*tank_frac,115,98,12)
  end
- 
+
  local nrg_frac=(max_energy-energy_level)/max_energy
  local nrg_color
  if nrg_frac<0.5 then
@@ -576,12 +578,12 @@ end
 function draw_map()
  local ofx=0
  local ofy=0
- if buzz_time>0 then 
-  ofy+=cos(buzz_time) 
-  ofx+=sin(buzz_time) 
+ if buzz_time>0 then
+  ofy+=cos(buzz_time)
+  ofx+=sin(buzz_time)
  end
-	map( 0,0,ofx+0,ofy+0,16,16) -- base
-	map(32,0,ofx+0,ofy+0,16,16) -- item
+    map( 0,0,ofx+0,ofy+0,16,16) -- base
+    map(32,0,ofx+0,ofy+0,16,16) -- item
 end
 
 function draw_player()
@@ -595,21 +597,21 @@ function draw_player()
   idx=35
  else
   if (flr(time()*4)%2)==0 then
-   idx+=2 
+   idx+=2
   end
  end
- 
- --if d==2 then fl=false end 
+
+ --if d==2 then fl=false end
  if     d==3 then idx+=8
  elseif d==1 then idx+=4
  elseif d==0 then idx+=4 fl=true
  end
- 
+
  local sc=world_to_screen(px,py)
 
  local dx=0 local dy=-14
  if grabbed_item~=nil then
-  if     d==0 then dx=-14  
+  if     d==0 then dx=-14
   elseif d==1 then dx=6
   elseif d==2 then dx=-4
   elseif d==3 then dx=-4
@@ -630,7 +632,7 @@ function draw_player()
  spr(idx,sc.x-8,sc.y-12,2,2,fl)
  palt()
 
- if grabbed_item~=nil and 
+ if grabbed_item~=nil and
     d~=3 then
   spr(
    grabbed_item,
@@ -645,19 +647,19 @@ function draw_base()
  local bsy=8*base_y
 
  if chapter<2 or
-    px~=base_x or 
+    px~=base_x or
     py~=base_y then
   pal(10,6) -- no glow
  end
- 
+
  spr(115,bsx-8,bsy)
- spr(115,bsx+8,bsy,1,1,true) 
+ spr(115,bsx+8,bsy,1,1,true)
  spr(99,bsx-8,bsy-8)
  spr(99,bsx+8,bsy-8,1,1,true)
  circ(bsx-2,bsy-8,3,1)
-	circfill(bsx-2,bsy-8,2,10)
+    circfill(bsx-2,bsy-8,2,10)
  circ(bsx+9,bsy-8,3,1)
-	circfill(bsx+9,bsy-8,2,10)
+    circfill(bsx+9,bsy-8,2,10)
 
  pal()
 end
@@ -682,84 +684,100 @@ function draw_objective()
  end
 end
 
+function draw_debug()
+   if px!=nil and py!=nil then
+      print("x "..px.." y "..py.." t "..hour, 0, 0, 7)
+   end
+   if chapter != nil then
+      print("chapter: "..chapter, 0, 8, 7)
+   end
+   if DBG_last_fail_msg != nil then
+      print("last fail: "..DBG_last_fail_msg, 0, 16, 7)
+   end
+   if penny_x then
+      print("penny x "..penny_x.." y "..penny_y.." t "..penny_t.." s "..penny_speed,0,24,7)
+      print("      f "..penny_frame.." at "..penny_atime.." d "..penny_d,0,32,7)
+   end
+
+   -- check the dumb clearing
+   rect(px*8,py*8,(px+6)*8,(py+6)*8,10)
+   if not _check_clear(px,py) then
+      rect(
+         DBG_clear_fail_pt[1]*8,
+         DBG_clear_fail_pt[2]*8,
+         DBG_clear_fail_pt[1]*8+8,
+         DBG_clear_fail_pt[2]*8+8,
+         7)
+   end
+end
+
 -- the main rendering function
--- since almost everything is 
+-- since almost everything is
 -- always on the screen at the
 -- same time.
 function draw_game()
  -- first, we adjust the pals so
  -- that it looks like the right
  -- time of day. (but if we get
- -- here and the palette is 
+ -- here and the palette is
  -- already dark then just let it
  -- be.)
  if pal==original_pal then
   enable_sunshine(hour)
  end
-	
-	draw_map()
-	
-	-- make sure we draw the world
-	-- objects in the right order.
-	local draws={draw_player,draw_base,draw_penny}
-	local ys={py*8+4,base_y*8+4,penny_y}
-	sort(ys,draws)
-	for dd in all(draws) do
-	 dd()
-	end
- 
- -- (debugging garbage)
- --rectfill(sc.x-4,sc.y-4,sc.x+4,sc.y+4,7) 
- --local tc=looking_at()
- --sc=world_to_screen(tc.x,tc.y)
- --rectfill(sc.x-4,sc.y-4,sc.x+4,sc.y+4,10)
- -- for dy=1,15 do
- --  for dx=1,15 do
- --   if mget(dx+64,dy)==1 then
- --    rect(dx*8,dy*8,dx*8+8,dy*8+8,7)
- --   end
- --  end
- -- end 
- 
+
+ draw_map()
+
+ -- make sure we draw the world
+ -- objects in the right order.
+ local draws={draw_player,draw_base,draw_penny}
+ local ys={py*8+4,base_y*8+4,penny_y}
+ sort(ys,draws)
+ for dd in all(draws) do
+    dd()
+ end
+
  -- now rain and stuff
  draw_weather()
- 
+
  -- now turn off the palettes so
- -- that the menu and stuff 
- -- don't get affected by the 
+ -- that the menu and stuff
+ -- don't get affected by the
  -- time of day.
  disable_dark()
- 
+
  -- hud and debug stuff
- -- print("x "..x.." y "..y)
  if menu_mode then
-  draw_menu(menu_items,menu_sel)
+    draw_menu(menu_items,menu_sel)
  elseif idle_time>1 then
-  draw_item()
-  draw_time()
-  draw_meters()
-  draw_objective()
+    draw_item()
+    draw_time()
+    draw_meters()
+    draw_objective()
  elseif (energy_level/max_energy)<0.25 then
-  draw_meters()
+    draw_meters()
  end
+
+ draw_debug()
 end
 
 function _draw()
- -- dirty hack: if you set 
+ -- dirty hack: if you set
  -- blank_screen to true then we
- -- won't bother drawing the 
+ -- won't bother drawing the
  -- game. (cut-scenes use this
  -- to do a blackout.)
-	if blank_screen then
-	 cls(0)
-	else
+ if blank_screen then
+  cls(0)
+ else
   draw_game()
  end
- 
+
  -- the little box where people
  -- talk. (in 'cutscene stuff')
  draw_text()
 end
+
 -->8
 -- plants and items
 grass={
@@ -776,16 +794,16 @@ mum={
 plant_classes={grass,mum}
 
 function init_plants()
- -- init the reverse-lookup 
+ -- init the reverse-lookup
  -- table for the plant data.
  plant_spr={}
  for p in all(plant_classes) do
   for s in all(p.stages) do
    plant_spr[s]=p
   end
- end 
+ end
 
- -- these are all the live 
+ -- these are all the live
  -- plants
  plants={}
  for y=1,15 do
@@ -816,7 +834,7 @@ function update_plants()
     mset(p.x+32,p.y,class.stages[flr(new_age)])
    end
    p.age=new_age
-  end  
+  end
  end
 end
 
@@ -831,7 +849,7 @@ end
 
 function add_plant(p,st,tx,ty)
  add(
-  plants, 
+  plants,
   {age=1,x=tx,y=ty,cls=p})
  mset(tx+32,ty,p.stages[st])
 end
@@ -841,12 +859,12 @@ function i_plant(item,tx,ty)
   buzz()
   return
  end
- 
+
  if energy_level<plant_cost then
   buzz()
   return
  end
- 
+
  energy_level-=plant_cost
  local p=item.plant
  add_plant(p,1,tx,ty)
@@ -856,15 +874,15 @@ function i_grab(item,tx,ty)
  local tgt=mget(tx+32,ty)
  if grabbed_item~=nil then
   -- drop
-  if fget(tgt,0) or 
-     tx < 0 or ty < 0 or 
+  if fget(tgt,0) or
+     tx < 0 or ty < 0 or
      tx > 15 or ty > 15 then
    -- nopers
    buzz()
   else
    mset(tx,ty,64) -- bare dirt
    mset(tx+32,ty,grabbed_item)
-   remove_plant(tx,ty)   
+   remove_plant(tx,ty)
    grabbed_item=nil
   end
  elseif fget(tgt,2) then
@@ -884,7 +902,7 @@ function i_till(item,tx,ty)
   buzz()
   return
  end
- 
+
  if energy_level<plow_cost then
   buzz()
   return
@@ -898,8 +916,8 @@ function i_till(item,tx,ty)
     remove_plant(tx,ty)
     mset(tx+32,ty,0) -- destroy
    end
-	  mset(tx,ty,66)    -- plowed  
-	 end)
+      mset(tx,ty,66)    -- plowed
+     end)
 end
 
 function init_items()
@@ -950,16 +968,16 @@ function i_water(item,tx,ty)
   buzz()
   return
  end
- 
+
  if energy_level<water_cost then
   buzz()
   return
  end
 
- energy_level-=water_cost 
+ energy_level-=water_cost
  animate(
   {{frame=35,duration=10}},
-  function() 
+  function()
    tank_level-=10
    local ground=mget(tx,ty)
    if wet_map[ground]~=nil then
@@ -972,7 +990,7 @@ end
 -- weather
 --
 -- :todo: random weather on hour
--- and season. 
+-- and season.
 function init_weather()
  raining=false
  rain={}
@@ -992,16 +1010,16 @@ function update_weather()
    })
   end
  end
- 
+
  for drop in all(rain) do
   drop.y+=3
   drop.x+=1
   drop.life-=1
-  if drop.y>=128 
+  if drop.y>=128
    or drop.life < 0 then
-   del(rain,drop) 
+   del(rain,drop)
   end
- end 
+ end
 end
 
 function draw_weather()
@@ -1025,7 +1043,7 @@ function init_fx()
   dark_levels[x]=ramp
  end
  original_pal=pal
- 
+
  -- dark levels by hour.
  -- todo: should also factor in
  --       phase of moon?
@@ -1124,7 +1142,7 @@ py_down_wry={top=196,bot=224}
 
 -- cutscenes.
 cs_intro={
- {pre=function() 
+ {pre=function()
    cls(0)
    penny_show(base_x*8+4,base_y*8+16,0)
    blank_screen=true
@@ -1133,7 +1151,7 @@ cs_intro={
   "^p^e^n^n^y!",
   "...",
   "^where is that girl?"},
- {p=py_mid_closed,  
+ {p=py_mid_closed,
   "^o^k...\n^deep breath..."},
  {p=py_up_intense,
   "^r^x-228! ^activate!!!"},
@@ -1170,7 +1188,7 @@ cs_firstcharge={
    cls(0)
    penny_show(base_x*8+4,base_y*8+16,0)
    blank_screen=true
-   
+
    -- ♪: set the chapter early
    --     so the base glows.
    chapter=2
@@ -1211,30 +1229,43 @@ cs_firstcharge={
  end
 }
 
-function check_bigspace()
- function check(x,y)
-  for iy=0,5 do
-   for ix=0,5 do
-    if map_flag(x+ix,y+iy,0) then
-     return false
-    end
+function _check_clear(x,y)
+   for iy=0,5 do
+      for ix=0,5 do
+         if map_flag(x+ix,y+iy,0) then
+            DBG_clear_fail_pt={x+ix,y+iy}
+            return false
+         end
+      end
    end
-  end
-  return true
+
+   DBG_clear_fail_pt=nil
+   return true
+end
+
+
+function check_bigspace()
+ DBG_last_fail_msg=nil
+
+ if (penny_x==nil) then
+    DBG_last_fail_msg="no penny"
+    return
+ end
+ if (grabbed_item) then
+    DBG_last_fail_msg="holding something"
+    return
  end
 
- if (penny_x==nil) return
- if (grabbed_item) return
- 
  for y=1,9 do
   for x=1,9 do
-   if check(x,y) then
+   if _check_clear(x,y) then
     objective=nil
     do_script(cs_didclear)
     return
    end
   end
  end
+ DBG_last_fail_msg="no big space"
 end
 
 cs_didclear={
@@ -1375,9 +1406,9 @@ end
 function update_text()
  idle_time=0
  text_time=min(
-  text_limit, 
+  text_limit,
   text_time+2)
- 
+
  if btnp(🅾️) then
   text=nil
   resume(text_next_fn)
@@ -1389,7 +1420,7 @@ function draw_text()
 
  -- outline box
  draw_box(0,96,14,2)
- 
+
  -- actual text
  local ss=sub(text,1,1+text_time)
  if sub(ss,-1,-1)=="^" then
@@ -1412,12 +1443,12 @@ end
 
 function init_penny()
  update_penny=nop
- 
+
  penny_x=nil penny_y=0
  penny_t=0 penny_speed=0.09
  penny_frame=0
  penny_atime=0
- 
+
  penny_d=0 -- -1,1,0,2
 end
 
@@ -1441,8 +1472,8 @@ function penny_wander()
  end
 
  function _sleep()
-  local sd=day 
-  penny_x=nil 
+  local sd=day
+  penny_x=nil
   update_penny=function()
    -- wait for morning.
    if day>sd and hour>=8 then
@@ -1453,12 +1484,12 @@ function penny_wander()
    end
   end
  end
- 
+
  function _idle()
   local t=(rnd()*30)+20
   update_penny=function()
    if hour>=18 then
-    -- penny, it's late! run 
+    -- penny, it's late! run
     -- home to mom!
     penny_run(128,penny_y,_sleep)
    else
@@ -1467,11 +1498,11 @@ function penny_wander()
      _next()
     else
      check_objective()
-    end 
+    end
    end
   end
  end
- 
+
  _next()
 end
 
@@ -1484,8 +1515,8 @@ function penny_run(tx,ty,fn)
  local dx=tx-penny_x
  local dy=ty-penny_y
  if abs(dx)>abs(dy) then
-  if dx>0 then 
-   penny_d=1 
+  if dx>0 then
+   penny_d=1
   else
    penny_d=-1
   end
@@ -1496,11 +1527,11 @@ function penny_run(tx,ty,fn)
    penny_d=0
   end
  end
- 
+
  penny_t=0
  update_penny=function()
   penny_t+=penny_speed
-  
+
   penny_atime+=penny_speed
   while penny_atime>=1 do
    penny_atime-=1
@@ -1509,27 +1540,35 @@ function penny_run(tx,ty,fn)
   local dist=(sin(penny_t)+1)*3
   if penny_d==0 then
    penny_y-=dist
-   if (penny_y<ty) penny_y=ty
+   if penny_y<ty then
+      penny_y=ty
+   end
   elseif penny_d==2 then
    penny_y+=dist
-   if (penny_y>ty) penny_y=ty
+   if penny_y>ty then
+      penny_y=ty
+   end
   elseif penny_d==-1 then
    penny_x-=dist
-   if (penny_x<tx) penny_x=tx
+   if penny_x<tx then
+      penny_x=tx
+   end
   else
    penny_x+=dist
-   if (penny_x>tx) penny_x=tx
-	 end
-  
+   if penny_x>tx then
+      penny_x=tx
+   end
+  end
+
   -- 2 frames, 2 wide
   penny_frame=flr(penny_atime*2)*2
-  
+
   if penny_x==tx and
      penny_y==ty then
    penny_frame=0
    update_penny=nop
-   if fn then 
-    resume(fn) 
+   if fn then
+    resume(fn)
    else
     penny_x=nil
    end
@@ -1562,7 +1601,7 @@ end
 --
 -- call load_font() then when
 -- you want call draw_string()
--- to draw what you want. 
+-- to draw what you want.
 -- the font has upper case a-z,
 -- lower case a-z, digits 0-9,
 -- and some punctuation.
@@ -1573,11 +1612,11 @@ function load_font()
  for i=1,#enc,2 do
   add(bytes,tonum("0x"..sub(enc,i,i+1)))
  end
- 
+
  local font,bi={},1
  while bi<#bytes do
   local c=bytes[bi] bi+=1
-  
+
   local bmap={bytes[bi]}
   local b=bmap[1]
   local w,h=(b&0xf0)>>4,b&0x0f
@@ -1586,10 +1625,10 @@ function load_font()
    add(bmap,bytes[bi+j])
   end
   bi+=bytec+1
-  
+
   font[c]={w=w,h=h,bmap=bmap}
  end
- 
+
  _jd_font=font
 end
 
@@ -1602,7 +1641,7 @@ function draw_font_glyph(glyph,x,y)
  for iy=8-glyph.h,7 do
   for ix=0,glyph.w-1 do
    if byte&0x80>0 then
-    pset(x+ix,y+iy)    
+    pset(x+ix,y+iy)
    end
    -- advance bits
    byte<<=1 bits+=1
@@ -1616,14 +1655,14 @@ end
 
 -- render a string in the font
 -- with the upper-left at x,y.
--- specify upper-case letters 
+-- specify upper-case letters
 -- by prefixing them with a ^.
 --
--- (e.g., "^e" renders an 
+-- (e.g., "^e" renders an
 -- upper-case e.)
 --
 -- if c is provided, the current
--- color will be set to that 
+-- color will be set to that
 -- color first.
 function draw_string(str,x,y,c)
  if c~=nil then color(c) end
@@ -1642,7 +1681,7 @@ function draw_string(str,x,y,c)
    else
     c=ord(c)
    end
-   
+
    local glyph=font[c]
    assert(glyph~=nil, "char "..chr(c).." not in font")
    draw_font_glyph(glyph,lx,ly)

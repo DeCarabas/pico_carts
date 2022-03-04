@@ -1,5 +1,5 @@
 pico-8 cartridge // http://www.pico-8.com
-version 29
+version 35
 __lua__
 -- "a pretty tree" 
 -- by john doty
@@ -11,10 +11,17 @@ __lua__
 function _init()
 end
 
+local bug_age=0
+
 function _update()
- if btnp(❎) or btnp(🅾️) or the_tree==nil then
+ if btnp(❎) or btnp(🅾️) then
+  the_tree=nil
+  bug_age=0
+ end
+ if the_tree==nil then
   the_tree=tree:new()
  end
+ bug_age=mid(bug_age+0.01,0,1)
 end
 
 function princ(txt,y,col)
@@ -25,7 +32,7 @@ end
 function _draw()
  cls()
  princ("a pretty tree", 16, 7)
- the_tree:draw(64,64)
+ the_tree:draw(64,64,bug_age)
  princ("press 🅾️ or ❎ for another", 96, 7)
 end
 -->8
@@ -44,12 +51,12 @@ function skele(d)
  end
  
  -- squish the branches into the
- -- upper half and move them to the
- -- starting point.
+ -- upper half and move them to 
+ -- the starting point.
  local delta=(0.5-rnd())/2
  for l in all(s) do
-  l[1].x+=delta 
-  l[2].x+=delta 
+  l[1].x+=delta
+  l[2].x+=delta
   l[1].y=0.4+l[1].y*0.6
   l[2].y=0.4+l[2].y*0.6
  end
@@ -85,6 +92,9 @@ function tree:new()
  return setmetatable(f,{__index=self})
 end
 
+-- fill a quadrilateral with
+-- slanty sides but flat tops
+-- and bottoms.
 function fill_quad(
  xul,xur,ytop,xll,xlr,ybot)
  local h=ybot-ytop
@@ -101,11 +111,18 @@ function fill_quad(
  end
 end
 
-function tree:draw(x,y)
+-- draw with x,y centered at 
+-- bottom of trunk?
+function tree:draw(x,y,age)
  local lx,ly
 
  local w,h=16,16
- x-=w/2 y-=h/2
+
+	-- full width/height at 0.5 
+	local af=mid(age/0.5,0,1)
+ w*=af h*=af  
+ x-=flr(w/2) y-=flr(h) -- upper-left?
+ 
  for l in all(self.skeleton) do
   local tw=(1-l[2].y)*w*0.5
   local top_x=x+flr(l[2].x*w)
@@ -114,18 +131,39 @@ function tree:draw(x,y)
   local bw=(1-l[1].y)*w*0.5
   local bot_x=x+flr(l[1].x*w)
   local bot_y=y+flr(h-l[1].y*h)
-  fill_quad(
-   flr(top_x-tw/2),ceil(top_x+tw/2),top_y,
-   flr(bot_x-bw/2),ceil(bot_x+bw/2),bot_y)
+  if tw and bw then
+   fill_quad(
+    flr(top_x-tw/2),ceil(top_x+tw/2),top_y,
+    flr(bot_x-bw/2),ceil(bot_x+bw/2),bot_y)
+  end
  end
 
- for pt in all(self.leaves) do
-  lx=4+x+pt[1]*w 
-  ly=y-4+pt[2]*h/2
+	-- leaves from 0.2 to 0.6
+	local leaf_cnt=#self.leaves
+	leaf_cnt=flr(mid(
+	 leaf_cnt*((age-0.2)/0.4),
+	 0,
+	 leaf_cnt))
+
+	local leaf_i
+	for leaf_i=1,leaf_cnt-1 do
+	 local pt=self.leaves[leaf_i]
+  lx=(4*af)+x+pt[1]*w 
+  ly=y-(4*af)+pt[2]*h/2
   spr(pt.spr,lx,ly)
  end
- for pt in all(self.flowers) do
-  lx=x+(w/4)+pt[1]*w*0.75 
+
+	-- flowers from 0.4 to 1.0
+	local flower_cnt=#self.flowers
+	flower_cnt=flr(mid(
+	 flower_cnt*((age-0.4)/0.6),
+	 0,
+	 flower_cnt))
+
+ local flower_i
+ for flower_i=1,flower_cnt-1 do
+  local pt=self.flowers[flower_i]
+  lx=x+(w/4)+pt[1]*w*0.75
   ly=y-pt[2]*h/2
   self.flower:draw(lx,ly,1)
  end  
@@ -185,6 +223,8 @@ function lerp(a,b,t)
  return a+(b-a)*t
 end
 
+-- random point within a unit 
+-- circle
 function rndc()
  local x,y=-1,-1
  while sqrt(x*x+y*y)>1 do

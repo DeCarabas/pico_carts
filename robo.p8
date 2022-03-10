@@ -102,7 +102,7 @@ end
 --  chapter 2: clear field
 --  chapter 3: till and plant
 function new_game()
-   chapter=0
+   chapter=3 -- HACK
    base_x=2+flr(rnd(12))
    base_y=3+flr(rnd(8))
    day=0
@@ -279,9 +279,9 @@ end
 function use_thing()
    local items=get_items()
    local item=items[item_sel]
-   if item.fn~=nil then
+   if item.fn != nil then
       local tgt=looking_at()
-      item.fn(item,tgt.x,tgt.y)
+      item.fn(item, tgt.x, tgt.y)
    end
 end
 
@@ -326,7 +326,7 @@ end
 buzz_time=0
 
 function buzz()
-   -- todo: sounds or something?
+   -- :todo: sounds or something?
    buzz_time=3
 end
 
@@ -765,7 +765,7 @@ function draw_game()
       draw_meters()
    end
 
-   draw_debug()
+   -- draw_debug()
 end
 
 function _draw()
@@ -783,6 +783,44 @@ function _draw()
    -- the little box where people
    -- talk. (in 'cutscene stuff')
    draw_text()
+end
+
+-->8
+-- water
+function init_water()
+   wet_map={}
+   wet_map[64]=67
+   wet_map[66]=68
+
+   dry_map={}
+   for k,v in pairs(wet_map) do
+      dry_map[v]=k
+   end
+end
+
+function i_water(item,tx,ty)
+   if tank_level < 10 then
+      DBG_last_fail_msg = "no water"
+      buzz()
+      return
+   end
+
+   if energy_level<water_cost then
+      DBG_last_fail_msg = "no power"
+      buzz()
+      return
+   end
+
+   energy_level-=water_cost
+   animate(
+      {{frame=35,duration=10}},
+      function()
+         tank_level-=10
+         local ground=mget(tx,ty)
+         if wet_map[ground]~=nil then
+            mset(tx,ty,wet_map[ground])
+         end
+   end)
 end
 
 -->8
@@ -958,42 +996,6 @@ function get_items()
    end
 end
 -->8
--- water
-function init_water()
-   wet_map={}
-   wet_map[64]=67
-   wet_map[66]=68
-
-   dry_map={}
-   for k,v in pairs(wet_map) do
-      dry_map[v]=k
-   end
-end
-
-function i_water(item,tx,ty)
-   if tank_level < 10 then
-      buzz()
-      return
-   end
-
-   if energy_level<water_cost then
-      buzz()
-      return
-   end
-
-   energy_level-=water_cost
-   animate(
-      {{frame=35,duration=10}},
-      function()
-         tank_level-=10
-         local ground=mget(tx,ty)
-         if wet_map[ground]~=nil then
-            mset(tx,ty,wet_map[ground])
-         end
-   end)
-end
-
--->8
 -- weather
 --
 -- :todo: random weather on hour
@@ -1052,8 +1054,7 @@ function init_fx()
    original_pal=pal
 
    -- dark levels by hour.
-   -- todo: should also factor in
-   --       phase of moon?
+   -- :todo: should also factor in phase of moon?
    local sm={}
    for i=0,4   do sm[i]=3    end
    for i=5,8   do sm[i]=8-i  end
@@ -1127,6 +1128,44 @@ end
    end
    end
 ]]
+
+function dump_obj(o)
+   local t = type(o)
+   if o == nil then
+      return "nil"
+   elseif t == "table" then
+      local r = "{"
+      local first_item=true
+      for i=1,#o do
+         if not first_item then
+            r=r..", "
+         end
+         r=r..dump_obj(o[i])
+         first_item=false
+      end
+      for k,v in pairs(o) do
+         if type(k)~="number" or k<1 or k>#o then
+            if not first_item then
+               r=r..", "
+            end
+            r=r..dump_obj(k).."="..dump_obj(v)
+            first_item=false
+         end
+      end
+      r = r.."}"
+      return r
+   elseif t == "number" then
+      return tostr(o)
+   elseif t == "string" then
+      return "'"..o.."'"
+   elseif t == "thread" then
+      return "coro"
+   elseif t == "function" then
+      return "function"
+   else
+      return "?? ("..t..")"
+   end
+end
 
 -->8
 -- cutscene stuff
@@ -1344,7 +1383,8 @@ cs_didclear={
          local ox = penny.x
          penny:leave()
 
-         -- TODO: Wait a little bit? :D
+         -- :todo: a little bit between when she leaves and when
+         --        she comes back?
 
          penny:show(128, (py*8)+16, 2)
          penny:run_to(px*8+4, penny.y)
@@ -1384,17 +1424,12 @@ cs_didclear={
 }
 
 --
+local old_penny_visible=false
 
 cs_nobattery={
    {
       pre=function()
-         -- TODO: What if you run out of batteries while waiting for penny?
-         --       This is wild.
-         if penny:visible() then
-            old_penny_x=penny.x
-         else
-            old_penny_x=nil
-         end
+         old_penny_visible = penny:visible()
 
          cls(0)
          penny:show(base_x*8+4, base_y*8+16, 0)
@@ -1425,8 +1460,8 @@ cs_nobattery={
    },
 
    post=function()
-      if old_penny_x==nil then
-         penny_run(128,penny_y)
+      if not old_penny_visible then
+         penny:leave()
       end
       update_fn=update_walk
    end

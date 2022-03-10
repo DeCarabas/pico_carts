@@ -1644,6 +1644,12 @@ function penny:wander_around()
       ty = mid(8,ty,111)
 
       self:run_to(tx, ty)
+
+      local t=(rnd()*30)+10
+      while t>0 do
+         t -= 1
+         yield()
+      end
    end
 end
 

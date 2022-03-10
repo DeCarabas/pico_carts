@@ -1339,30 +1339,16 @@ cs_didclear={
       "^wait a bit, ^i'll be\nback!"
    },
 
-   post=function()
-      penny:start_leave()
-      update_fn=update_walk
-
-      -- This is incorrect, we... hm.
-      -- local start_hour=hour
-      -- objective_fn=function()
-      --    -- we'll use the objective
-      --    -- hook to just wait an hour.
-      --    if hour-start_hour>=1 then
-      --       do_script(cs_up_tools)
-      --    end
-      -- end
-   end
-}
-
-cs_up_tools={
    {
-      pre=function(c)
+      pre=function()
+         local ox = penny.x
+         penny:leave()
+
+         -- TODO: Wait a little bit? :D
+
          penny:show(128, (py*8)+16, 2)
-         ouijf()
-         penny_run(px*8+4,penny_y,c)
-         yield()
-         penny_d=0
+         penny:run_to(px*8+4, penny.y)
+         penny:show(penny.x, penny.y, 0)
       end,
 
       p=py_mid_wry,
@@ -1392,7 +1378,7 @@ cs_up_tools={
    post=function()
       chapter = 3
       tank_level = max_tank
-      penny_run(128,penny_y)
+      penny:start_leave()
       update_fn = update_walk
    end
 }
@@ -1463,13 +1449,19 @@ function resume(cb)
    end
 end
 
+local script_coro = nil
+
+function update_script()
+   idle_time = 0
+   coresume(script_coro)
+end
+
 function do_script(script)
-   local _coro=nil
-   _coro = cocreate(function()
+   script_coro = cocreate(function()
          local stage,s_line
          for stage in all(script) do
-            if (stage.pre) then
-               stage.pre(_coro)
+            if stage.pre then
+               stage.pre()
             end
             local p=stage.p or {}
             for s_line in all(stage) do
@@ -1480,7 +1472,7 @@ function do_script(script)
             script:post()
          end
    end)
-   assert(coresume(_coro))
+   update_fn=update_script
 end
 
 local text = nil
@@ -1491,15 +1483,19 @@ function show_text(t, top, bot, coro)
    text_limit = #text + 5
    text_sprite_top = top
    text_sprite_bot = bot
-   update_fn = function()
-      idle_time = 0
+
+   while not btnp(🅾️) do
       text_time = min(text_limit, text_time + 2)
-      if btnp(🅾️) then
-         text=nil
-         resume(coro)
-      end
+      yield()
    end
-   yield() -- Will be resumed!
+
+   -- Gotta go back to update to clear the btnp,
+   -- otherwise every other time we call btnp()
+   -- it will still return true. (We're in game
+   -- time here not frame time!)
+   yield()
+
+   text = nil
 end
 
 function draw_text()
@@ -1607,10 +1603,6 @@ function penny:run_to(tx, ty)
       dx *= dlen dy *= dlen
       self.x = mid(self.x, self.x+dx, tx)
       self.y = mid(self.y, self.y+dy, ty)
-
-      --cls(0)
-      --print(dx.." "..dy.." "..dist.." "..dlen)
-      --asdfg()
 
       self.frame = flr(atime * 2) * 2
       yield()

@@ -10,6 +10,7 @@ __lua__
 
 local flower_scale=2
 local flower_size=6
+local actual_scale=0
 
 function _init()
 end
@@ -18,10 +19,12 @@ function _update()
  if btnp(⬆️) and flower_size<64 then
   flower_size+=2
   the_flower=nil
+  actual_scale=0
  end
  if btnp(⬇️) and flower_size>2 then
   flower_size-=2
   the_flower=nil
+  actual_scale=0
  end
  if btnp(⬅️) and flower_scale>1 then
   flower_scale-=1
@@ -32,7 +35,10 @@ function _update()
 
  if btnp(❎) or btnp(🅾️) or the_flower==nil then
   the_flower=flower:new(flower_size)
+  actual_scale=0
  end
+
+ actual_scale=mid(0,actual_scale+0.1,flower_scale)
 end
 
 function princ(txt,y,col)
@@ -44,7 +50,7 @@ function _draw()
  cls()
  princ("a pretty flower", 16, 7)
  princ("of "..tostr(flower_size).." pixels", 22, 7)
- the_flower:draw(64,64,flower_scale)
+ the_flower:draw(64,72,actual_scale)
  princ("seed: "..sub(tostr(the_flower.seed,0x3),7), 88, 7)
  princ("press 🅾️ or ❎ for another", 96, 7)
  princ("⬆️ and ⬇️ to grow and shrink", 102, 7)
@@ -71,9 +77,6 @@ function flower:new(size,seed,stem)
    flx=flx
  }
 
- f.s0=flr(rnd(size))
- f.s1=flr(rnd(size))
-
  local colors={}
  while colors[4]==colors[5] do
   colors={
@@ -88,13 +91,10 @@ function flower:new(size,seed,stem)
   for x=0,size-1 do
    local c=rnd(colors)
    sset(x,y+64,c)
-   f[y*size+x]=c
    if symm==0 then
     sset(y,x+64,c)
-    f[x*size+y]=c
    else
     sset(size-1-x,y+64,c)
-    f[y*size+(size-1-x)]=c
    end
   end
  end
@@ -108,8 +108,8 @@ function flower:draw(x,y,scale)
 
  if self.stem then
   local sx=flr(x-16*scale/2)
-  local sy=flr(y-16*scale/2)
- 
+  local sy=flr(y-16*scale)
+
   sspr(
    16*self.symm,8,16,16,
    sx,sy,16*scale,16*scale,
@@ -117,7 +117,7 @@ function flower:draw(x,y,scale)
  end
 
  local fx=flr(x-sz*scale/2)
- local fy=flr(y-sz*scale/2)
+ local fy=flr(y-(16+sz)*scale/2)
 
  sspr(
   0,64,sz,sz,

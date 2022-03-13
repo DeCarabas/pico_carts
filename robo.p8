@@ -62,7 +62,6 @@ __lua__
 -- [ ] lightning & fires
 --
 -- :todo: zelda rock sprites
--- :todo: walk change dir first
 -- :todo: energy fn
 -- :todo: save data 4b item
 --        4b qual. reduce game
@@ -402,10 +401,18 @@ function update_walk_impl()
    check_objective()
 
    if not is_sleeping and px==tx and py==ty then
-      if btnp(⬅️) then tx=px-1 d=0 end
-      if btnp(➡️) then tx=px+1 d=1 end
-      if btnp(⬇️) then ty=py+1 d=2 end
-      if btnp(⬆️) then ty=py-1 d=3 end
+      if btnp(⬅️) then
+         if d~=0 then d=0 else tx=px-1 end
+      end
+      if btnp(➡️) then
+         if d~=1 then d=1 else tx=px+1 end
+      end
+      if btnp(⬇️) then
+         if d~=2 then d=2 else ty=py+1 end
+      end
+      if btnp(⬆️) then
+         if d~=3 then d=3 else ty=py-1 end
+      end
       if tx<1  then buzz() tx=1  end
       if tx>14 then buzz() tx=14 end
       if ty<1  then buzz() ty=1  end

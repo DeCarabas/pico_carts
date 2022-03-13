@@ -101,7 +101,7 @@ end
 --  chapter 2: clear field
 --  chapter 3: till and plant
 function new_game()
-   chapter=3 -- HACK
+   chapter=0
    base_x=2+flr(rnd(12))
    base_y=3+flr(rnd(8))
    day=0
@@ -545,7 +545,14 @@ function draw_box(x, y, w, h)
 end
 
 function draw_menu(items, selection)
-   local hght=max(4,4+#items)
+   local hght
+   if chapter>1 then
+      hght=4+#items
+   else
+      hght=1+#items
+   end
+   hght=max(hght,4)
+
    draw_box(64,0,6,hght)
    color(7)
    local lx=71
@@ -569,12 +576,14 @@ function draw_menu(items, selection)
       ly += 10
    end
 
-   ly+=10
-   if selection==#items+1 then
-      print(">",lx,ly)
+   if chapter>1 then
+      ly=10 + (hght - 1) * 8
+      if selection==#items+1 then
+         print(">",lx,ly)
+      end
+      spr(150,lx+6,ly-1)
+      print("sleep",lx+16,ly)
    end
-   spr(150,lx+6,ly-1)
-   print("sleep",lx+16,ly)
 end
 
 moon_phases={134,135,136,137,138,139,138,137,136,135}

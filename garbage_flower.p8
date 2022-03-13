@@ -52,7 +52,8 @@ function _draw()
  princ("a pretty flower", 16, 7)
  princ("of "..tostr(flower_size).." pixels", 22, 7)
  the_flower:draw(64,72,actual_scale)
- princ("seed: "..sub(tostr(the_flower.seed,0x3),7), 88, 7)
+ princ("name: "..the_flower.name,84,7)
+ princ("seed: "..sub(tostr(the_flower.seed,0x3),7), 90, 7)
  princ("press 🅾️ or ❎ for another", 96, 7)
  princ("⬆️ and ⬇️ to grow and shrink", 102, 7)
  princ("⬅️ and ➡️ to zoom", 108, 7)
@@ -61,7 +62,34 @@ end
 -- actual flower stuff.
 flower={}
 function flower:init(sy)
-   flower.sy=sy
+ flower.sy=sy
+end
+
+function flip_coin()
+ if flr(rnd(2))==0 then
+  return false
+ else
+  return true
+ end
+end
+
+function rnd_chr(s)
+ local i=flr(rnd(#s))+1
+ return sub(s,i,i)
+end
+
+function flower:name()
+ local cons="wrtpsdfghjklzxcvbnm"
+ local vowl="aeiou"
+
+ local result=rnd_chr(cons)..rnd_chr(vowl)
+ if flip_coin() then
+  result=result..rnd_chr(cons)..rnd_chr(vowl)
+ else
+  result=result..rnd({"th","ch","ph","ke","te","se"})
+ end
+
+ return result
 end
 
 function flower:new(size,slot,seed,stem)
@@ -69,17 +97,16 @@ function flower:new(size,slot,seed,stem)
  if stem==nil then stem=true end
  srand(seed)
 
- local flx=false
- if flr(rnd(2))==0 then
-  flx=true
- end
+ local flx=flip_coin()
 
  local f={
    size=size,
    seed=seed,
    stem=stem,
    symm=flr(rnd(2)),
-   flx=flx
+   flx=flx,
+   slot=slot,
+   name=self:name()
  }
 
  local colors={}
@@ -133,7 +160,7 @@ function flower:draw(x,y,scale)
  local fy=flr(y-(16+sz)*scale/2)
 
  sspr(
-  0,64,sz,sz,
+  self.slot*sz,flower.sy,sz,sz,
   fx,fy,sz*scale,sz*scale,
   flx)
 end

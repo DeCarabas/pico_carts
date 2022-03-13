@@ -3,7 +3,7 @@ version 35
 __lua__
 -- robo gardening game
 -- (c) 2020 john doty
--- 
+--
 -- == basic idea ==
 -- you are a robot repaired and
 -- rebuilt by a lop, in the
@@ -228,6 +228,7 @@ function init_game()
 end
 
 function _init()
+   poke(0x5f36,0x40) -- disable print scroll
    load_font()
    init_fx()
 
@@ -495,7 +496,17 @@ function draw_menu(items, selection)
       if selection == i then
          print(">",lx,ly,7)
       end
-      spr(items[i].icon,lx+6,ly-1)
+      if items[i].icon then
+         spr(items[i].icon,lx+6,ly-1)
+      else
+         sspr(
+            items[i].sx,items[i].sy,
+            flower_size,flower_size,
+            -- x+6,y-1 looks good for 8x8 sprites,
+            -- for smaller flowers we need to adjust
+            -- lx+6+4-...,ly-1+4-...
+            lx+10-(flower_size/2),ly+3-(flower_size/2))
+      end
       print(items[i].name,lx+16,ly,7)
       ly += 10
    end
@@ -549,7 +560,14 @@ function draw_item()
    draw_box(96,104,2,1)
    print("🅾️",103,114,7)
    local items=get_items()
-   spr(items[item_sel].icon,112,112)
+   if items[item_sel].icon then
+      spr(items[item_sel].icon,112,112)
+   else
+      sspr(
+         items[item_sel].sx,items[item_sel].sy,
+         flower_size,flower_size,
+         116-(flower_size/2),116-(flower_size/2))
+   end
 end
 
 function draw_meters()
@@ -583,6 +601,7 @@ function draw_map()
       ofx+=sin(buzz_time)
    end
    map( 0,0,ofx+0,ofy+0,16,16) -- base
+
    map(32,0,ofx+0,ofy+0,16,16) -- item
 end
 
@@ -685,37 +704,52 @@ function draw_objective()
 end
 
 function draw_debug()
+   cursor(0,0,7)
    if px!=nil and py!=nil then
-      print("x "..px.." y "..py.." t "..hour, 0, 0, 7)
+      print("x "..px.." y "..py.." t "..hour)
    end
    if chapter != nil then
-      print("chapter: "..chapter, 0, 8, 7)
+      print("chapter: "..chapter)
    end
    if DBG_last_fail_msg != nil then
-      print("last fail: "..DBG_last_fail_msg, 0, 16, 7)
+      print("last fail: "..DBG_last_fail_msg)
    end
    if penny.x!=nil then
-      print("penny x "..penny.x.." y "..penny.y.." s "..penny.speed,0,24,7)
-      print("      f "..penny.frame.." d "..penny.d,0,32,7)
+      print("penny x "..penny.x.." y "..penny.y.." s "..penny.speed)
+      print("      f "..penny.frame.." d "..penny.d)
       if penny._thread and costatus(penny._thread) ~= "dead" then
          if penny.DBG_thread_name then
-            print("      act: "..penny.DBG_thread_name,0,40,7)
+            print("      act: "..penny.DBG_thread_name)
          else
             print("      act: ????")
          end
       end
    end
+   for fi=1,#flowers do
+      local f=flowers[fi]
+      print(fi.." "..f.seed.name.." "..f.x.." "..f.y)
+   end
+   if DBG_last_ys then
+      for yi=1,#DBG_last_ys do
+         local ly=DBG_last_ys[yi]
+         local la=DBG_last_draws[yi][2]
+         if type(la)=="table" then
+            la=la.seed.name
+         end
+         print(ly.." "..la)
+      end
+   end
 
    -- check the dumb clearing
-   rect(px*8,py*8,(px+6)*8,(py+6)*8,10)
-   if not _check_clear(px,py) then
-      rect(
-         DBG_clear_fail_pt[1]*8,
-         DBG_clear_fail_pt[2]*8,
-         DBG_clear_fail_pt[1]*8+8,
-         DBG_clear_fail_pt[2]*8+8,
-         7)
-   end
+   -- rect(px*8,py*8,(px+6)*8,(py+6)*8,10)
+   -- if not _check_clear(px,py) then
+   --    rect(
+   --       DBG_clear_fail_pt[1]*8,
+   --       DBG_clear_fail_pt[2]*8,
+   --       DBG_clear_fail_pt[1]*8+8,
+   --       DBG_clear_fail_pt[2]*8+8,
+   --       7)
+   -- end
 end
 
 -- the main rendering function
@@ -737,11 +771,27 @@ function draw_game()
 
    -- make sure we draw the world
    -- objects in the right order.
-   local draws={draw_player,draw_base,draw_penny}
-   local ys={py*8+4,base_y*8+4,penny.y}
+   local draws={
+      {draw_player,"robo"},
+      {draw_base,"base"}
+   }
+   local ys={
+      py*8+4,
+      base_y*8+4
+   }
+   if penny.y~=nil then
+      add(draws, {draw_penny,"pny"})
+      add(ys, penny.y)
+   end
+   for f in all(flowers) do
+      add(draws, {draw_flower,f})
+      add(ys, f.y*8+4)
+   end
    sort(ys,draws)
+   -- DBG_last_ys=ys
+   -- DBG_last_draws=draws
    for dd in all(draws) do
-      dd()
+      dd[1](dd[2])
    end
 
    -- now rain and stuff
@@ -765,7 +815,7 @@ function draw_game()
       draw_meters()
    end
 
-   -- draw_debug()
+   draw_debug()
 end
 
 function _draw()
@@ -834,20 +884,24 @@ grass={
    rate=0.0006,
    stages={144,145,146,147}
 }
-mum={
-   name="mum",
-   rate=0.0006,
-   stages={160,161,162,163}
-}
 
-plant_classes={grass,mum}
+plant_classes={grass}
+
+flower_seeds={}
+
+flowers={}
+flower_size=6
+flower_sy=88
 
 function init_plants()
-   flower:init()
+   flower:init(flower_sy)
+
+   -- :todo: OK how do we have multiple seeds?
+   add(flower_seeds, flower:new(flower_size,0))
 
    -- init the reverse-lookup
    -- table for the plant data.
-   plant_spr={}
+   local plant_spr={}
    for p in all(plant_classes) do
       for s in all(p.stages) do
          plant_spr[s]=p
@@ -887,6 +941,19 @@ function update_plants()
          p.age=new_age
       end
    end
+
+   for f in all(flowers) do
+      -- :todo: check wetness, allow water to grow faster.
+      --        (or at all?)
+      f.age=mid(f.age,f.age+0.1,1)
+   end
+end
+
+function draw_flower(plant)
+   -- OK we have an x and a y which are tile coords
+   -- and a seed which is a flower{} object
+   -- flower:draw() takes the bottom center location
+   plant.seed:draw(4+plant.x*8, 8+plant.y*8, plant.age)
 end
 
 function remove_plant(x,y)
@@ -920,6 +987,34 @@ function i_plant(item,tx,ty)
    local p=item.plant
    add_plant(p,1,tx,ty)
 end
+
+function remove_flower(x,y)
+   for f in all(flowers) do
+      if f.x==x and f.y==y then
+         del(flowers,f)
+         return
+      end
+   end
+end
+
+function i_flower(item,tx,ty)
+   if map_flag(tx,ty,1) then
+      buzz()
+      return
+   end
+
+   if energy_level<plant_cost then
+      buzz()
+      return
+   end
+
+   energy_level-=plant_cost
+
+   local seed=item.seed
+   add(flowers, {x=tx,y=ty,seed=seed,age=0.1})
+   mset(tx+32,ty,148) -- add placeholder
+end
+
 
 function i_grab(item,tx,ty)
    local tgt=mget(tx+32,ty)
@@ -965,6 +1060,7 @@ function i_till(item,tx,ty)
       function()
          if mget(tx+32,ty)~=0 then
             remove_plant(tx,ty)
+            remove_flower(tx,ty)
             mset(tx+32,ty,0) -- destroy
          end
          mset(tx,ty,66)    -- plowed
@@ -987,19 +1083,26 @@ tl_water={
 tl_grass={
    icon=147,name="grass",
    fn=i_plant,plant=grass}
-tl_mum={
-   icon=163,name="mum",
-   fn=i_plant,plant=mum}
 
 function get_items()
+   local items
    if chapter < 3 then
-      return {tl_grab}
+      items = {tl_grab}
    else
-      return {
+      items = {
          tl_grab,tl_till,tl_water,
-         tl_grass,tl_mum
-      }
+         tl_grass}
+
+      for i=1,#flower_seeds do
+          add(
+             items,
+             {sx=(i-1)*flower_size,sy=flower_sy,
+              name=flower_seeds[i].name,fn=i_flower,
+              seed=flower_seeds[i]})
+      end
    end
+
+   return items
 end
 -->8
 -- weather
@@ -1895,8 +1998,8 @@ cc53350000000000cc53350076500000980000000000000000555500005555000055550000555500
 00000000000000000000b0b00b0b3b30000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000000b0b0003b30b30000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000b0000b30b00b0b3b300000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000b000b00b0b30b00b0b3b30b000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0b00b0000b300b300b300bb00bb3b3b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000b000b00b0b30b00b0b3b30b000770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0b00b0000b300b300b300bb00bb3b3b0000770000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00b0b0bb03b0b3b00b30b3b00bb3b3b0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000000000000000000000000ddd00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 0000000000000000ddd00000dad0ddd0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -1947,7 +2050,7 @@ ffffffeeffffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffff0000000000000000
 00ffffffffffff0000fffffeefffff0000ffffffffffff0000fffffeefffff000000000000000000000000000000000000000000000000000000000000000000
 __gff__
 0800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008071828380000000000000000000000000000030000000000000000000000000000000300000000000000000000000000000203000000000000000000000000
-000000000000000000000000000000000a0a0a0a0000000000000000000000000a0a0a0a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000000000000000000000000000a0a0a0a0a00000000000000000000000a0a0a0a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 4040404040404040404040404040404000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 4040404040404040404040404040404000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

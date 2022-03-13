@@ -449,6 +449,7 @@ function update_walk_impl()
             tx=px ty=py walking=false
             day+=1 hour=8
             energy_level=max_energy
+            is_sleeping=false
             if chapter < 2 then
                do_script(cs_firstcharge)
             else
@@ -461,9 +462,13 @@ function update_walk_impl()
 end
 
 function update_walk()
+   -- all the good stuff is in update_walk_impl but we have this
+   -- stutter to make it easier to loop updates when sleeping or
+   -- whatever.
    if is_sleeping then
       for _i=1,20 do
          update_walk_impl()
+         if not is_sleeping then return end
       end
    else
       update_walk_impl()

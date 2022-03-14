@@ -1673,11 +1673,12 @@ local script_coro = nil
 
 function update_script()
    idle_time = 0
-   coresume(script_coro)
+   assert(coresume(script_coro))
 end
 
 function do_script(script)
    script_coro = cocreate(function()
+         local skipping=false
          local stage,s_line
          for stage in all(script) do
             if stage.pre then
@@ -1685,7 +1686,9 @@ function do_script(script)
             end
             local p=stage.p or {}
             for s_line in all(stage) do
-               show_text(s_line, p.top, p.bot, _coro)
+               if not skipping then
+                  skipping = show_text(s_line, p.top, p.bot, _coro)
+               end
             end
          end
          if script.post then
@@ -1696,6 +1699,7 @@ function do_script(script)
 end
 
 local text = nil
+local skip_time = 0
 
 function show_text(t, top, bot, coro)
    text = t
@@ -1705,17 +1709,43 @@ function show_text(t, top, bot, coro)
    text_sprite_bot = bot
 
    while not btnp(🅾️) do
+      if btn(❎) then
+         skip_time += 0.03
+      else
+         skip_time = 0
+      end
+      if skip_time >= 1 then
+         yield()
+         text = nil
+         return true
+      end
       text_time = min(text_limit, text_time + 2)
       yield()
    end
 
-   -- Gotta go back to update to clear the btnp,
+   -- gotta go back to update to clear the btnp,
    -- otherwise every other time we call btnp()
    -- it will still return true. (We're in game
    -- time here not frame time!)
    yield()
 
    text = nil
+   return false
+end
+
+function draw_arc(x,y,radius,angle)
+   -- just figure out how far around
+   local h = -sin(mid(0,angle,0.5) / 2) * radius * 2
+   local px,py,pw,ph = clip(x, y-radius, radius+1, h+2)
+   circ(x, y, radius)
+   if angle > 0.5 then
+      angle -= 0.5
+      local top = (y + radius) + (radius * 2 * sin(mid(0,angle,0.5) / 2))
+      clip(x-radius, top, radius+1, y+radius-top+2)
+      circ(x, y, radius)
+   end
+
+   clip(px,py,pw,ph)
 end
 
 function draw_text()
@@ -1734,10 +1764,14 @@ function draw_text()
    draw_string(
       ss,
       28,114-11,7)
-   if text_time==text_limit and
+
+   color(7)
+   if skip_time > 0 then
+      draw_arc(128-16+3, 128-14+2, 4, skip_time)
+   elseif text_time==text_limit and
       time()%2>1 then
-      print("🅾️",128-16,128-14,7)
-   end
+       print("🅾️",128-16,128-14)
+     end
 
    -- portrait
    if text_sprite_top~=nil then

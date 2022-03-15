@@ -185,20 +185,25 @@ function save_game()
    -- compare with new_game
    local w = stream:new(0x5e00,256)
 
+   -- write a version byte first so that we know if there's
+   -- a savegame or not. We should probably find something
+   -- to pack in here but....
+   w:poke(1)                -- 1
+
    -- pack in various things. the map coordinates can always
    -- be packed into a single byte because they have a max
    -- of 15.
-   w:pack44(base_x, base_y) -- 1
+   w:pack44(base_x, base_y) -- 2
 
    -- all these have more than 4 bits of value. (chapter
    -- probably doesn't more than 4 but ... it's not worth
    -- packing it up more)
-   w:poke(chapter)          -- 2
-   w:poke(day)              -- 3
-   w:poke(hour)             -- 4
-   w:poke(tank_level)       -- 5
-   w:poke(energy_level)     -- 6
-   w:poke(grabbed_item)     -- 7
+   w:poke(chapter)          -- 3
+   w:poke(day)              -- 4
+   w:poke(hour)             -- 5
+   w:poke(tank_level)       -- 6
+   w:poke(energy_level)     -- 7
+   w:poke(grabbed_item)     -- 8
 
    -- now pack up the seeds. we can have 16 flower seeds,
    -- and each uses two bytes, so we use 32 bytes here.
@@ -208,7 +213,7 @@ function save_game()
       else
          w:poke2(0)
       end
-   end                      -- 39
+   end                      -- 40
 
    -- now pack up the items. each item gets 6 bits.
    -- the high bits are the signal bits:
@@ -255,9 +260,9 @@ function save_game()
          assert(written)
       end
    end
-   w:flush()                       -- 231
+   w:flush()                       -- 232
 
-   -- 25 bytes to spare! tree seeds maybe! :)
+   -- 24 bytes to spare! tree seeds maybe! :)
 end
 
 function load_game()

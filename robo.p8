@@ -95,7 +95,7 @@ end
 --  chapter 2: clear field
 --  chapter 3: till and plant
 function new_game()
-   chapter=3 -- hack
+   chapter=0
    base_x=2+flr(rnd(12))
    base_y=3+flr(rnd(8))
    day=0
@@ -248,7 +248,7 @@ function save_game()
    -- write a version byte first so that we know if there's
    -- a savegame or not. We should probably find something
    -- to pack in here but....
-   w:write(1)                -- 1
+   w:write(0x02)             -- 1
 
    -- pack in various things. the map coordinates can always
    -- be packed into a single byte because they have a max
@@ -334,15 +334,17 @@ function load_game()
    -- reset the cart...
    reload()
 
-   -- See save_game for details
+   -- see save_game for details
    local w = stream:new_read(0x5e00,256)
 
-   if not w:read() == 1 then
+   if w:read() ~= 0x02 then
       return false
    end
 
-   base_x = w:unpack(4) px = base_x
-   base_y = w:unpack(4) py = base_y
+   base_x = w:unpack(4)
+   base_y = w:unpack(4)
+   px = base_x
+   py = base_y
 
    chapter = w:read()
    day = w:read()
@@ -350,7 +352,9 @@ function load_game()
    tank_level = 100
    energy_level = 100
    grabbed_item = w:read()
-   if grabbed_item == 0 then grabbed_item = nil end
+   if grabbed_item == 0 then
+      grabbed_item = nil
+   end
 
    flower_seeds={}
    for fi=1,16 do
@@ -364,8 +368,8 @@ function load_game()
    -- the high bits are the signal bits:
    --
    --   0b0xxxxx     xxxxx = raw sprite index
-   --   0b1axxxx     xxxx  = seed index, a = age
-   --                        (0=half grown, 1=full grown)
+   --   0b1axxxx     xxxx = seed index, a = age
+   --                       (0=half grown, 1=full grown)
    --
    -- 16*16*6/8 = 192 bytes
    flowers={}
@@ -384,6 +388,15 @@ function load_game()
             mset(32+x, y, save_item_code[encoded])
          end
       end
+   end
+
+   -- deal with the chapters.
+   if chapter==2 then
+      start_ch2()
+   elseif chapter==3 then
+      start_ch3()
+   else
+      penny:show(128,128,0)
    end
 
    return true
@@ -450,6 +463,9 @@ function init_game()
    init_player()
    init_weather()
    init_water()
+   init_text()
+
+   update_fn = update_walk
 end
 
 flower_sy=88
@@ -1132,7 +1148,7 @@ function draw_game()
       draw_meters()
    end
 
-   draw_debug()
+   -- draw_debug()
 end
 
 function _draw()
@@ -1675,6 +1691,13 @@ cs_intro={
    end
 }
 
+function start_ch2()
+   penny:start_wander()
+   update_fn=update_walk
+   objective="clear a 6x6 field"
+   objective_fn=check_bigspace
+end
+
 cs_firstcharge={
    {
       pre=function()
@@ -1740,12 +1763,7 @@ cs_firstcharge={
       "^help me move these,\n^o^k?"
    },
 
-   post=function()
-      penny:start_wander()
-      update_fn=update_walk
-      objective="clear a 6x6 field"
-      objective_fn=check_bigspace
-   end
+   post=start_ch2
 }
 
 function _check_clear(x,y)
@@ -1787,6 +1805,13 @@ function check_bigspace()
       end
    end
    DBG_last_fail_msg="no big space"
+end
+
+function start_ch3()
+   chapter = 3
+   tank_level = max_tank
+   penny:start_leave()
+   update_fn = update_walk
 end
 
 cs_didclear={
@@ -1848,12 +1873,7 @@ cs_didclear={
 
    {"^p^e^n^n^y!"},
 
-   post=function()
-      chapter = 3
-      tank_level = max_tank
-      penny:start_leave()
-      update_fn = update_walk
-   end
+   post=start_ch3
 }
 
 --
@@ -1946,8 +1966,13 @@ function do_script(script)
    update_fn=update_script
 end
 
-local text = nil
-local skip_time = 0
+local text
+local skip_time
+
+function init_text()
+   text = nil
+   skip_time = 0
+end
 
 function show_text(t, top, bot, coro)
    text = t
@@ -2113,7 +2138,9 @@ function penny:run_to(tx, ty)
 end
 
 function penny:leave()
-   self:run_to(136, self.y)
+   if self.y ~= nil then
+      self:run_to(136, self.y)
+   end
 end
 
 function penny:sleep_until(until_hour)

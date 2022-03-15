@@ -123,7 +123,7 @@ function stream:new(address, limit)
    e={buffer=0,bits=8,address=address,limit=limit}
    return setmetatable(e,{__index=self})
 end
-function stream:poke(v)
+function stream:write(v)
    if (v==nil) v=0
    assert(v>=0 and v<256)
    assert(self.limit > 0)
@@ -141,7 +141,7 @@ function stream:pack44(a,b)
    poke(self.address, a<<4|b)
    self.address+=1
 end
-function stream:poke2(v)
+function stream:write2(v)
    assert(self.limit > 1)
    self.limit -= 2
 
@@ -188,30 +188,30 @@ function save_game()
    -- write a version byte first so that we know if there's
    -- a savegame or not. We should probably find something
    -- to pack in here but....
-   w:poke(1)                -- 1
+   w:write(1)                -- 1
 
    -- pack in various things. the map coordinates can always
    -- be packed into a single byte because they have a max
    -- of 15.
-   w:pack44(base_x, base_y) -- 2
+   w:pack44(base_x, base_y)  -- 2
 
    -- all these have more than 4 bits of value. (chapter
    -- probably doesn't more than 4 but ... it's not worth
    -- packing it up more)
-   w:poke(chapter)          -- 3
-   w:poke(day)              -- 4
-   w:poke(hour)             -- 5
-   w:poke(tank_level)       -- 6
-   w:poke(energy_level)     -- 7
-   w:poke(grabbed_item)     -- 8
+   w:write(chapter)          -- 3
+   w:write(day)              -- 4
+   w:write(hour)             -- 5
+   w:write(tank_level)       -- 6
+   w:write(energy_level)     -- 7
+   w:write(grabbed_item)     -- 8
 
    -- now pack up the seeds. we can have 16 flower seeds,
    -- and each uses two bytes, so we use 32 bytes here.
    for fi=1,16 do
       if fi<=#flower_seeds then
-         w:poke2(flower_seeds[fi].seed<<16)
+         w:write2(flower_seeds[fi].seed<<16)
       else
-         w:poke2(0)
+         w:write2(0)
       end
    end                      -- 40
 

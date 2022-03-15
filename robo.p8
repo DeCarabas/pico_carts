@@ -95,13 +95,14 @@ end
 --  chapter 2: clear field
 --  chapter 3: till and plant
 function new_game()
-   chapter=0
+   chapter=3 -- hack
    base_x=2+flr(rnd(12))
    base_y=3+flr(rnd(8))
    day=0
    hour=8
    px=base_x
    py=base_y
+   grabbed_item=nil
 
    -- init the item sprite layer
    place_rand(20,144) --grass
@@ -116,12 +117,59 @@ function new_game()
          mset(x+32,y,0)
       end
    end
+
+   -- HAXXX
+   add(flower_seeds, flower:new(flower_size,0))
 end
 
 stream={}
-function stream:new(address, limit)
-   e={buffer=0,bits=8,address=address,limit=limit}
-   return setmetatable(e,{__index=self})
+function stream:new_write(address, limit)
+   return setmetatable(
+      {buffer=0,bits=8,address=address,limit=limit},
+      {__index=self})
+end
+function stream:new_read(address, limit)
+   return setmetatable(
+      {buffer=0,bits=0,address=address,limit=limit},
+      {__index=self})
+end
+function stream:read()
+   assert(self.limit > 0)
+   self.limit-=1
+   self.address+=1
+
+   return @(self.address-1)
+end
+function stream:read2()
+   assert(self.limit > 1)
+   self.limit-=2
+   self.address+=2
+   return %(self.address-2)
+end
+function stream:unpack(width)
+   local buffer = self.buffer
+   local bits = self.bits
+
+   local result = 0
+   while width > 0 do
+      if bits == 0 then
+         assert(self.limit > 0) self.limit -= 1
+         buffer = @self.address
+         self.address += 1
+         bits = 8
+      end
+
+      local consume = min(bits, width)
+      result = (result << consume) | (buffer >> (bits - consume))
+      result &= 0xFF -- the remaining bits must not go into the fraction
+      bits -= consume
+      buffer &= ((1<<bits) - 1)
+      width -= consume
+   end
+
+   self.buffer = buffer
+   self.bits = bits
+   return result
 end
 function stream:write(v)
    if (v==nil) v=0
@@ -132,15 +180,6 @@ function stream:write(v)
    poke(self.address, v)
    self.address+=1
 end
-function stream:pack44(a,b)
-   assert(a>=0 and a<16) -- a must be 4bit
-   assert(b>=0 and b<16) -- b must be 4bit
-   assert(self.limit > 0)
-   self.limit -= 1
-
-   poke(self.address, a<<4|b)
-   self.address+=1
-end
 function stream:write2(v)
    assert(self.limit > 1)
    self.limit -= 2
@@ -148,25 +187,28 @@ function stream:write2(v)
    poke2(self.address, v)
    self.address+=2
 end
-function stream:pack6(v)
+function stream:pack(width, ...)
    local bits=self.bits
    local buffer=self.buffer
+   local values={...}
 
-   assert(v>=0 and v<64) -- value must fit in 6 bits
-   local remaining = 6
-   while remaining > 0 do
-      local consume = min(bits, remaining)
-      buffer = buffer << consume | v >> (remaining - consume)
-      bits -= consume
-      if bits == 0 then
-         poke(self.address, buffer)
-         assert(self.limit > 0) self.limit -= 1
-         self.address+=1
-         bits = 8
-         buffer = 0
+   for v in all(values) do
+      local remaining = width
+      assert(v>=0 and v<(1<<remaining))
+      while remaining > 0 do
+         local consume = min(bits, remaining)
+         buffer = (buffer << consume) | (v >> (remaining - consume))
+         bits -= consume
+         if bits == 0 then
+            poke(self.address, buffer)
+            assert(self.limit > 0) self.limit -= 1
+            self.address+=1
+            bits = 8
+            buffer = 0
+         end
+         remaining -= consume
+         v &= ((1<<remaining) - 1)
       end
-      remaining -= consume
-      v &= ((1<<remaining)-1)
    end
 
    self.buffer=buffer
@@ -176,14 +218,32 @@ function stream:flush()
    assert(self.bits==8 and self.buffer==0)
 end
 
+function test_pack()
+   local s=stream:new_write(0x8000,256)
+   for i=1,8 do
+      s:pack(6, i)
+   end
+   s=stream:new_read(0x8000,256)
+   for i=1,8 do
+      local v=s:unpack(6)
+      assert(v==i, v.." "..i)
+   end
+   print("pass")
+end
+
+
 -- list all the sprite values that can be saved here.
 -- we store the index in this list (so it can fit in
 -- 5 bits!) rather than the raw sprite index itself.
 save_item_code={0, 160, 144, 145, 146, 147}
 
 function save_game()
-   -- compare with new_game
-   local w = stream:new(0x5e00,256)
+   -- note: we work very hard to get in our 256 bytes here
+   --       so that save-games work in the web player. we
+   --       could theoretically use cstore() to let us save
+   --       way more data, but that comes with other limits
+   -- compare with load_game
+   local w = stream:new_write(0x5e00,256)
 
    -- write a version byte first so that we know if there's
    -- a savegame or not. We should probably find something
@@ -193,17 +253,17 @@ function save_game()
    -- pack in various things. the map coordinates can always
    -- be packed into a single byte because they have a max
    -- of 15.
-   w:pack44(base_x, base_y)  -- 2
+   w:pack(4, base_x, base_y) -- 2
 
    -- all these have more than 4 bits of value. (chapter
    -- probably doesn't more than 4 but ... it's not worth
    -- packing it up more)
    w:write(chapter)          -- 3
-   w:write(day)              -- 4
-   w:write(hour)             -- 5
-   w:write(tank_level)       -- 6
-   w:write(energy_level)     -- 7
-   w:write(grabbed_item)     -- 8
+   w:write((day+1)%112)      -- 4
+   -- hour = 8
+   -- tank_level = 100
+   -- energy_level = 100
+   w:write(grabbed_item)     -- 5
 
    -- now pack up the seeds. we can have 16 flower seeds,
    -- and each uses two bytes, so we use 32 bytes here.
@@ -213,19 +273,19 @@ function save_game()
       else
          w:write2(0)
       end
-   end                      -- 40
+   end                      -- 37
 
    -- now pack up the items. each item gets 6 bits.
    -- the high bits are the signal bits:
    --
-   --   0b0xxxxx     a raw sprite index
-   --   0b10xxxx     a flower seed index
-   --   0b11xxxx     (tbd, but maybe a tree seed index)
+   --   0b0xxxxx     xxxxx = raw sprite index
+   --   0b1axxxx     xxxx  = seed index, a = age
+   --                        (0=half grown, 1=full grown)
    --
    -- 16*16*6/8 = 192 bytes
    for y=0,15 do
       for x=0,15 do
-         local written=false
+         local encoded=nil
          local item = mget(x+32, y)
          if item==148 then
             -- placeholder for a flower.
@@ -239,8 +299,13 @@ function save_game()
                      if flower.seed==flower_seeds[si] then
                         -- set the high bit to indicate that
                         -- this is a seed index (which is
-                        -- in [1-16] anyway.)
-                        w:pack6(0b100000 | si)
+                        -- in [1-16] anyway.) the next bit
+                        -- indicates whether the flower is
+                        -- old or young.
+                        encoded = 0b100000 | si
+                        if flower.age > 0.5 then
+                           encoded |= 0b010000
+                        end
                         written=true
                         break
                      end
@@ -251,35 +316,77 @@ function save_game()
          else
             for ii=1,#save_item_code do
                if save_item_code[ii]==item then
-                  w:pack6(ii)
+                  encoded = ii
                   written=true
                   break
                end
             end
          end
-         assert(written)
+         w:pack(6, encoded)
       end
    end
-   w:flush()                       -- 232
+   w:flush()                       -- 229
 
-   -- 24 bytes to spare! tree seeds maybe! :)
+   -- 27 bytes to spare! tree seeds maybe! :)
 end
 
 function load_game()
-   -- compare with save_game
-   local p=0x5e00
-   chapter=$p p+=4
-   base_x=$p  p+=4
-   base_y=$p  p+=4
-   day=$p     p+=4
-   hour=$p    p+=4
-   px=$p      p+=4
-   py=$p      p+=4
-   for y=1,14 do
-      for x=1,14 do
-         mset(x+32,y,@p) p+=1
+   -- reset the cart...
+   reload()
+
+   -- See save_game for details
+   local w = stream:new_read(0x5e00,256)
+
+   if not w:read() == 1 then
+      return false
+   end
+
+   base_x = w:unpack(4) px = base_x
+   base_y = w:unpack(4) py = base_y
+
+   chapter = w:read()
+   day = w:read()
+   hour = 8
+   tank_level = 100
+   energy_level = 100
+   grabbed_item = w:read()
+   if grabbed_item == 0 then grabbed_item = nil end
+
+   flower_seeds={}
+   for fi=1,16 do
+      local seed = w:read2()
+      if seed ~= 0 then
+         add(flower_seeds, flower:new(flower_size, fi-1, seed>>16))
+      end
+   end                      -- 39
+
+   -- unpack the items. each item gets 6 bits.
+   -- the high bits are the signal bits:
+   --
+   --   0b0xxxxx     xxxxx = raw sprite index
+   --   0b1axxxx     xxxx  = seed index, a = age
+   --                        (0=half grown, 1=full grown)
+   --
+   -- 16*16*6/8 = 192 bytes
+   flowers={}
+   for y=0,15 do
+      for x=0,15 do
+         local encoded = w:unpack(6)
+         if encoded & 0b100000 ~= 0 then -- flower
+            local age, si = 0.5, encoded & 0b001111
+            if encoded & 0b010000 ~= 0 then
+               age = 1.0
+            end
+
+            assert(si>0 and si<=#flower_seeds, x.." "..y.." "..si)
+            add_flower(flower_seeds[si], age, x, y)
+         else
+            mset(32+x, y, save_item_code[encoded])
+         end
       end
    end
+
+   return true
 end
 
 -- player state
@@ -298,7 +405,6 @@ function init_player()
    water_cost=0.5
    plant_cost=0.5
 
-   grabbed_item=nil
    tx=px ty=py
 
    animation=nil
@@ -346,8 +452,12 @@ function init_game()
    init_water()
 end
 
+flower_sy=88
+
 function _init()
    poke(0x5f36,0x40) -- disable print scroll
+   flower:init(flower_sy)
+
    cartdata("doty_robo_p8")
 
    load_font()
@@ -360,6 +470,11 @@ function _init()
    menuitem(1,"+energy",function() energy_level=max_energy end)
    menuitem(2,"-energy",function() energy_level=mid(max_energy,0,energy_level/2) end)
    menuitem(3,"+8hrs",function() hour+=8 end)
+   menuitem(4,"load", function()
+               if load_game() then
+                  init_game()
+               end
+   end)
 
    if chapter == 0 then
       do_script(cs_intro)
@@ -505,7 +620,9 @@ function update_time(inc)
          {{frame=45, duration=15},
           {frame=13, duration=15},
           {frame=1,  duration=15}},
-         function() end)
+         function()
+            save_game()
+         end)
    end
 end
 
@@ -624,9 +741,7 @@ function update_base()
    -- before penny fixes the base
    if (chapter < 2) return
 
-   if px==base_x and
-      py==base_y then
-      save_game() -- auto-save
+   if px==base_x and py==base_y then
       energy_level=min(max_energy, energy_level+recharge_rate)
       if chapter >= 3 then
          tank_level=min(max_tank, tank_level+water_rate)
@@ -927,10 +1042,10 @@ function draw_debug()
          end
       end
    end
-   -- for fi=1,#flowers do
-   --    local f=flowers[fi]
-   --    print(fi.." "..f.seed.name.." "..f.x.." "..f.y)
-   -- end
+   for fi=1,#flowers do
+      local f=flowers[fi]
+      print(fi.." "..f.seed.name.." "..f.x.." "..f.y)
+   end
    if DBG_last_ys then
       for yi=1,#DBG_last_ys do
          local ly=DBG_last_ys[yi]
@@ -1017,7 +1132,7 @@ function draw_game()
       draw_meters()
    end
 
-   -- draw_debug()
+   draw_debug()
 end
 
 function _draw()
@@ -1093,13 +1208,8 @@ flower_seeds={}
 
 flowers={}
 flower_size=6
-flower_sy=88
 
 function init_plants()
-   flower:init(flower_sy)
-
-   add(flower_seeds, flower:new(flower_size,0))
-
    -- init the reverse-lookup
    -- table for the plant data.
    local plant_spr={}
@@ -1146,7 +1256,7 @@ function update_plants()
    for f in all(flowers) do
       -- :todo: check wetness, allow water to grow faster.
       --        (or at all?)
-      f.age=mid(f.age,f.age+flower_rate,1)
+      f.age=min(f.age+flower_rate,1)
    end
 end
 
@@ -1198,6 +1308,11 @@ function remove_flower(x,y)
    end
 end
 
+function add_flower(seed, age, tx, ty)
+   add(flowers, {x=tx,y=ty,seed=seed,age=age})
+   mset(tx+32,ty,148) -- add placeholder
+end
+
 function i_flower(item,tx,ty)
    if map_flag(tx,ty,1) then
       buzz()
@@ -1212,8 +1327,7 @@ function i_flower(item,tx,ty)
    energy_level-=plant_cost
 
    local seed=item.seed
-   add(flowers, {x=tx,y=ty,seed=seed,age=0.1})
-   mset(tx+32,ty,148) -- add placeholder
+   add_flower(seed, 0.25, tx, ty)
 end
 
 

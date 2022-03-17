@@ -396,7 +396,7 @@ function load_game()
    elseif chapter==3 then
       start_ch3()
    else
-      penny:show(128,128,0)
+      penny:show(16,16,0)
    end
 
    return true
@@ -1120,7 +1120,7 @@ function draw_game()
    }
    if penny.y~=nil then
       add(draws, {draw_penny,"pny"})
-      add(ys, penny.y)
+      add(ys, penny.y*8+4)
    end
    for f in all(flowers) do
       add(draws, {draw_flower,f})
@@ -1633,7 +1633,7 @@ cs_intro={
    {
       pre=function()
          cls(0)
-         penny:show(base_x*8+4,base_y*8+16,0)
+         penny:show(base_x,base_y+2,0)
          blank_screen=true
       end,
       "Penny?",
@@ -1703,7 +1703,7 @@ cs_firstcharge={
    {
       pre=function()
          cls(0)
-         penny:show(base_x*8+4,base_y*8+16,0)
+         penny:show(base_x,base_y+2,0)
          blank_screen = true
 
          -- ♪: set the chapter early
@@ -1838,7 +1838,7 @@ cs_didclear={
          -- :todo: a little bit between when she leaves and when
          --        she comes back?
 
-         penny:show(128, (py*8)+16, 2)
+         penny:show(16, py+2, 2)
          penny:run_to(px*8+4, penny.y)
          penny:show(penny.x, penny.y, 0)
       end,
@@ -1898,7 +1898,7 @@ cs_nobattery={
          old_penny_visible = penny:visible()
 
          cls(0)
-         penny:show(base_x*8+4, base_y*8+16, 0)
+         penny:show(base_x, base_y+2, 0)
          blank_screen=true
       end,
 
@@ -2099,8 +2099,8 @@ function penny:draw()
       palt(12, true)
       sspr(
          sx,sy,sw,sh,
-         self.x,---(sw/2),
-         self.y-16,
+         self.x*8,---(sw/2),
+         self.y*8-16,
          sw,sh,
          f)
       palt()
@@ -2152,7 +2152,7 @@ function penny:run_to(tx, ty)
       end
 
       local ox,oy=self.x,self.y
-      local dist = (sin(t) + 1) * 3
+      local dist = (sin(t) + 1) * 0.375
       local dx,dy=tx-self.x,ty-self.y
       local dlen=dist / sqrt(dx*dx+dy*dy)
       dx *= dlen dy *= dlen
@@ -2167,7 +2167,7 @@ end
 
 function penny:leave()
    if self.y ~= nil then
-      self:run_to(136, self.y)
+      self:run_to(16, self.y)
    end
 end
 
@@ -2182,12 +2182,12 @@ end
 
 function penny:wander_around()
    while hour >= 8 and hour <= 18 do
-      local dst = flr(rnd() * 16)
+      local dst = flr(rnd(16))
       local tx, ty = self.x, self.y
       if rnd() >= 0.5 then
-         tx=dst * 8
+         tx=dst
       else
-         ty=dst * 8
+         ty=dst
       end
       tx = mid(8,tx,111)
       ty = mid(8,ty,111)
@@ -2236,8 +2236,8 @@ end
 
 function penny:visible()
    return self.x ~= nil and self.y ~= nil and
-      self.x >= 0 and self.x < 128 and
-      self.y >= 0 and self.y < 128
+      self.x >= 0 and self.x < 16 and
+      self.y >= 0 and self.y < 16
 end
 
 -->8

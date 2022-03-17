@@ -62,7 +62,6 @@ __lua__
 -- [ ] lightning & fires
 --
 -- :todo: zelda rock sprites
--- :todo: energy fn
 -- :todo: tweak power usage
 
 -- the map is divided into 4
@@ -218,6 +217,7 @@ function stream:flush()
    assert(self.bits==8 and self.buffer==0)
 end
 
+--[[
 function test_pack()
    local s=stream:new_write(0x8000,256)
    for i=1,8 do
@@ -230,7 +230,7 @@ function test_pack()
    end
    print("pass")
 end
-
+]]
 
 -- list all the sprite values that can be saved here.
 -- we store the index in this list (so it can fit in
@@ -1032,7 +1032,13 @@ end
 
 function draw_objective()
    if objective then
-      print("goal: "..objective,2,122,7)
+      local t = "goal: "..objective
+      color(0)
+      print(t,1,122)
+      print(t,3,122)
+      print(t,2,121)
+      print(t,2,123)
+      print(t,2,122,7)
    end
 end
 
@@ -1270,9 +1276,10 @@ function update_plants()
    end
 
    for f in all(flowers) do
-      -- :todo: check wetness, allow water to grow faster.
-      --        (or at all?)
-      f.age=min(f.age+flower_rate,1)
+      if map_flag(f.x, f.y, 5) then
+         -- :todo: cutscene for dry flower?
+         f.age=min(f.age+flower_rate, 1)
+      end
    end
 end
 
@@ -1300,12 +1307,9 @@ function add_plant(p,st,tx,ty)
 end
 
 function i_plant(item,tx,ty)
-   if map_flag(tx,ty,1) then
-      buzz()
-      return
-   end
-
-   if energy_level<plant_cost then
+   if map_flag(tx,ty,1) or
+      energy_level < plant_cost or
+      not map_flag(tx, tx, 4) then
       buzz()
       return
    end
@@ -1330,12 +1334,9 @@ function add_flower(seed, age, tx, ty)
 end
 
 function i_flower(item,tx,ty)
-   if map_flag(tx,ty,1) then
-      buzz()
-      return
-   end
-
-   if energy_level<plant_cost then
+   if map_flag(tx,ty,1) or
+      energy_level < plant_cost or
+      not map_flag(tx, tx, 4) then
       buzz()
       return
    end
@@ -1635,20 +1636,20 @@ cs_intro={
          penny:show(base_x*8+4,base_y*8+16,0)
          blank_screen=true
       end,
-      "^penny?",
-      "^p^e^n^n^y!",
+      "Penny?",
+      "PENNY!",
       "...",
-      "^where is that girl?"
+      "Where is that girl?"
    },
 
    {
       p=py_mid_closed,
-      "^o^k...\n^deep breath..."
+      "OK...\nDeep breath..."
    },
 
    {
       p=py_up_intense,
-      "^r^x-228! ^activate!!!"
+      "RX-228! Activate!!!"
    },
 
    {
@@ -1656,12 +1657,12 @@ cs_intro={
          blank_screen=false
       end,
       p=py_up_talk,
-      "^it... it works?",
-      "^it works!"
+      "It... it works?",
+      "It works!"
    },
 
    {
-      "^p^e^n^n^y? ^w^h^e^r^e ^a^r^e\n^y^o^u??"
+      "PENNY? WHERE ARE\nYOU??"
    },
 
    {
@@ -1669,7 +1670,7 @@ cs_intro={
          penny:show(penny.x,penny.y,2)
       end,
       p=py_up_intense,
-      "^c^o^m^i^n^g ^m^o^m!"
+      "COMING MOM!"
    },
 
    {
@@ -1677,9 +1678,9 @@ cs_intro={
          penny:show(penny.x,penny.y,0)
       end,
       p=py_mid_wry,
-      "^o^k. ^that's enough\nfor today.",
-      "^you sit tight.",
-      "^i'll be back soon to\nfinish up."
+      "OK. That's enough\nfor today.",
+      "You sit tight.",
+      "I'll be back soon to\nfinish up."
    },
 
    post=function()
@@ -1710,9 +1711,9 @@ cs_firstcharge={
          chapter = 2
       end,
       "...",
-      "^hey... how'd you get\nover there?",
-      "^oof...",
-      "^there you go!"
+      "Hey... how'd you get\nover there?",
+      "Oof...",
+      "There you go!"
    },
 
    {
@@ -1720,37 +1721,37 @@ cs_firstcharge={
          blank_screen=false
       end,
       p=py_mid_wry,
-      "^huh...",
-      "^i guess you really\n^d^o work!"
+      "Huh...",
+      "I guess you really\nDO work!"
    },
 
    {
       p=py_up_intense,
-      "^ha! ^i knew it!",
-      "^i ^a^m ^t^h^e ^b^e^s^t!"
+      "Ha! I knew it!",
+      "I AM THE BEST!"
    },
 
    {
       p=py_mid_talk,
-      "^well, ^i've finished\nthis base.",
-      "^if you stand there,\nyou'll recharge."
+      "Well, I've finished\nthis base.",
+      "If you stand there,\nyou'll recharge."
    },
 
    {
       p=py_mid_wry,
-      "^try not to run out\nof power, ok?"
+      "Try not to run out\nof power, ok?"
    },
 
    {
-      "^p^e^n^n^y!",
-      "^t^h^a^t ^f^i^e^l^d ^c^l^e^a^r\n^y^e^t?"
+      "PENNY!",
+      "THAT FIELD CLEAR\nYET?"
    },
 
    {
       p=py_mid_wry,
-      "^oh, uh...",
-      "^hey, help me clear\nthis field?",
-      "^mom wants a big\nclear space..."
+      "Oh, uh...",
+      "Hey, help me clear\nthis field?",
+      "Mom wants a big\nclear space..."
    },
 
    {
@@ -1760,7 +1761,7 @@ cs_firstcharge={
 
    {
       p=py_up_talk,
-      "^help me move these,\n^o^k?"
+      "Help me move these,\nOK?"
    },
 
    post=start_ch2
@@ -1820,12 +1821,13 @@ cs_didclear={
          penny:face(px, py)
       end,
       p=py_up_talk,
-      "^hey!\n^you did it!"
+      "Hey!\nYou did it!",
+      "Looks great!"
    },
 
    {
       p=py_mid_talk,
-      "^wait a bit, ^i'll be\nback!"
+      "Wait a bit, I'll be\nback!"
    },
 
    {
@@ -1842,15 +1844,15 @@ cs_didclear={
       end,
 
       p=py_mid_wry,
-      "^now, don't move, ^o^k?",
-      "^just gonna open you\nup..."
+      "Now, don't move, OK?",
+      "Just gonna open you\nup..."
    },
 
    {
       pre=function()
          d=2 -- look down (face penny)
          for i=1,2 do
-            sfx(1,3) -- tool sound
+            sfx(1, 3) -- tool sound
             yield()
             while stat(49)>=0 do
                yield()
@@ -1858,20 +1860,31 @@ cs_didclear={
          end
       end,
       p=py_mid_talk,
-      "^done!",
-      "^ok, check it out.\n^tools!",
-      "^i've given you some\nuseful stuff.",
-      "^you've got a\nwatering can...",
-      "...and this neat\nroto-tiller...",
-      "...and then this little\nseed pouch!"
+      "Done!",
+      "Ok, check it out.\nTools!",
+      "I've given you some\nuseful stuff.",
+      "You've got a\nwatering can...",
+      "...and this neat\nlittle plow...",
+      "...and then this seed\npouch!"
    },
 
    {
       p=py_mid_wry,
-      "^press 🅾️ to open the\nmenu to see."
+      "Press 🅾️ to open the\nmenu to see."
    },
 
-   {"^p^e^n^n^y!"},
+   {
+      "PENNY!",
+      "YOU LEFT THE DOOR OPEN AGAIN!"
+   },
+
+   {
+      p=py_down_wry,
+      "Whoops....",
+      "She sounds mad.",
+      "Maybe some flowers will\ncheer her up...",
+      "Can you get me 3\n$1 flowers?"
+   },
 
    post=start_ch3
 }
@@ -1889,7 +1902,7 @@ cs_nobattery={
          blank_screen=true
       end,
 
-      "^robo?\n^can you hear me?"
+      "Robo?\nCan you hear me?"
    },
 
    {
@@ -1897,19 +1910,19 @@ cs_nobattery={
          blank_screen=false
       end,
       p=py_mid_wry,
-      "^oh, thank goodness."
+      "Oh, thank goodness."
    },
 
    {
       p=py_up_closed,
-      "^robo, you need to be\nmore careful!",
-      "^if you don't charge,\nyou'll get stuck!"
+      "Robo, you need to be\nmore careful!",
+      "If you don't charge,\nyou'll get stuck!"
    },
 
    {
       p=py_mid_wry,
-      "^don't worry.",
-      "^i'll always be there\nto help."
+      "Don't worry.",
+      "I'll always be there\nto help."
    },
 
    post=function()
@@ -2354,22 +2367,22 @@ c000000cccc000e00e000ccc0e7007e00e7007e0cc0ee00e0000070ccc0ee0077000070cccc00700
 551110555511000000000000444554440000000000000000000000000000000000000000000000000fffff000fffff0077fffff0000000000000000000000000
 66d5106666dd51000000000044455444000000000000000000000000000000000000000000000000fff7fff0ffefeff0fffefff0000000000000000000000000
 776d1077776dd5500000000044444444000000000000000000000000000000000000000000000000ff777ff0ffefeff0ffffefff000000000000000000000000
-88221018888221000000000000000000000000000000000000000000000000000000000000000000f00000f0f00000f000000000000000000000000000000000
-9422104c999421000000000000000000000000000000000000000000000000000000000000000000f0fff0f0ff000ff000000000000000000000000000000000
-a9421047aa9942100000000000000111000000000000000000000000000000000000000000000000f0fef0f0ff000ff000000000000000000000000000000000
-bb3310bbbbb3310000000000000001a10000bb00000000000000000000000000000000000000000007dfd7000f070f0000000000000000000000000000000000
-ccd510ccccdd51100000000000001161000bbbb00000000000000000000000000000000000000000ff7f7ff00f777f0000000000000000000000000000000000
-d55110dddd5110000000000000001aa100bb00bb0000000000000000000000000000000000000000fdfffdf00ff7ff0000000000000000000000000000000000
-ee82101eee8822100000000000111661003b000b0000000000000000000000000000000000000000fdfffdf00fffff0000000000000000000000000000000000
-f94210f7fff9421000000000001aaaa1000bb0000000000000000000000000000000000000000000fdfffdf0fffffff000000000000000000000000000000000
-000000000000000066666666001166610003b0000000000000000000000000000000000000000000fffffff0fefffef000000000000000000000000000000000
-0000000000000000666666660001aaa10bb0bb000000000000000000000000000000000000000000fffffff0fefffef000000000000000000000000000000000
-000000000000000066566566011166613bbbbb00000000000000bb03b000000000000000000000000ff7ff00fefffef000000000000000000000000000000000
-00000000000000006656656601aaaaa103330b0000000000000033bbb00bb00000000000000000000f777f000f7f7f0000000000000000000000000000000000
-00000000000000006656656601166661000003b0000000000000003bb0b3300000000000000000000f070f00f7dfd7f000000000000000000000000000000000
-000000000000000066566566001aaaa10000003b0000000000000003bb3000000000000000000000ff000ff0f0fef0f000000000000000000000000000000000
-0000000000000000665665661116666100000003b000000000000003b00000000000000000000000ff000ff0f0fff0f000000000000000000000000000000000
-0000000000000000666666661aaaaaa100000003b000000000000003b00000000000000000000000f00000f0f00000f000000000000000000000000000000000
+88221018888221000000000000000000cccccccccccccccccccccccccccccccc0000000000000000f00000f0f00000f000000000000000000000000000000000
+9422104c999421000000000000000000cccccccccccccccccccccccccccccccc0000000000000000f0fff0f0ff000ff000000000000000000000000000000000
+a9421047aa9942100000000000000111cccc00cccccccccccccccccccccccccc0000000000000000f0fef0f0ff000ff000000000000000000000000000000000
+bb3310bbbbb3310000000000000001a1ccc0bb0ccccccccccccccccccccccccc000000000000000007dfd7000f070f0000000000000000000000000000000000
+ccd510ccccdd51100000000000001161cc0bbbb0cccccccccccccccccccccccc0000000000000000ff7f7ff00f777f0000000000000000000000000000000000
+d55110dddd5110000000000000001aa1c0bb00bb0ccccccccccccccccccccccc0000000000000000fdfffdf00ff7ff0000000000000000000000000000000000
+ee82101eee8822100000000000111661c03b0c0b0ccccccccccccccccccccccc0000000000000000fdfffdf00fffff0000000000000000000000000000000000
+f94210f7fff9421000000000001aaaa1cc0bb0c0cccccccccccccccccccccccc0000000000000000fdfffdf0fffffff000000000000000000000000000000000
+00000000000000006666666600116661c003b0cccccccccccccccccccccccccc0000000000000000fffffff0fefffef000000000000000000000000000000000
+0000000000000000666666660001aaa10bb0bb0ccccccccccccc00c00ccccccc0000000000000000fffffff0fefffef000000000000000000000000000000000
+000000000000000066566566011166613bbbbb0cccccccccccc0bb03b0c00ccc00000000000000000ff7ff00fefffef000000000000000000000000000000000
+00000000000000006656656601aaaaa103330b0cccccccccccc033bbb00bb0cc00000000000000000f777f000f7f7f0000000000000000000000000000000000
+00000000000000006656656601166661c00003b0cccccccccccc003bb0b330cc00000000000000000f070f00f7dfd7f000000000000000000000000000000000
+000000000000000066566566001aaaa1ccccc03b0ccccccccccccc03bb300ccc0000000000000000ff000ff0f0fef0f000000000000000000000000000000000
+00000000000000006656656611166661cccccc03b0cccccccccccc03b00ccccc0000000000000000ff000ff0f0fff0f000000000000000000000000000000000
+0000000000000000666666661aaaaaa1cccccc03b0cccccccccccc03b0cccccc0000000000000000f00000f0f00000f000000000000000000000000000000000
 cccccccccccccccccc53350000000500000000000000000000555500005555000055550000555500005555000055550066555500665555000006666000076000
 cccccccccccccccccc53350000000050000005000990909005777750057777500577755005777550057755500555555056677750566777500067777607666660
 cccc555555555555cc53350000000505000033500099999057777775577777555777755557775555577555555555555505667765056677656677666600000000

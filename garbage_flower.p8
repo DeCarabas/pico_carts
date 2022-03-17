@@ -143,6 +143,9 @@ function flower:draw(x,y,scale)
  local flx=self.flx
 
  if self.stem then
+  palt(0, false)
+  palt(12, true)
+
   local sx=flr(x-16*scale/2)
   local sy=flr(y-16*scale)
 
@@ -154,6 +157,8 @@ function flower:draw(x,y,scale)
    32+16*self.symm,48,16,16,
    sx,sy,16*scale,16*scale,
    flx)
+
+  palt()
  end
 
  local fx=flr(x-sz*scale/2)

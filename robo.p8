@@ -525,9 +525,13 @@ function collide(px,py,tx,ty)
 end
 
 buzz_time=0
+buzz_msg=nil
+buzz_msg_time=0
 
-function buzz()
+function buzz(msg)
    buzz_time=3
+   buzz_msg=msg
+   buzz_msg_time=9
    sfx(0, 3)
 end
 
@@ -548,9 +552,8 @@ function sleep_until_morning()
 end
 
 function update_time(inc)
-   if buzz_time > 0 then
-      buzz_time -= 0.75
-   end
+   buzz_time = max(buzz_time - 0.75, 0)
+   buzz_msg_time = max(buzz_msg_time - 0.75, 0)
 
    if inc==nil then
       inc=hour_inc
@@ -983,15 +986,18 @@ function sort(ks,vs)
    end
 end
 
+function printo(t,x,y,c)
+   color(0)
+   print(t,x-1,y)
+   print(t,x+1,y)
+   print(t,x,y-1)
+   print(t,x,y+1)
+   print(t,x,y,c)
+end
+
 function draw_objective()
    if objective then
-      local t = "goal: "..objective
-      color(0)
-      print(t,1,122)
-      print(t,3,122)
-      print(t,2,121)
-      print(t,2,123)
-      print(t,2,122,7)
+      printo("goal: "..objective,2,122,7)
    end
 end
 
@@ -1095,6 +1101,10 @@ function draw_game()
    -- time of day.
    disable_dark()
 
+   if buzz_msg_time>0 and buzz_msg~=nil then
+      printo(buzz_msg, 2, 114, 8)
+   end
+
    -- hud and debug stuff
    if menu_mode then
       draw_menu(menu_items,menu_sel)
@@ -1142,14 +1152,12 @@ end
 
 function i_water(item,tx,ty)
    if tank_level < 10 then
-      DBG_last_fail_msg = "no water"
-      buzz()
+      buzz("water tank empty")
       return
    end
 
    if energy_level<water_cost then
-      DBG_last_fail_msg = "no power"
-      buzz()
+      buzz("insufficient power")
       return
    end
 
@@ -1260,10 +1268,16 @@ function add_plant(p,st,tx,ty)
 end
 
 function i_plant(item,tx,ty)
-   if map_flag(tx,ty,1) or
-      energy_level < plant_cost or
-      not map_flag(tx, tx, 4) then
-      buzz()
+   if map_flag(tx,ty,1) then
+      buzz("can't plant here")
+      return
+   end
+   if energy_level < plant_cost then
+      buzz("insufficient energy")
+      return
+   end
+   if not map_flag(tx, ty, 4) then
+      buzz("ground not plowed")
       return
    end
 
@@ -1308,13 +1322,24 @@ function get_flower(seed, flower_count, seed_count)
 end
 
 function i_flower(item,tx,ty)
-   if map_flag(tx,ty,1) or
-      energy_level < plant_cost or
-      not map_flag(tx, tx, 4) then
-      buzz()
+   if map_flag(tx,ty,1) then
+      buzz("can't plant here")
+      return
+   end
+   if energy_level < plant_cost then
+      buzz("insufficient energy")
+      return
+   end
+   if not map_flag(tx, ty, 4) then
+      buzz("ground not plowed")
+      return
+   end
+   if item.seed_count==0 then
+      buzz("no more seeds")
       return
    end
 
+   item.seed_count-=1
    energy_level-=plant_cost
 
    local seed=item.seed
@@ -1330,7 +1355,7 @@ function i_grab(item,tx,ty)
          tx < 0 or ty < 0 or
          tx > 15 or ty > 15 then
          -- nopers
-         buzz()
+         buzz("can't drop here")
       else
          mset(tx,ty,64) -- bare dirt
          mset(tx+32,ty,grabbed_item)
@@ -1344,7 +1369,7 @@ function i_grab(item,tx,ty)
          grabbed_item=tgt
          mset(tx+32,ty,0)
       else
-         buzz()
+         buzz("can't grab")
       end
    end
 end
@@ -1352,12 +1377,12 @@ end
 function i_till(item,tx,ty)
    -- check *plowable*
    if not map_flag_all(tx,ty,3) then
-      buzz()
+      buzz("not plowable")
       return
    end
 
    if energy_level<plow_cost then
-      buzz()
+      buzz("insufficient energy")
       return
    end
 
@@ -1830,10 +1855,8 @@ cs_didclear={
          d=2 -- look down (face penny)
          for i=1,2 do
             sfx(1, 3) -- tool sound
-            yield()
-            while stat(49)>=0 do
-               yield()
-            end
+            repeat until stat(49)>0 yield()
+            repeat until stat(49)<0 yield()
          end
 
          -- grant the new flower seed.

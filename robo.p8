@@ -14,11 +14,19 @@ __lua__
 -- :todo: tweak power usage
 
 -- the map is divided into 4
--- regions, horizontally.
+-- regions, horizontally. we
+-- don't use the bottom layer
+-- because we want to ue that
+-- part of the sprite sheet.
+--
+-- the 32 part is dumb, at one
+-- point i thought the map would
+-- be 32 wide not 16 wide, oops
+--
 -- x=[0,32)   base layer
 -- x=[32,64)  item sprite layer
--- x=[64,96)  ?? water level?
--- x=[96,128) ??
+-- x=[64,96)  plant info
+-- x=[96,128) flower info
 --
 -- in theory we can do so much
 -- here but we have to be able
@@ -1252,11 +1260,10 @@ function draw_flower(plant)
 end
 
 function remove_plant(x,y)
-   for p in all(plants) do
-      if p.x==x and p.y==y then
-         del(plants,p)
-         return
-      end
+   local idx = mget(x+64, y)
+   if idx > 0 then
+      deli(plants, idx)
+      mset(x+64, y, 0)
    end
 end
 
@@ -1264,6 +1271,7 @@ function add_plant(p,st,tx,ty)
    add(
       plants,
       {age=1,x=tx,y=ty,cls=p})
+   mset(tx+64,ty,#plants)
    mset(tx+32,ty,p.stages[st])
 end
 
@@ -1287,17 +1295,17 @@ function i_plant(item,tx,ty)
 end
 
 function remove_flower(x,y)
-   for f in all(flowers) do
-      if f.x==x and f.y==y then
-         del(flowers,f)
-         return
-      end
+   local idx = mget(x+96, y)
+   if idx > 0 then
+      deli(flowers, idx)
+      mset(x+96, y, 0)
    end
 end
 
 function add_flower(seed, age, tx, ty)
    add(flowers, {x=tx,y=ty,seed=seed,age=age})
    mset(tx+32,ty,148) -- add placeholder
+   mset(tx+96,ty,#flowers)
 end
 
 function get_flower(seed, flower_count, seed_count)
@@ -1369,7 +1377,7 @@ function i_grab(item,tx,ty)
          grabbed_item=tgt
          mset(tx+32,ty,0)
       else
-         buzz("can't grab")
+         buzz("insufficient energy")
       end
    end
 end

@@ -66,8 +66,7 @@ function new_game()
       end
    end
 
-   -- HAXXX
-   add(flower_seeds, flower:new(flower_size,0))
+   flower_pockets={}
 end
 
 stream={}
@@ -758,9 +757,9 @@ function draw_menu(items, selection)
    end
    hght=max(hght,4)
 
-   draw_box(64,0,6,hght)
+   draw_box(56,0,7,hght)
    color(7)
-   local lx=71
+   local lx=63
    local ly=9
    for i=1,#items do
       if selection == i then
@@ -778,6 +777,11 @@ function draw_menu(items, selection)
             lx+10-(flower_size/2),ly+3-(flower_size/2))
       end
       print(items[i].name,lx+16,ly)
+      if items[i].flower_count~=nil then
+         print(
+            items[i].flower_count.."/"..items[i].seed_count,
+            lx+40, ly)
+      end
       ly += 10
    end
 
@@ -1282,6 +1286,27 @@ function add_flower(seed, age, tx, ty)
    mset(tx+32,ty,148) -- add placeholder
 end
 
+function get_flower(seed, flower_count, seed_count)
+   local fp=nil
+   for i=1,#flower_pockets do
+      if flower_pockets[i].seed == seed then
+         fp=flower_pockets[i]
+         break
+      end
+   end
+
+   if fp==nil then
+      fp = {sx=seed.slot*flower_size,sy=flower_sy,
+            name=seed.name,fn=i_flower,
+            seed=seed,flower_count=0,
+            seed_count=0}
+      add(flower_pockets,fp)
+   end
+
+   fp.seed_count=min(64,fp.seed_count+seed_count)
+   fp.flower_count=min(64,fp.flower_count+flower_count)
+end
+
 function i_flower(item,tx,ty)
    if map_flag(tx,ty,1) or
       energy_level < plant_cost or
@@ -1375,12 +1400,8 @@ function get_items()
          tl_grab,tl_till,tl_water,
          tl_grass}
 
-      for i=1,#flower_seeds do
-          add(
-             items,
-             {sx=(i-1)*flower_size,sy=flower_sy,
-              name=flower_seeds[i].name,fn=i_flower,
-              seed=flower_seeds[i]})
+      for fp in all(flower_pockets) do
+          add(items, fp)
       end
    end
 
@@ -1760,8 +1781,15 @@ end
 function start_ch3()
    chapter = 3
    tank_level = max_tank
-   penny:start_leave()
+   penny:start_wander()
    update_fn = update_walk
+   objective_fn = check_gather_flowers(1)
+end
+
+function check_gather_flowers(ndx)
+   return function()
+
+   end
 end
 
 cs_didclear={
@@ -1788,7 +1816,7 @@ cs_didclear={
          --        she comes back?
 
          penny:show(16, py+2, 2)
-         penny:run_to(px*8+4, penny.y)
+         penny:run_to(px, penny.y)
          penny:show(penny.x, penny.y, 0)
       end,
 
@@ -1807,6 +1835,14 @@ cs_didclear={
                yield()
             end
          end
+
+         -- grant the new flower seed.
+         --
+         -- this isn't in start_ch3 because we don't want to do this on
+         -- load_game.
+         local seed = flower:new(flower_size,0)
+         add(flower_seeds, seed)
+         get_flower(seed, 0, 3)
       end,
       p=py_mid_talk,
       "Done!",
@@ -1824,15 +1860,15 @@ cs_didclear={
 
    {
       "PENNY!",
-      "YOU LEFT THE DOOR OPEN AGAIN!"
+      "YOU LEFT THE DOOR\nOPEN AGAIN!"
    },
 
    {
       p=py_down_wry,
       "Whoops....",
       "She sounds mad.",
-      "Maybe some flowers will\ncheer her up...",
-      "Can you get me 3\n$1 flowers?"
+      "Maybe some flowers\nwill cheer her up...",
+      "Can you get me 3\nflowers?"
    },
 
    post=start_ch3

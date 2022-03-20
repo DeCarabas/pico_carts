@@ -1009,16 +1009,21 @@ function describe_lookat()
    if f then
       if f.age>=1.0 then
          d="full grown "..f.seed.name
-      elseif f.age>=0.5 then
-         d="growing "..f.seed.name
       else
-         d=f.seed.name.." sprout"
+         if f.age>=0.5 then
+            d="growing "..f.seed.name
+         else
+            d=f.seed.name.." sprout"
+         end
+         if not map_flag(f.x, f.y, 5) then
+            d..=" (needs water)"
+         end
       end
    else
       d=descs[mget(tx+32,ty)]
    end
    if d then
-      printo(d,2,116,7)
+      printo(d,2,98,7)
    end
 end
 
@@ -1124,7 +1129,7 @@ function draw_game()
 
    -- flower index is busted!
    if buzz_msg_time>0 and buzz_msg~=nil then
-      printo(buzz_msg, 2, 110, 8)
+      printo(buzz_msg, 2, 104, 8)
    end
 
    -- hud and debug stuff

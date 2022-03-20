@@ -21,8 +21,8 @@ __lua__
 --
 -- x=[0,32)   base layer
 -- x=[32,64)  item sprite layer
--- x=[64,96)  plant info
--- x=[96,128) flower info
+-- x=[64,96)  ???
+-- x=[96,128) ???
 --
 -- in theory we can do so much
 -- here but we have to be able
@@ -320,8 +320,8 @@ function load_game()
    -- the high bits are the signal bits:
    --
    --   0b0xxxxx     xxxxx = raw sprite index
-   --   0b1axxxx     xxxx = seed index, a = age
-   --                       (0=half grown, 1=full grown)
+   --   0b1axxxx     xxxx  = seed index, a = age
+   --                        (0=half grown, 1=full grown)
    --
    -- 16*16*6/8 = 192 bytes
    flowers={}
@@ -457,10 +457,10 @@ function open_item_menu()
 end
 
 function looking_at()
-   if d==0 then return {x=px-1,y=py} end --left
-   if d==1 then return {x=px+1,y=py} end --right
-   if d==2 then return {x=px,y=py+1} end --down
-   return {x=px,y=py-1} --up
+   if d==0 then return px-1,py end --left
+   if d==1 then return px+1,py end --right
+   if d==2 then return px,py+1 end --down
+   return px,py-1 --up
 end
 
 -- flags:
@@ -485,8 +485,8 @@ function use_thing()
    local items=get_items()
    local item=items[item_sel]
    if item.fn != nil then
-      local tgt=looking_at()
-      item.fn(item, tgt.x, tgt.y)
+      local tx,ty=looking_at()
+      item.fn(item, tx, ty)
    end
 end
 
@@ -723,10 +723,6 @@ function update_base()
 function _update()
    update_animation()
    update_weather()
-
-   --todo: this is kinda not how
-   --we're doing this right now,
-   --maybe we should modernize?
    if animation==nil then
       update_fn()
    end
@@ -1005,6 +1001,27 @@ function draw_objective()
    end
 end
 
+descs={[160]="rock",[144]="grass",[145]="grass",[146]="grass",[147]="grass"}
+
+function describe_lookat()
+   local tx,ty=looking_at()
+   local f,d=find_flower(tx,ty)
+   if f then
+      if f.age>=1.0 then
+         d="full grown "..f.seed.name
+      elseif f.age>=0.5 then
+         d="growing "..f.seed.name
+      else
+         d=f.seed.name.." sprout"
+      end
+   else
+      d=descs[mget(tx+32,ty)]
+   end
+   if d then
+      printo(d,2,116,7)
+   end
+end
+
 function draw_debug()
    cursor(0,0,7)
    if px!=nil and py!=nil then
@@ -1105,8 +1122,9 @@ function draw_game()
    -- time of day.
    disable_dark()
 
+   -- flower index is busted!
    if buzz_msg_time>0 and buzz_msg~=nil then
-      printo(buzz_msg, 2, 114, 8)
+      printo(buzz_msg, 2, 110, 8)
    end
 
    -- hud and debug stuff
@@ -1117,6 +1135,7 @@ function draw_game()
       draw_time()
       draw_meters()
       draw_objective()
+      describe_lookat()
    elseif (energy_level/max_energy)<0.25 then
       draw_meters()
    end
@@ -1255,11 +1274,16 @@ function draw_flower(plant)
    plant.seed:draw(4+plant.x*8, 8+plant.y*8, plant.age)
 end
 
+function find_plant(x,y)
+
+end
+
 function remove_plant(x,y)
-   local idx = mget(x+64, y)
-   if idx > 0 then
-      deli(plants, idx)
-      mset(x+64, y, 0)
+   for p in all(plants) do
+      if p.x==x and p.y==y then
+         del(plants, p)
+         return
+      end
    end
 end
 
@@ -1267,7 +1291,6 @@ function add_plant(p,st,tx,ty)
    add(
       plants,
       {age=1,x=tx,y=ty,cls=p})
-   mset(tx+64,ty,#plants)
    mset(tx+32,ty,p.stages[st])
 end
 
@@ -1290,19 +1313,24 @@ function i_plant(item,tx,ty)
    add_plant(p,1,tx,ty)
 end
 
+function find_flower(x,y)
+   for f in all(flowers) do
+      if f.x==x and f.y==y then
+         return f
+      end
+   end
+end
+
 function remove_flower(x,y)
-   local idx = mget(x+96, y)
-   if idx > 0 then
-      deli(flowers, idx)
-      mset(x+96, y, 0)
-      mset(x+32, y, 0)
+   local f = find_flower(x,y)
+   if f then
+      del(flowers, f)
    end
 end
 
 function add_flower(seed, age, tx, ty)
    add(flowers, {x=tx,y=ty,seed=seed,age=age})
    mset(tx+32,ty,148) -- add placeholder
-   mset(tx+96,ty,#flowers)
 end
 
 function get_flower(seed, flower_count, seed_count)
@@ -1370,9 +1398,8 @@ function i_grab(item,tx,ty)
       end
    elseif fget(tgt,2) then
       if energy_level>grab_cost then
-         local flower_index = mget(tx+96, ty)
-         if flower_index>0 then
-            local flower = flowers[flower_index]
+         local flower = find_flower(tx, ty)
+         if flower then
             if flower.age>=1 then
                get_flower(flower.seed, 1, 3)
             else
@@ -1381,8 +1408,8 @@ function i_grab(item,tx,ty)
             remove_flower(tx,ty)
          else
             grabbed_item=tgt
-            mset(tx+32,ty,0)
          end
+         mset(tx+32,ty,0)
          energy_level-=grab_cost
       else
          buzz("insufficient energy")
@@ -1580,7 +1607,6 @@ end
    end
    end
    end
-]]
 
 function dump_obj(o)
    local t = type(o)
@@ -1619,6 +1645,7 @@ function dump_obj(o)
       return "?? ("..t..")"
    end
 end
+]]
 
 -->8
 -- cutscene stuff

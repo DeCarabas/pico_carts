@@ -1343,6 +1343,37 @@ function add_flower(seed, age, tx, ty)
    mset(tx+32,ty,148) -- add placeholder
 end
 
+function give_flower(item)
+   -- :todo: check how many she wants and do that instead
+   if item.flower_count>1 then
+      do_script({
+            {p=py_up_talk,
+             "Oh, bunch of "..item.name.."\nflowers!"},
+            {p=py_mid_talk,
+             "I'll take them to\nmom.",
+             "I'm sure she'll love\nthem!"}
+      })
+      item.flower_count=0
+   elseif item.flower_count>0 then
+      do_script({
+            {p=py_up_talk,
+             "Oh, a "..item.name.." blossom!"},
+            {p=py_mid_talk,
+             "I'll take it to mom.",
+             "I'm sure she'll love\nit!"}
+      })
+      item.flower_count=0
+   elseif item.seed_count>0 then
+      do_script({
+            {p=py_mid_talk,
+             "That looks like a\n"..item.name.." seed.",
+             "Till the ground, then\nplant it.",
+             "So long as the\nground stays wet,",
+             "it will grow."}
+      })
+   end
+end
+
 function get_flower(seed, flower_count, seed_count)
    local fp=nil
    for i=1,#flower_pockets do
@@ -1354,7 +1385,7 @@ function get_flower(seed, flower_count, seed_count)
 
    if fp==nil then
       fp = {sx=seed.slot*flower_size,sy=flower_sy,
-            name=seed.name,fn=i_flower,give=rando_give,
+            name=seed.name,fn=i_flower,give=give_flower,
             seed=seed,flower_count=0,
             seed_count=0}
       add(flower_pockets,fp)
@@ -1427,6 +1458,18 @@ function i_grab(item,tx,ty)
    end
 end
 
+function give_tool(item)
+   if grabbed_item then
+      do_script({{"Hey, careful where you put that."}})
+   else
+      do_script({
+            {p=py_mid_talk,
+             "Hey there Robo!",
+             "Enjoying yourself?"}
+      })
+   end
+end
+
 function i_till(item,tx,ty)
    -- check *plowable*
    if not map_flag_all(tx,ty,3) then
@@ -1456,23 +1499,19 @@ function init_items()
    item_sel=1
 end
 
-function rando_give()
-   do_script(cs_random_item)
-end
-
 tl_grab={
    icon=142,name="grab",
-   fn=i_grab,give=rando_give}
+   fn=i_grab,give=give_tool}
 tl_till={
    icon=141,name="till",
-   fn=i_till,give=rando_give}
+   fn=i_till,give=give_tool}
 tl_water={
    icon=143,name="water",
-   fn=i_water,give=rando_give}
+   fn=i_water,give=give_tool}
 tl_grass={
    icon=147,name="grass",
    fn=i_plant,plant=grass,
-   give=rando_give}
+   give=give_tool}
 
 function get_items()
    local items
@@ -1993,12 +2032,6 @@ cs_nobattery={
          penny:leave()
       end
    end
-}
-
---
-
-cs_random_item={
-   {"Gee, that's nice."}
 }
 
 --

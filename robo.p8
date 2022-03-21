@@ -484,8 +484,8 @@ end
 function use_thing()
    local item=get_items()[item_sel]
    local tx,ty=looking_at()
-   if tx==penny.x and ty==penny.y then
-      penny:receive(item)
+   if tx==penny.x and ty==penny.y and item.give then
+      item.give(item)
    elseif item.fn != nil then
       item.fn(item, tx, ty)
    end
@@ -1354,7 +1354,7 @@ function get_flower(seed, flower_count, seed_count)
 
    if fp==nil then
       fp = {sx=seed.slot*flower_size,sy=flower_sy,
-            name=seed.name,fn=i_flower,
+            name=seed.name,fn=i_flower,give=rando_give,
             seed=seed,flower_count=0,
             seed_count=0}
       add(flower_pockets,fp)
@@ -1456,18 +1456,23 @@ function init_items()
    item_sel=1
 end
 
+function rando_give()
+   do_script(cs_random_item)
+end
+
 tl_grab={
    icon=142,name="grab",
-   fn=i_grab}
+   fn=i_grab,give=rando_give}
 tl_till={
    icon=141,name="till",
-   fn=i_till}
+   fn=i_till,give=rando_give}
 tl_water={
    icon=143,name="water",
-   fn=i_water}
+   fn=i_water,give=rando_give}
 tl_grass={
    icon=147,name="grass",
-   fn=i_plant,plant=grass}
+   fn=i_plant,plant=grass,
+   give=rando_give}
 
 function get_items()
    local items
@@ -2302,11 +2307,6 @@ function penny:visible()
    return self.x ~= nil and self.y ~= nil and
       self.x >= 0 and self.x < 16 and
       self.y >= 0 and self.y < 16
-end
-
-function penny:receive(item)
-   -- Oh my what am I looking at?
-   do_script(cs_random_item)
 end
 
 -->8

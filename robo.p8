@@ -482,10 +482,11 @@ function map_flag_all(x,y,f)
 end
 
 function use_thing()
-   local items=get_items()
-   local item=items[item_sel]
-   if item.fn != nil then
-      local tx,ty=looking_at()
+   local item=get_items()[item_sel]
+   local tx,ty=looking_at()
+   if tx==penny.x and ty==penny.y then
+      penny:receive(item)
+   elseif item.fn != nil then
       item.fn(item, tx, ty)
    end
 end
@@ -1031,6 +1032,8 @@ function draw_debug()
    cursor(0,0,7)
    if px!=nil and py!=nil then
       print("x "..px.." y "..py.." t "..hour)
+      local tx,ty=looking_at()
+      print("tx "..tx.." ty "..ty)
    end
    if chapter != nil then
       print("chapter: "..chapter)
@@ -1048,21 +1051,23 @@ function draw_debug()
             print("      act: ????")
          end
       end
+      local gx,gy=penny.x*8,penny.y*8
+      rect(gx,gy,gx+8,gy+8,4)
    end
-   for fi=1,#flowers do
-      local f=flowers[fi]
-      print(fi.." "..f.seed.name.." "..f.x.." "..f.y)
-   end
-   if DBG_last_ys then
-      for yi=1,#DBG_last_ys do
-         local ly=DBG_last_ys[yi]
-         local la=DBG_last_draws[yi][2]
-         if type(la)=="table" then
-            la=la.seed.name
-         end
-         print(ly.." "..la)
-      end
-   end
+   -- for fi=1,#flowers do
+   --    local f=flowers[fi]
+   --    print(fi.." "..f.seed.name.." "..f.x.." "..f.y)
+   -- end
+   -- if DBG_last_ys then
+   --    for yi=1,#DBG_last_ys do
+   --       local ly=DBG_last_ys[yi]
+   --       local la=DBG_last_draws[yi][2]
+   --       if type(la)=="table" then
+   --          la=la.seed.name
+   --       end
+   --       print(ly.." "..la)
+   --    end
+   -- end
 
    -- check the dumb clearing
    -- rect(px*8,py*8,(px+6)*8,(py+6)*8,10)
@@ -1145,7 +1150,7 @@ function draw_game()
       draw_meters()
    end
 
-   -- draw_debug()
+   draw_debug()
 end
 
 function _draw()
@@ -1676,7 +1681,7 @@ cs_intro={
    {
       pre=function()
          cls(0)
-         penny:show(base_x,base_y+2,0)
+         penny:show(base_x,base_y+1,0)
          blank_screen=true
       end,
       "Penny?",
@@ -1730,14 +1735,12 @@ cs_intro={
       energy_level = max_energy/4
       tank_level = 0
       penny:start_leave()
-      update_fn = update_walk
       chapter = 1
    end
 }
 
 function start_ch2()
    penny:start_wander()
-   update_fn=update_walk
    objective="clear a 6x6 field"
    objective_fn=check_bigspace
 end
@@ -1746,7 +1749,7 @@ cs_firstcharge={
    {
       pre=function()
          cls(0)
-         penny:show(base_x,base_y+2,0)
+         penny:show(base_x,base_y+1,0)
          blank_screen = true
 
          -- ♪: set the chapter early
@@ -1855,7 +1858,6 @@ function start_ch3()
    chapter = 3
    tank_level = max_tank
    penny:start_wander()
-   update_fn = update_walk
    objective_fn = check_gather_flowers(1)
 end
 
@@ -1888,7 +1890,7 @@ cs_didclear={
          -- :todo: a little bit between when she leaves and when
          --        she comes back?
 
-         penny:show(16, py+2, 2)
+         penny:show(16, py+1, 2)
          penny:run_to(px, penny.y)
          penny:show(penny.x, penny.y, 0)
       end,
@@ -1954,7 +1956,7 @@ cs_nobattery={
          old_penny_visible = penny:visible()
 
          cls(0)
-         penny:show(base_x, base_y+2, 0)
+         penny:show(base_x, base_y+1, 0)
          blank_screen=true
       end,
 
@@ -1985,8 +1987,13 @@ cs_nobattery={
       if not old_penny_visible then
          penny:leave()
       end
-      update_fn=update_walk
    end
+}
+
+--
+
+cs_random_item={
+   {"Gee, that's nice."}
 }
 
 --
@@ -2031,6 +2038,7 @@ function do_script(script)
          if script.post then
             script:post()
          end
+         update_fn=update_walk
    end)
    update_fn=update_script
 end
@@ -2156,7 +2164,7 @@ function penny:draw()
       sspr(
          sx,sy,sw,sh,
          self.x*8,---(sw/2),
-         self.y*8-16,
+         self.y*8-8,
          sw,sh,
          f)
       palt()
@@ -2294,6 +2302,11 @@ function penny:visible()
    return self.x ~= nil and self.y ~= nil and
       self.x >= 0 and self.x < 16 and
       self.y >= 0 and self.y < 16
+end
+
+function penny:receive(item)
+   -- Oh my what am I looking at?
+   do_script(cs_random_item)
 end
 
 -->8

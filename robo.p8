@@ -219,12 +219,13 @@ function save_game()
 
    -- now pack up the seeds. we can have 16 flower seeds,
    -- and each uses two bytes, so we use 32 bytes here.
+   assert(#flower_seeds<=16)
    for fi=1,16 do
+      local s=0
       if fi<=#flower_seeds then
-         w:write2(flower_seeds[fi].seed<<16)
-      else
-         w:write2(0)
+         s = flower_seeds[fi].seed<<16
       end
+      w:write2(s)
    end                      -- 37
 
    -- now pack up the items. each item gets 6 bits.
@@ -279,19 +280,37 @@ function save_game()
    end
    w:flush()                       -- 229
 
-   -- 27 bytes to spare! tree seeds maybe! :)
+   -- write the flower pockets
+   -- 16 flowers, 63 max=6 bits, 2 values=12 bits
+   -- 16*12/8=24 bytes
+   for fi=1,16 do
+      local fc,sc=0,0
+      if fi<=#flower_seeds then
+         local seed=flower_seeds[fi]
+         for fp in all(flower_pockets) do
+            if fp.seed==seed then
+               fc,sc=fp.flower_count,fp.seed_count
+               break
+            end
+         end
+      end
+      w:pack(6, fc, sc)
+   end
+   w:flush()                       -- 253
+
+   -- 3 bytes to spare! tree seeds maybe! :)
 end
 
 function load_game()
-   -- reset the cart...
-   reload()
-
    -- see save_game for details
    local w = stream:new_read(0x5e00,256)
 
    if w:read() ~= 0x02 then
       return false
    end
+
+   -- reset the cart...
+   reload()
 
    base_x = w:unpack(4)
    base_y = w:unpack(4)
@@ -339,6 +358,16 @@ function load_game()
          else
             mset(32+x, y, save_item_code[encoded])
          end
+      end
+   end
+
+   -- unpack the flower pockets
+   flower_pockets={}
+   for fi=1,16 do
+      local fc,sc=w:unpack(6),w:unpack(6)
+      if fc>0 or sc>0 then
+         assert(fi<=#flower_seeds,tostr(fi))
+         get_flower(flower_seeds[fi], fc, sc)
       end
    end
 
@@ -1152,7 +1181,7 @@ function draw_game()
       draw_meters()
    end
 
-   draw_debug()
+   --draw_debug()
 end
 
 function _draw()
@@ -1389,8 +1418,8 @@ function get_flower(seed, flower_count, seed_count)
       add(flower_pockets,fp)
    end
 
-   fp.seed_count=min(64,fp.seed_count+seed_count)
-   fp.flower_count=min(64,fp.flower_count+flower_count)
+   fp.seed_count=min(63,fp.seed_count+seed_count)
+   fp.flower_count=min(63,fp.flower_count+flower_count)
 end
 
 function i_flower(item,tx,ty)

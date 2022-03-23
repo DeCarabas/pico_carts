@@ -466,7 +466,7 @@ function _init()
    -- cheatz
    menuitem(1,"+energy",function() energy_level=max_energy end)
    menuitem(2,"-energy",function() energy_level=mid(max_energy,0,energy_level/2) end)
-   menuitem(3,"+8hrs",function() hour+=8 end)
+   menuitem(3,"rain",function() raining=true end)
    menuitem(4,"load", function()
                if load_game() then
                   init_game()
@@ -642,6 +642,7 @@ function update_walk_impl()
    -- and are paused any other
    -- time (cutscenes, etc.)
    update_time()
+   update_weather()
    update_base()
    update_plants()
    penny:update()
@@ -757,7 +758,7 @@ function update_base()
 
 function _update()
    update_animation()
-   update_weather()
+   update_particles()
    if animation==nil then
       update_fn()
    end
@@ -1141,11 +1142,11 @@ function draw_game()
    local ys={py, base_y}
    if penny.y~=nil then
       add(draws, {draw_penny,"pny"})
-      add(ys, penny.y-1)
+      add(ys, penny.y+0.1)
    end
    for f in all(flowers) do
       add(draws, {draw_flower,f})
-      add(ys, f.y-1)
+      add(ys, f.y-0.1)
    end
    sort(ys,draws)
    -- DBG_last_ys=ys
@@ -1214,6 +1215,13 @@ function init_water()
    end
 end
 
+function wet_ground(tx, ty)
+   local ground=mget(tx,ty)
+   if wet_map[ground]~=nil then
+      mset(tx,ty,wet_map[ground])
+   end
+end
+
 function i_water(item,tx,ty)
    if tank_level < 10 then
       buzz("water tank empty")
@@ -1230,10 +1238,7 @@ function i_water(item,tx,ty)
       {{frame=35,duration=10}},
       function()
          tank_level-=10
-         local ground=mget(tx,ty)
-         if wet_map[ground]~=nil then
-            mset(tx,ty,wet_map[ground])
-         end
+         wet_ground(tx, ty)
    end)
 end
 
@@ -1340,10 +1345,10 @@ function i_plant(item,tx,ty)
       buzz("insufficient energy")
       return
    end
-   if not map_flag(tx, ty, 4) then
-      buzz("ground not plowed")
-      return
-   end
+   -- if not map_flag(tx, ty, 4) then
+   --    buzz("ground not plowed")
+   --    return
+   -- end
 
    energy_level-=plant_cost
    local p=item.plant
@@ -1603,19 +1608,29 @@ function init_weather()
    raining=false
    rain={}
    max_rain=2000
+   weather_elapsed=6
+   seasons = {10,4,2,4} -- 1 is summer
 end
 
 function update_weather()
-   -- todo: check the time, see if
-   --       weather changes.
+   weather_elapsed += hour_inc
+   if weather_elapsed>=6 then
+      weather_elapsed-=6
+      local chance=seasons[flr(day/28)+1]
+      assert(chance > 1, tostr(chance).." ??")
+      if flr(rnd(chance)) == 0 then
+         raining=true
+      else
+         raining=false
+      end
+   end
+end
 
+function update_particles()
    if raining and #rain<max_rain then
       for i=1,rnd(40) do
-         add(rain, {
-                x=flr(rnd(128)),
-                y=flr(rnd(128))-3,
-                life=flr(rnd(10))
-         })
+         local tx,ty,life=flr(rnd(136)),flr(rnd(136)),flr(rnd(10))
+         add(rain, {x=tx-life,y=ty-3*life,life=life})
       end
    end
 
@@ -1623,9 +1638,11 @@ function update_weather()
       drop.y+=3
       drop.x+=1
       drop.life-=1
-      if drop.y>=128
-         or drop.life < 0 then
+      if drop.life < 0 then
          del(rain,drop)
+         if drop.x<128 and drop.y<128 then
+            wet_ground(flr(drop.x/8),flr(drop.y/8))
+         end
       end
    end
 end

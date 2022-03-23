@@ -1104,17 +1104,14 @@ function draw_game()
       {draw_player,"robo"},
       {draw_base,"base"}
    }
-   local ys={
-      py*8+4,
-      base_y*8+4
-   }
+   local ys={py, base_y}
    if penny.y~=nil then
       add(draws, {draw_penny,"pny"})
-      add(ys, penny.y*8+4)
+      add(ys, penny.y)
    end
    for f in all(flowers) do
       add(draws, {draw_flower,f})
-      add(ys, f.y*8+4)
+      add(ys, f.y)
    end
    sort(ys,draws)
    -- DBG_last_ys=ys
@@ -2282,6 +2279,10 @@ function penny:sleep_until(until_hour)
    end
 end
 
+function penny:is_close()
+   return abs(self.x-px)<=1 and abs(self.y-py)<=1
+end
+
 function penny:wander_around()
    while hour >= 8 and hour <= 18 do
       local dst = flr(rnd(16))
@@ -2291,14 +2292,17 @@ function penny:wander_around()
       else
          ty=dst
       end
-      tx = mid(8,tx,111)
-      ty = mid(8,ty,111)
+      tx = mid(0,tx,15)
+      ty = mid(0,ty,15)
 
       self:run_to(tx, ty)
 
-      local t=(rnd()*30)+10
-      while t>0 do
-         t -= 1
+      local t=(rnd()*30)+45
+      while t>0 or self:is_close() do
+         if self:is_close() then
+            self:face(px,py)
+         end
+         t=max(0,t-1)
          yield()
       end
    end

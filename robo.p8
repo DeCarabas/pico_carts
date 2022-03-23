@@ -484,8 +484,13 @@ end
 function use_thing()
    local item=get_items()[item_sel]
    local tx,ty=looking_at()
-   if tx==penny.x and ty==penny.y and item.give then
-      item.give(item)
+   local give=item.give
+   if tx==penny.x and ty==penny.y and give then
+      if type(give)=="function" then
+         give(item)
+      else
+         do_script(give)
+      end
    elseif item.fn != nil then
       item.fn(item, tx, ty)
    end
@@ -1453,13 +1458,17 @@ end
 
 function give_tool(item)
    if grabbed_item then
-      do_script({{"Hey, careful where you put that."}})
-   else
       do_script({
-            {p=py_mid_talk,
-             "Hey there Robo!",
-             "Enjoying yourself?"}
+            {p=py_down_wry,
+             "Hey, careful where\nyou put that."}
       })
+   else
+      local cs={
+         p=py_mid_talk,
+         "Hey there Robo!",
+         "Enjoying yourself?"
+      }
+      do_script({cs})
    end
 end
 
@@ -1492,19 +1501,53 @@ function init_items()
    item_sel=1
 end
 
+-- portraits
+-- (for cut scenes but need them below)
+--  py_ear_up=194
+--  py_ear_mid=192
+--  py_ear_down=196
+--  py_head_wry=224
+--  py_head_talk=226
+--  py_head_closed=228
+--  py_head_intense=230
+py_mid_wry={top=192,bot=224}
+py_mid_talk={top=192,bot=226}
+py_mid_closed={top=192,bot=228}
+py_up_talk={top=194,bot=226}
+py_up_closed={top=194,bot=228}
+py_up_intense={top=194,bot=230}
+py_down_wry={top=196,bot=224}
+py_down_smile={top=196,bot=232}
+
+
 tl_grab={
    icon=142,name="grab",
    fn=i_grab,give=give_tool}
 tl_till={
    icon=141,name="till",
-   fn=i_till,give=give_tool}
+   fn=i_till,give={
+      {p=py_mid_talk, "How's that plow\nworking?"},
+      {p=py_mid_closed,
+       "Remember, you need\nto clear the",
+       "ground before you\nplant flowers."}
+   }
+}
 tl_water={
    icon=143,name="water",
-   fn=i_water,give=give_tool}
+   fn=i_water,give={
+      {p=py_up_talk,  "Don't get me wet!"},
+      {p=py_mid_wry, "Save that for the\nplants."}
+   }
+}
 tl_grass={
    icon=147,name="grass",
    fn=i_plant,plant=grass,
-   give=give_tool}
+   give={
+      {p=py_mid_talk, "Grass seeds!"},
+      {p=py_down_smile,
+       "I love the feel of\ngrass under my feet."}
+   }
+}
 
 function get_items()
    local items
@@ -1697,21 +1740,7 @@ end
 -->8
 -- cutscene stuff
 
--- portraits
---  py_ear_up=194
---  py_ear_mid=192
---  py_ear_down=196
---  py_head_wry=224
---  py_head_talk=226
---  py_head_closed=228
---  py_head_intense=230
-py_mid_wry={top=192,bot=224}
-py_mid_talk={top=192,bot=226}
-py_mid_closed={top=192,bot=228}
-py_up_talk={top=194,bot=226}
-py_up_closed={top=194,bot=228}
-py_up_intense={top=194,bot=230}
-py_down_wry={top=196,bot=224}
+-- portaits a
 
 -- cutscenes.
 cs_intro={
@@ -2294,7 +2323,8 @@ function penny:wander_around()
       self:run_to(tx, ty)
 
       local t=(rnd()*30)+45
-      while t>0 or self:is_close() do
+      while hour >= 8 and hour <= 18 and
+         (t>0 or self:is_close()) do
          if self:is_close() then
             self:face(px,py)
          end
@@ -2548,21 +2578,21 @@ ffffeeef0feeef0000feeeef0feeef00ffffeeef0feeefff00000000000000000000000000000000
 ff0feeef0feeef0000feeeef0feeef00ff0feeef0feeeff000000000000000000000000000000000000000000000000000000000000000000000000000000000
 f00feeef0feef000000feeef0feef000f00feeef0feef00000000000000000000000000000000000000000000000000000000000000000000000000000000000
 000feeef0feef000000feeef0feef000000feeef0feef00000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000feffffffef000000feffffffef000000feffffffef000000feffffffef0000000000000000000000000000000000000000000000000000000000000000000
-000ffffffffff000000ffffffffff000000ffffffffff000000ffffffffff0000000000000000000000000000000000000000000000000000000000000000000
-00ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff000000000000000000000000000000000000000000000000000000000000000000
-00fffeffffefff0000ffffffffffff0000ffffffffffff0000ffffffffffff000000000000000000000000000000000000000000000000000000000000000000
-0ffeeffffffeeff00fffeeffffeefff00ffeeffffffeeff00ffeeffffffeeff00000000000000000000000000000000000000000000000000000000000000000
-0feffffffffffef00ffeffffffffeff00ffffeffffeffff00ffffeffffeffff00000000000000000000000000000000000000000000000000000000000000000
-0fff77ffff77fff00fff77ffff77fff00ffffffffffffff00fff77ffff77fff00000000000000000000000000000000000000000000000000000000000000000
-fff7ddffffdd7ffffff7ddffffdd7ffffffeffffffffeffffff7ddffffdd7fff0000000000000000000000000000000000000000000000000000000000000000
-fff7ddffffdd7ffffff7ddffffdd7fffffffeeffffeefffffff7ddffffdd7fff0000000000000000000000000000000000000000000000000000000000000000
-fffffffffffffffffffffffeeffffffffffffffeeffffffffffffffeefffffff0000000000000000000000000000000000000000000000000000000000000000
-ffffffeeeeffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffff0000000000000000000000000000000000000000000000000000000000000000
-fffffffeefffffffffffffffffffffffffffffffffffffffffffffffffffffff0000000000000000000000000000000000000000000000000000000000000000
-fffffeffffffffffffffffe77effffffffffffffffffffffffffffeeeeffffff0000000000000000000000000000000000000000000000000000000000000000
-ffffffeeffffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffff0000000000000000000000000000000000000000000000000000000000000000
-00ffffffffffff0000fffffeefffff0000ffffffffffff0000fffffeefffff000000000000000000000000000000000000000000000000000000000000000000
+000feffffffef000000feffffffef000000feffffffef000000feffffffef000000feffffffef000000000000000000000000000000000000000000000000000
+000ffffffffff000000ffffffffff000000ffffffffff000000ffffffffff000000ffffffffff000000000000000000000000000000000000000000000000000
+00ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff00000000000000000000000000000000000000000000000000
+00fffeffffefff0000ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff00000000000000000000000000000000000000000000000000
+0ffeeffffffeeff00fffeeffffeefff00ffeeffffffeeff00ffeeffffffeeff00fffeeffffeefff0000000000000000000000000000000000000000000000000
+0feffffffffffef00ffeffffffffeff00ffffeffffeffff00ffffeffffeffff00ffeffffffffeff0000000000000000000000000000000000000000000000000
+0fff77ffff77fff00fff77ffff77fff00ffffffffffffff00fff77ffff77fff00ffffffffffffff0000000000000000000000000000000000000000000000000
+fff7ddffffdd7ffffff7ddffffdd7ffffffeffffffffeffffff7ddffffdd7ffffffeffffffffefff000000000000000000000000000000000000000000000000
+fff7ddffffdd7ffffff7ddffffdd7fffffffeeffffeefffffff7ddffffdd7fffffffeeffffeeffff000000000000000000000000000000000000000000000000
+fffffffffffffffffffffffeeffffffffffffffeeffffffffffffffeeffffffffffffffeefffffff000000000000000000000000000000000000000000000000
+ffffffeeeeffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffff000000000000000000000000000000000000000000000000
+fffffffeefffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000000000000000
+fffffeffffffffffffffffe77effffffffffffffffffffffffffffeeeefffffffffffeffffffffff000000000000000000000000000000000000000000000000
+ffffffeeffffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffff000000000000000000000000000000000000000000000000
+00ffffffffffff0000fffffeefffff0000ffffffffffff0000fffffeefffff0000ffffffffffff00000000000000000000000000000000000000000000000000
 __gff__
 0800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008071828380000000000000000000000000000030000000000000000000000000000000300000000000000000000000000000203000000000000000000000000
 000000000000000000000000000000000a0a0a0a0e0000000000000000000000070a0a0a0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

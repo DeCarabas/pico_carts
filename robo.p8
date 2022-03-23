@@ -1281,10 +1281,6 @@ function draw_flower(plant)
    plant.seed:draw(4+plant.x*8, 8+plant.y*8, plant.age)
 end
 
-function find_plant(x,y)
-
-end
-
 function remove_plant(x,y)
    for p in all(plants) do
       if p.x==x and p.y==y then

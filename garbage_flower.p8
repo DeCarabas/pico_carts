@@ -164,10 +164,22 @@ function flower:draw(x,y,scale)
  local fx=flr(x-sz*scale/2)
  local fy=flr(y-(16+sz)*scale/2)
 
- sspr(
-  self.slot*sz,flower.sy,sz,sz,
-  fx,fy,sz*scale,sz*scale,
-  flx)
+ function go(dx,dy)
+    sspr(
+       self.slot*sz,flower.sy,sz,sz,
+       fx+dx,fy+dy,sz*scale,sz*scale,
+       flx)
+ end
+
+ for c=1,16 do pal(c,0) end
+ for dy=-1,1 do
+    for dx=-1,1 do
+       go(dx,dy)
+    end
+ end
+ pal()
+
+ go(0,0)
 end
 
 __gfx__

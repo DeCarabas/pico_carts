@@ -466,7 +466,7 @@ function _init()
    -- cheatz
    menuitem(1,"+energy",function() energy_level=max_energy end)
    menuitem(2,"-energy",function() energy_level=mid(max_energy,0,energy_level/2) end)
-   menuitem(3,"rain",function() raining=true end)
+   menuitem(3,"rain",function() raining=not raining end)
    menuitem(4,"load", function()
                if load_game() then
                   init_game()
@@ -630,6 +630,10 @@ function update_time(inc)
             save_game()
          end)
    end
+end
+
+function daytime()
+   return hour >= 8 and hour <= 18
 end
 
 function update_walk_impl()
@@ -2355,27 +2359,34 @@ function penny:is_close()
 end
 
 function penny:wander_around()
-   while hour >= 8 and hour <= 18 do
-      local dst = flr(rnd(16))
-      local tx, ty = self.x, self.y
-      if rnd() >= 0.5 then
-         tx=dst
-      else
-         ty=dst
-      end
-      tx = mid(0,tx,15)
-      ty = mid(0,ty,15)
-
-      self:run_to(tx, ty)
-
-      local t=(rnd()*30)+45
-      while hour >= 8 and hour <= 18 and
-         (t>0 or self:is_close()) do
-         if self:is_close() then
-            self:face(px,py)
+   while daytime() do
+      if not raining then
+         local dst = flr(rnd(16))
+         local tx, ty = self.x, self.y
+         if rnd() >= 0.5 then
+            tx=dst
+         else
+            ty=dst
          end
-         t=max(0,t-1)
-         yield()
+         tx = mid(0,tx,15)
+         ty = mid(0,ty,15)
+
+         self:run_to(tx, ty)
+
+         local t=(rnd()*30)+45
+         while daytime() and not raining and
+            (t>0 or self:is_close()) do
+            if self:is_close() then
+               self:face(px,py)
+            end
+            t=max(0,t-1)
+            yield()
+         end
+      else
+         self:leave()
+         while raining and daytime() do
+            yield()
+         end
       end
    end
 end

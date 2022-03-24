@@ -298,7 +298,16 @@ function save_game()
    end
    w:flush()                       -- 253
 
-   -- 3 bytes to spare! tree seeds maybe! :)
+   local want_seed,want_count=0, 0
+   for fi=1,#flower_seeds do
+      if flower_seeds[fi]==penny.want_seed then
+         want_seed,want_count=fi-1,penny.want_count
+         break
+      end
+   end
+   w:pack(4, want_seed, want_count)-- 254
+
+   -- 2 bytes to spare! tree seeds maybe! :)
 end
 
 function load_game()
@@ -370,6 +379,15 @@ function load_game()
          get_flower(flower_seeds[fi], fc, sc)
       end
    end
+
+   fi = w:unpack(4)
+   penny.want_count = w:unpack(4)
+   if chapter>=3 then
+      penny.want_seed=flower_seeds[fi]
+   else
+      penny.want_seed=nil
+   end
+
 
    -- deal with the chapters.
    if chapter==2 then
@@ -1036,8 +1054,12 @@ function printo(t,x,y,c)
 end
 
 function draw_objective()
-   if objective then
-      printo("goal: "..objective,2,122,7)
+   local obj=objective
+   if not obj and penny.want_seed then
+      obj="get "..penny.want_count.." "..penny.want_seed.name.." flowers"
+   end
+   if obj then
+      printo("goal: "..obj,2,122,7)
    end
 end
 
@@ -1380,26 +1402,39 @@ function add_flower(seed, age, tx, ty)
 end
 
 function give_flower(item)
-   -- :todo: check how many she wants and do that instead
-   if item.flower_count>1 then
-      do_script({
-            {p=py_up_talk,
-             "Oh, bunch of "..item.name.."\nflowers!"},
-            {p=py_mid_talk,
-             "I'll take them to\nmom.",
-             "I'm sure she'll love\nthem!"}
-      })
-      item.flower_count=0
-   elseif item.flower_count>0 then
-      do_script({
-            {p=py_up_talk,
-             "Oh, a "..item.name.." blossom!"},
-            {p=py_mid_talk,
-             "I'll take it to mom.",
-             "I'm sure she'll love\nit!"}
-      })
-      item.flower_count=0
-   elseif item.seed_count>0 then
+   if item.flower_count > 0 then
+      if item.seed==penny.want_seed then
+         if item.flower_count >= penny.want_count then
+            do_script({
+                  {p=py_up_talk,
+                   "Oh, a bunch of "..item.name.."\nflowers!"},
+                  {p=py_mid_talk,
+                   "I'll take them to\nmom.",
+                   "I'm sure she'll love\nthem!"}
+            })
+            -- :todo: leave and return
+            item.flower_count-=penny.want_count
+            penny.want_count=0
+            penny.want_seed=nil
+         else
+            local more = penny.want_count-item.flower_count
+            do_script({
+                  {p=py_up_talk, "That's the flower I want!"},
+                  {p=py_mid_talk, "Can you collect\n"..more.." more?"}
+            })
+         end
+      elseif penny.want_seed then
+         do_script({
+               {p=py_mid_talk, "That's a very pretty\n"..item.name.." flower."},
+               {p=py_mid_wry, "I am looking for a\n"..penny.want_seed.name..", though."},
+               {p=py_mid_talk, "Can you grow me some?"},
+         })
+      else
+         do_script({
+               {p=py_mid_talk, "What a pretty "..item.name.."!"}
+         })
+      end
+   else
       do_script({
             {p=py_mid_talk,
              "That looks like a\n"..item.name.." seed.",
@@ -1606,8 +1641,6 @@ end
 -->8
 -- weather
 --
--- :todo: random weather on hour
--- and season.
 function init_weather()
    raining=false
    rain={}
@@ -1974,13 +2007,6 @@ function start_ch3()
    chapter = 3
    tank_level = max_tank
    penny:start_wander()
-   objective_fn = check_gather_flowers(1)
-end
-
-function check_gather_flowers(ndx)
-   return function()
-
-   end
 end
 
 cs_didclear={
@@ -2053,6 +2079,10 @@ cs_didclear={
    },
 
    {
+      pre=function()
+         penny.want_seed=flower_seeds[1]
+         penny.want_count=3
+      end,
       p=py_down_wry,
       "Whoops....",
       "She sounds mad.",
@@ -2395,6 +2425,19 @@ function penny:start_wander()
    self.DBG_thread_name = "start_wander"
    self._thread = cocreate(function()
          while true do
+            if chapter>=3 and not self.want_seed then
+               self.want_seed=rnd(flower_seeds)
+               self.want_count=flr(rnd(7)+3)
+               do_script({
+                     {p=py_mid_talk,
+                      "Robo?",
+                      "I was wondering...",
+                      "Could you please get\nme some flowers?",
+                      tostr(self.want_count).." "..self.want_seed.name.." flowers?",
+                      "Thanks!"}
+               })
+            end
+
             -- Wander around the field until...
             self:wander_around()
 
@@ -2427,6 +2470,11 @@ function penny:visible()
    return self.x ~= nil and self.y ~= nil and
       self.x >= 0 and self.x < 16 and
       self.y >= 0 and self.y < 16
+end
+
+function penny:want_flowers(seed,count)
+   self.want_seed=seed
+   self.want_count=count
 end
 
 -->8

@@ -16,6 +16,16 @@ __lua__
 --
 -- :todo: zelda rock sprites
 -- :todo: tweak power usage
+-- :todo: only on the base tho
+-- :todo: only show water bar
+-- :todo: recolor birds
+-- :todo: need bigger battery for move more rocks
+-- :todo: what is 6x6?
+-- :todo: sleep after midnight oops too long
+-- :todo: flower objective change if enough flowers
+-- :todo: increase range for penny to stay still
+-- :todo: penny move to you when you're in range?
+-- :todo: advice on first flower thingy? more instructions?
 
 -- the map is divided into 4
 -- regions, horizontally. we
@@ -3018,4 +3028,3 @@ __sfx__
 011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __music__
 00 06074344
-

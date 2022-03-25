@@ -422,9 +422,9 @@ function bird:update()
   else
    self.pos+=(delta/delta_len)*2
    self.frame+=0.5
-      if self.frame>=4 then
-       self.frame=2
-      end
+   if self.frame>=4 then
+     self.frame=2
+   end
   end
  end
 end

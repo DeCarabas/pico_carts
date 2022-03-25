@@ -448,6 +448,7 @@ function init_game()
   init_weather()
   init_water()
   init_text()
+  init_birds()
 
   update_fn = update_walk
 end
@@ -653,6 +654,7 @@ function update_walk_impl()
   update_base()
   update_plants()
   penny:update()
+  update_birds()
 
   check_objective()
 
@@ -1159,6 +1161,10 @@ function draw_game()
     add(draws, {draw_flower,f})
     add(ys, f.y-0.1)
   end
+  for b in all(birds) do
+    add(draws, {draw_bird,b})
+    add(ys, b.y)
+  end
   sort(ys,draws)
   -- DBG_last_ys=ys
   -- DBG_last_draws=draws
@@ -1214,7 +1220,7 @@ function _draw()
 end
 
 -->8
--- water
+-- water and birds
 function init_water()
   wet_map={}
   wet_map[64]=67
@@ -1251,6 +1257,59 @@ function i_water(item,tx,ty)
       tank_level-=10
       wet_ground(tx, ty)
   end)
+end
+
+function init_birds()
+  birds={}
+end
+
+function add_bird()
+  local tx,ty=flr(rnd(10))+3,flr(rnd(10))+3
+  local b
+  b={
+    x=tx-16, y=ty-16, frame=1,
+    thread=cocreate(function()
+        -- bird is arriving.
+        while b.x<tx do
+          b.x+=0.2 b.y+=0.2
+          b.frame+=0.5
+          if (b.frame>=4) b.frame=1
+          yield()
+        end
+
+        -- bird is singing and dropping seed.
+        b.frame=0
+
+        -- bird is leaving.
+        tx+=16 ty-=16
+        while b.x<tx do
+          b.x+=0.2 b.y-=0.2
+          b.frame+=0.5
+          if (b.frame>=4) b.frame=1
+          yield()
+        end
+    end)
+  }
+  add(birds, b)
+end
+
+function update_birds()
+  if #birds < 1 then
+    add_bird()
+  end
+
+  for b in all(birds) do
+    assert(coresume(b.thread))
+    if costatus(b.thread)=="dead" then
+      del(birds,b)
+    end
+  end
+end
+
+function draw_bird(bird)
+  for b in all(birds) do
+    spr(flr(151+b.frame),b.x*8,b.y*8)
+  end
 end
 
 -->8

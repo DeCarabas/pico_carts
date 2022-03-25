@@ -71,6 +71,11 @@ function new_game()
   end
 
   flower_pockets={}
+
+  flower_seeds={}
+  for fi=1,16 do
+    add(flower_seeds, flower:new(flower_size,fi-1))
+  end
 end
 
 stream={}
@@ -240,7 +245,8 @@ function save_game()
                 -- in [1-16] anyway.) the next bit
                 -- indicates whether the flower is
                 -- old or young.
-                encoded = 0b100000 | si
+                assert(si>=1 and si<=16)
+                encoded = 0b100000 | (si-1)
                 if flower.age > 0.5 then
                   encoded |= 0b010000
                 end
@@ -342,7 +348,7 @@ function load_game()
     for x=0,15 do
       local encoded = w:unpack(6)
       if encoded & 0b100000 ~= 0 then -- flower
-        local age, si = 0.5, encoded & 0b001111
+        local age, si = 0.5, (encoded & 0b001111)+1
         if encoded & 0b010000 ~= 0 then
           age = 1.0
         end
@@ -384,6 +390,16 @@ function load_game()
   end
 
   return true
+end
+
+function dump_hex()
+  local w = stream:new_read(0x5e00,256)
+  for i=1,256 do
+    local b=w:read()
+    print(sub(tostr(b,true),5,6).." \0")
+    if (i%10==0) print("\n\0")
+  end
+  print("\n")
 end
 
 -- player state
@@ -456,7 +472,7 @@ end
 flower_sy=88
 
 function _init()
-  poke(0x5f36,0x40) -- disable print scroll
+  --poke(0x5f36,0x40) -- disable print scroll
   flower:init(flower_sy)
 
   cartdata("doty_robo_p8")
@@ -592,6 +608,24 @@ function sleep_until_morning()
       sleep_until=day+1
     end
   )
+end
+
+function yield_until(until_hour)
+  while until_hour >= 24 do
+    until_hour-=24
+  end
+  while until_hour < hour do
+    yield()
+  end
+  while hour < until_hour do
+    yield()
+  end
+end
+
+function yield_frames(f)
+  for i=1,f do
+    yield()
+  end
 end
 
 function update_time(inc)
@@ -1163,7 +1197,7 @@ function draw_game()
   end
   for b in all(birds) do
     add(draws, {draw_bird,b})
-    add(ys, b.y)
+    add(ys, b.ty)
   end
   sort(ys,draws)
   -- DBG_last_ys=ys
@@ -1199,7 +1233,7 @@ function draw_game()
     draw_meters()
   end
 
-  --draw_debug()
+  -- draw_debug()
 end
 
 function _draw()
@@ -1267,7 +1301,7 @@ function add_bird()
   local tx,ty=flr(rnd(10))+3,flr(rnd(10))+3
   local b
   b={
-    x=tx-16, y=ty-16, frame=1,
+    x=tx-16, y=ty-16, ty=ty, frame=1,
     thread=cocreate(function()
         -- bird is arriving.
         while b.x<tx do
@@ -1279,6 +1313,14 @@ function add_bird()
 
         -- bird is singing and dropping seed.
         b.frame=0
+        for i=1,flr(rnd(4))+1 do
+          -- is the chirping good?
+          -- if (not is_sleeping) sfx_yield(2, 3)
+          yield_frames(15)
+        end
+        if chapter>=3 and not map_flag(tx,ty,1) then
+          add_flower(rnd(flower_seeds), 0.25, tx, ty)
+        end
 
         -- bird is leaving.
         tx+=16 ty-=16
@@ -1294,7 +1336,7 @@ function add_bird()
 end
 
 function update_birds()
-  if #birds < 1 then
+  if #birds<1 and hour>4 and hour<16 then
     add_bird()
   end
 
@@ -2048,6 +2090,12 @@ function start_ch3()
   penny:start_wander()
 end
 
+function sfx_yield(i,c)
+  sfx(i, c)
+  repeat until stat(49)>0 yield()
+  repeat until stat(49)<0 yield()
+end
+
 cs_didclear={
   {
     pre=function()
@@ -2070,7 +2118,7 @@ cs_didclear={
 
       -- :todo: a little bit between when she leaves and when
       --        she comes back?
-      penny:sleep_until(hour+0.25)
+      yield_frames(15)
 
       penny:show(16, py+1, 2)
       penny:run_to(px, penny.y)
@@ -2086,18 +2134,14 @@ cs_didclear={
     pre=function()
       d=2 -- look down (face penny)
       for i=1,2 do
-        sfx(1, 3) -- tool sound
-        repeat until stat(49)>0 yield()
-        repeat until stat(49)<0 yield()
+        sfx_yield(1, 3) -- tool sound
       end
 
       -- grant the new flower seed.
       --
       -- this isn't in start_ch3 because we don't want to do this on
       -- load_game.
-      local seed = flower:new(flower_size,0)
-      add(flower_seeds, seed)
-      get_flower(seed, 0, 3)
+      get_flower(flower_seeds[1], 0, 3)
     end,
     p=py_mid_talk,
     "Done!",
@@ -2374,15 +2418,6 @@ function penny:leave()
   end
 end
 
-function penny:sleep_until(until_hour)
-  while until_hour < hour do
-    yield()
-  end
-  while hour < until_hour do
-    yield()
-  end
-end
-
 function penny:is_close()
   return abs(self.x-px)<=1 and abs(self.y-py)<=1
 end
@@ -2438,7 +2473,7 @@ function penny:start_wander()
         self:leave()
 
         -- sleep until the morning.
-        self:sleep_until(8)
+        yield_until(8)
 
         -- come back to the field
         self:run_to(old_x, self.y)
@@ -2450,7 +2485,7 @@ function penny:start_leave_then_wander()
   self.DBG_thread_name = "start_leave_then_wander"
   self._thread = cocreate(function()
       penny:leave()
-      self:sleep_until((hour + 1)%24)
+      yield_until(hour + 1)
       penny:start_wander()
   end)
 end
@@ -2476,60 +2511,6 @@ end
 function penny:want_flowers(seed,count)
   self.want_seed=seed
   self.want_count=count
-end
-
--->8
--- songs
-------------------------------
--- a chirp is a series of notes
--- (a single sound effect)
-chirp={}
-function chirp:new()
-  local c={}
-
-  -- i have found that it sounds
-  -- better if you lerp over 4
-  -- tones between points.
-  --
-  -- discontinuities sound gross,
-  -- but you still want the pitch
-  -- changes quick.
-  local cl=rnd(8)+24
-
-  local old=rnd(8)+56
-  for i=0,cl,4 do
-    local new=rnd(8)+56
-    for j=0,3 do
-      local pitch=lerp(old,new,j/4)
-      add(c,flr(pitch))
-    end
-    old=new
-  end
-
-  -- these are in frames, or
-  -- 1/30 of a second.
-  c.delay=rnd(7)+3
-
-  return setmetatable(c, {__index=self})
-end
-
--- load a chirp into an sfx slot
-function chirp:load(i)
-  local base=0x3200+(68*i)
-
-  for i=0,63,1 do
-    poke(base+i,0)
-  end
-
-  -- set speed to 1.
-  poke(base+65,1)
-
-  -- set pitches.
-  local addr=base
-  for pitch in all(self) do
-    poke2(addr,0x0a00|pitch)
-    addr+=2
-  end
 end
 
 -->8
@@ -2776,3 +2757,4 @@ __map__
 __sfx__
 050100000c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c76010760
 5e0500002b2512b2512b2512b2502b2503f2013f2013f2013f201000003f2503f2503f2513f2513f2513f2513f251000000000035201352011c2012020120201352513525135250352503525035250352503f200
+000100003c0503e0503f0503f0503f0503f0503e0503e0503d0503d0503e0503d0503c0503b0503b0503b0503b0503b0503805035050350503605037050390503b0503e0503f0003f0003f000000003f0503b050

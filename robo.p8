@@ -859,7 +859,10 @@ end
 moon_phases={134,135,136,137,138,139,138,137,136,135}
 function moon()
    -- 3 days in a phase
-   -- 10 moon phases in a cycle
+   -- 10 moon phases in a month
+   -- :note: this doesn't align with calendar "season"
+   -- months (which would be 2.8 days/phase) and i
+   -- kind of love it.
    local phase=flr(day/3)%10
    return {
       sprite=moon_phases[phase+1],
@@ -1530,7 +1533,18 @@ function i_grab(item,tx,ty)
 end
 
 function give_tool(item)
-   if grabbed_item then
+   if chapter==2 then
+      if objective == "talk to penny" then
+         objective=nil
+         do_script(cs_didclear)
+      else
+         do_script({
+               {p=py_mid_talk,
+                "Help me move these\nrocks, ok?",
+                "We need a big clear\nspace."}
+         })
+      end
+   elseif grabbed_item then
       do_script({
             {p=py_down_wry,
              "Hey, careful where\nyou put that."}
@@ -1980,11 +1994,6 @@ end
 function check_bigspace()
    DBG_last_fail_msg=nil
 
-   if not penny:visible() then
-      DBG_last_fail_msg="penny gone"
-      return
-   end
-
    if grabbed_item then
       DBG_last_fail_msg="holding something"
       return
@@ -1993,9 +2002,8 @@ function check_bigspace()
    for y=1,9 do
       for x=1,9 do
          if _check_clear(x,y) then
-            objective=nil
+            objective="talk to penny"
             objective_fn=nil
-            do_script(cs_didclear)
             return
          end
       end

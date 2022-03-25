@@ -1357,10 +1357,127 @@ function draw_bird(bird)
 end
 
 -->8
--- plants and items
+-- actual flower stuff.
+flower={}
+function flower:init(sy)
+  flower.sy=sy
+end
 
--- garbage_flower has the flower info.
-#include garbage_flower.p8:1
+function flip_coin()
+  if (flr(rnd(2))==0) return false
+  return true
+end
+
+function rnd_chr(s)
+  local i=flr(rnd(#s))+1
+  return sub(s,i,i)
+end
+
+function flower:name()
+  local cons="wrtpsdfghjklzxcvbnm"
+  local vowl="aeiou"
+
+  local result=rnd_chr(cons)..rnd_chr(vowl)
+  if flip_coin() then
+    result=result..rnd_chr(cons)..rnd_chr(vowl)
+  else
+    result=result..rnd({"th","ch","ph","ke","te","se"})
+  end
+
+  return result
+end
+
+function flower:new(size, slot, seed, stem)
+  seed=seed or rnd()
+  if stem==nil then stem=true end
+  srand(seed)
+
+  local flx=flip_coin()
+
+  local f={
+    size=size,
+    seed=seed,
+    stem=stem,
+    symm=flr(rnd(2)),
+    flx=flx,
+    slot=slot,
+    name=self:name()
+  }
+
+  local colors={}
+  while colors[4]==colors[5] do
+    colors={
+      0,0,0,
+      flr(rnd(8)+8),
+      flr(rnd(8)+8)
+    }
+  end
+
+  -- Flowers are rendered into the sprite sheet starting
+  -- at y 64 and left-to-right at slot*size. So if size
+  -- is 6, which is typical, then the first one is at (0,64)
+  -- and the next one is at (6,64), etc.
+  local symm=f.symm
+  for y=0,size-1 do
+    for x=0,size-1 do
+      local c=rnd(colors)
+      sset(x+(slot*size),y+self.sy,c)
+      if symm==0 then
+        sset(y+(slot*size),x+self.sy,c)
+      else
+        sset(size-1-x+(slot*size),y+self.sy,c)
+      end
+    end
+  end
+
+  return setmetatable(f,{__index=self})
+end
+
+function flower:draw(x,y,scale)
+ local sz=self.size
+ local flx=self.flx
+
+ if self.stem then
+  palt(0, false)
+  palt(12, true)
+
+  local sx=flr(x-16*scale/2)
+  local sy=flr(y-16*scale)
+
+  -- stem sprite starts at sprite 100
+  -- because that's an empty space in
+  -- all the sprite sheets i care about.
+  -- :)
+  sspr(
+   32+16*self.symm,48,16,16,
+   sx,sy,16*scale,16*scale,
+   flx)
+
+  palt()
+ end
+
+ local fx=flr(x-sz*scale/2)
+ local fy=flr(y-(16+sz)*scale/2)
+
+ function go(dx,dy)
+    sspr(
+       self.slot*sz,flower.sy,sz,sz,
+       fx+dx,fy+dy,sz*scale,sz*scale,
+       flx)
+ end
+
+ for c=1,16 do pal(c,0) end
+ for dy=-1,1 do
+    for dx=-1,1 do
+       go(dx,dy)
+    end
+ end
+ pal()
+
+ go(0,0)
+end
+-->8
+-- plants and items
 
 grass={
   name="grass",
@@ -2769,4 +2886,3 @@ __sfx__
 011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __music__
 00 06074344
-

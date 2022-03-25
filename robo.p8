@@ -1077,39 +1077,42 @@ function printo(t,x,y,c)
   print(t,x,y,c)
 end
 
+descs={[160]="rock",[144]="grass",[145]="grass",[146]="grass",[147]="grass"}
+
 function draw_objective()
+  local lines={}
+
+  local tx,ty=looking_at()
+  local f,d=find_flower(tx,ty)
+  if f then
+    if f.age>=1.0 then
+      add(lines,"full grown "..f.seed.name)
+    else
+      if f.age>=0.5 then
+        add(lines,"growing "..f.seed.name)
+      else
+        add(lines,f.seed.name.." sprout")
+      end
+      if not map_flag(f.x, f.y, 5) then
+        add(lines,"needs water")
+      end
+    end
+  else
+    add(lines, descs[mget(tx+32,ty)])
+  end
+
   local obj=objective
   if not obj and penny.want_seed then
     obj="get "..penny.want_count.." "..penny.want_seed.name.." flowers"
   end
   if obj then
-    printo("goal: "..obj,2,122,7)
+    add(lines, "goal: "..obj)
   end
-end
 
-descs={[160]="rock",[144]="grass",[145]="grass",[146]="grass",[147]="grass"}
-
-function describe_lookat()
-  local tx,ty=looking_at()
-  local f,d=find_flower(tx,ty)
-  if f then
-    if f.age>=1.0 then
-      d="full grown "..f.seed.name
-    else
-      if f.age>=0.5 then
-        d="growing "..f.seed.name
-      else
-        d=f.seed.name.." sprout"
-      end
-      if not map_flag(f.x, f.y, 5) then
-        d..=" (needs water)"
-      end
-    end
-  else
-    d=descs[mget(tx+32,ty)]
-  end
-  if d then
-    printo(d,2,98,7)
+  local ly=129-8*#lines
+  for l in all(lines) do
+    printo(l, 2, ly, 7)
+    ly+=8
   end
 end
 
@@ -1228,7 +1231,6 @@ function draw_game()
     draw_time()
     draw_meters()
     draw_objective()
-    describe_lookat()
   elseif (energy_level/max_energy)<0.25 then
     draw_meters()
   end
@@ -1336,7 +1338,7 @@ function add_bird()
 end
 
 function update_birds()
-  if #birds<1 and hour>4 and hour<16 then
+  if not raining and #birds<1 and hour>4 and hour<16 then
     add_bird()
   end
 
@@ -1752,8 +1754,10 @@ function update_weather()
     assert(chance > 1, tostr(chance).." ??")
     if flr(rnd(chance)) == 0 then
       raining=true
+      sfx(3,2)
     else
       raining=false
+      sfx(3,-2)
     end
   end
 end
@@ -2758,3 +2762,4 @@ __sfx__
 050100000c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c760107600c76010760
 5e0500002b2512b2512b2512b2502b2503f2013f2013f2013f201000003f2503f2503f2513f2513f2513f2513f251000000000035201352011c2012020120201352513525135250352503525035250352503f200
 000100003c0503e0503f0503f0503f0503f0503e0503e0503d0503d0503e0503d0503c0503b0503b0503b0503b0503b0503805035050350503605037050390503b0503e0503f0003f0003f000000003f0503b050
+000c0020206102161023610256102661026610276102761027610246102361021610206101f6101e6101e6101e610206102161022610236102461024610246102461023610236102461025610256102561025610

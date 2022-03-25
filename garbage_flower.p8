@@ -62,80 +62,77 @@ end
 -- actual flower stuff.
 flower={}
 function flower:init(sy)
- flower.sy=sy
+  flower.sy=sy
 end
 
 function flip_coin()
- if flr(rnd(2))==0 then
-  return false
- else
+  if (flr(rnd(2))==0) return false
   return true
- end
 end
 
 function rnd_chr(s)
- local i=flr(rnd(#s))+1
- return sub(s,i,i)
+  local i=flr(rnd(#s))+1
+  return sub(s,i,i)
 end
 
 function flower:name()
- local cons="wrtpsdfghjklzxcvbnm"
- local vowl="aeiou"
+  local cons="wrtpsdfghjklzxcvbnm"
+  local vowl="aeiou"
 
- local result=rnd_chr(cons)..rnd_chr(vowl)
- if flip_coin() then
-  result=result..rnd_chr(cons)..rnd_chr(vowl)
- else
-  result=result..rnd({"th","ch","ph","ke","te","se"})
- end
+  local result=rnd_chr(cons)..rnd_chr(vowl)
+  if flip_coin() then
+    result=result..rnd_chr(cons)..rnd_chr(vowl)
+  else
+    result=result..rnd({"th","ch","ph","ke","te","se"})
+  end
 
- return result
+  return result
 end
 
-function flower:new(size,slot,seed,stem)
- if seed==nil then seed=rnd() end
- if stem==nil then stem=true end
- srand(seed)
+function flower:new(size, slot, seed, stem)
+  seed=seed or rnd()
+  if stem==nil then stem=true end
+  srand(seed)
 
- local flx=flip_coin()
+  local flx=flip_coin()
 
- local f={
-   size=size,
-   seed=seed,
-   stem=stem,
-   symm=flr(rnd(2)),
-   flx=flx,
-   slot=slot,
-   name=self:name()
- }
-
- local colors={}
- while colors[4]==colors[5] do
-  colors={
-   0,0,0,
-   flr(rnd(8)+8),
-   flr(rnd(8)+8)
+  local f={
+    size=size,
+    seed=seed,
+    stem=stem,
+    symm=flr(rnd(2)),
+    flx=flx,
+    slot=slot,
+    name=self:name()
   }
- end
 
- -- Flowers are rendered into the sprite sheet starting
- -- at y 64 and left-to-right at slot*size. So if size
- -- is 6, which is typical, then the first one is at (0,64)
- -- and the next one is at (6,64), etc.
- local symm=f.symm
- for y=0,size-1 do
-  for x=0,size-1 do
-   local c=rnd(colors)
-   sset(x+(slot*size),y+self.sy,c)
-   if symm==0 then
-    sset(y+(slot*size),x+self.sy,c)
-   else
-    sset(size-1-x+(slot*size),y+self.sy,c)
-   end
+  local colors={}
+  while colors[4]==colors[5] do
+    colors={
+      0,0,0,
+      flr(rnd(8)+8),
+      flr(rnd(8)+8)
+    }
   end
- end
 
- return setmetatable(f,{__index=self})
+  -- Flowers are rendered into the sprite sheet starting
+  -- at y 64 and left-to-right at slot*size. So if size
+  -- is 6, which is typical, then the first one is at (0,64)
+  -- and the next one is at (6,64), etc.
+  local symm=f.symm
+  for y=0,size-1 do
+    for x=0,size-1 do
+      local c=rnd(colors)
+      sset(x+(slot*size),y+self.sy,c)
+      if symm==0 then
+        sset(y+(slot*size),x+self.sy,c)
+      else
+        sset(size-1-x+(slot*size),y+self.sy,c)
+      end
+    end
+  end
+
+  return setmetatable(f,{__index=self})
 end
 
 function flower:draw(x,y,scale)

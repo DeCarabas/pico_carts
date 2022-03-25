@@ -1087,9 +1087,6 @@ function draw_debug()
   if chapter != nil then
     print("chapter: "..chapter)
   end
-  if DBG_last_fail_msg != nil then
-    print("last fail: "..DBG_last_fail_msg)
-  end
   if penny.x!=nil then
     print("penny x "..penny.x.." y "..penny.y.." s "..penny.speed)
     print("      f "..penny.frame.." d "..penny.d)
@@ -1359,10 +1356,6 @@ function i_plant(item,tx,ty)
     buzz("insufficient energy")
     return
   end
-  -- if not map_flag(tx, ty, 4) then
-  --    buzz("ground not plowed")
-  --    return
-  -- end
 
   energy_level-=plant_cost
   local p=item.plant
@@ -1398,9 +1391,11 @@ function give_flower(item)
              "Oh, a bunch of "..item.name.."\nflowers!"},
             {p=py_mid_talk,
              "I'll take them to\nmom.",
-             "I'm sure she'll love\nthem!"}
+             "I'm sure she'll love\nthem!"},
+            post=function()
+              penny:start_leave_then_wander()
+            end
         })
-        -- :todo: leave and return
         item.flower_count-=penny.want_count
         penny.want_count=0
         penny.want_seed=nil
@@ -1535,12 +1530,12 @@ function give_tool(item)
          "Hey, careful where\nyou put that."}
     })
   else
-    local cs={
+    -- local cs=
+    do_script({{
       p=py_mid_talk,
       "Hey there Robo!",
       "Enjoying yourself?"
-    }
-    do_script({cs})
+    }})
   end
 end
 
@@ -1760,7 +1755,7 @@ function update_fade()
     fade_lvl+=1
     if fade_lvl>5 then
       disable_dark()
-      resume(fade_cb)
+      fade_cb()
     else
       fade_t=5
     end
@@ -1977,13 +1972,6 @@ end
 
 
 function check_bigspace()
-  DBG_last_fail_msg=nil
-
-  if grabbed_item then
-    DBG_last_fail_msg="holding something"
-    return
-  end
-
   for y=1,9 do
     for x=1,9 do
       if _check_clear(x,y) then
@@ -1993,7 +1981,6 @@ function check_bigspace()
       end
     end
   end
-  DBG_last_fail_msg="no big space"
 end
 
 function start_ch3()
@@ -2024,6 +2011,7 @@ cs_didclear={
 
       -- :todo: a little bit between when she leaves and when
       --        she comes back?
+      penny:sleep_until(hour+0.25)
 
       penny:show(16, py+1, 2)
       penny:run_to(px, penny.y)
@@ -2134,15 +2122,6 @@ cs_nobattery={
 function check_objective()
   if objective_fn then
     objective_fn()
-  end
-end
-
-function resume(cb)
-  local cbt=type(cb)
-  if cbt=="function" then
-    cb()
-  elseif cbt=="thread" then
-    assert(coresume(cb))
   end
 end
 
@@ -2383,33 +2362,39 @@ end
 
 function penny:wander_around()
   while daytime() do
-    if not raining then
-      local dst = flr(rnd(16))
-      local tx, ty = self.x, self.y
-      if rnd() >= 0.5 then
-        tx=dst
-      else
-        ty=dst
-      end
-      tx = mid(0,tx,15)
-      ty = mid(0,ty,15)
-
-      self:run_to(tx, ty)
-
-      local t=(rnd()*30)+45
-      while daytime() and not raining and
-        (t>0 or self:is_close()) do
-        if self:is_close() then
-          self:face(px,py)
-        end
-        t=max(0,t-1)
-        yield()
-      end
+    local dst = flr(rnd(16))
+    local tx, ty = self.x, self.y
+    if rnd() >= 0.5 then
+      tx=dst
     else
-      self:leave()
-      while raining and daytime() do
-        yield()
+      ty=dst
+    end
+    tx = mid(0,tx,15)
+    ty = mid(0,ty,15)
+
+    self:run_to(tx, ty)
+
+    if chapter>=3 and not self.want_seed then
+      self.want_seed=rnd(flower_seeds)
+      self.want_count=flr(rnd(7)+3)
+      do_script({
+          {p=py_mid_talk,
+           "Robo?",
+           "I was wondering...",
+           "Could you please get\nme some flowers?",
+           tostr(self.want_count).." "..self.want_seed.name.." flowers?",
+           "Thanks!"}
+      })
+    end
+
+    local t=(rnd()*30)+45
+    while daytime() and
+      (t>0 or self:is_close()) do
+      if self:is_close() then
+        self:face(px,py)
       end
+      t=max(0,t-1)
+      yield()
     end
   end
 end
@@ -2418,19 +2403,6 @@ function penny:start_wander()
   self.DBG_thread_name = "start_wander"
   self._thread = cocreate(function()
       while true do
-        if chapter>=3 and not self.want_seed then
-          self.want_seed=rnd(flower_seeds)
-          self.want_count=flr(rnd(7)+3)
-          do_script({
-              {p=py_mid_talk,
-               "Robo?",
-               "I was wondering...",
-               "Could you please get\nme some flowers?",
-               tostr(self.want_count).." "..self.want_seed.name.." flowers?",
-               "Thanks!"}
-          })
-        end
-
         -- Wander around the field until...
         self:wander_around()
 
@@ -2444,6 +2416,15 @@ function penny:start_wander()
         -- come back to the field
         self:run_to(old_x, self.y)
       end
+  end)
+end
+
+function penny:start_leave_then_wander()
+  self.DBG_thread_name = "start_leave_then_wander"
+  self._thread = cocreate(function()
+      penny:leave()
+      self:sleep_until((hour + 1)%24)
+      penny:start_wander()
   end)
 end
 
@@ -2468,6 +2449,60 @@ end
 function penny:want_flowers(seed,count)
   self.want_seed=seed
   self.want_count=count
+end
+
+-->8
+-- songs
+------------------------------
+-- a chirp is a series of notes
+-- (a single sound effect)
+chirp={}
+function chirp:new()
+  local c={}
+
+  -- i have found that it sounds
+  -- better if you lerp over 4
+  -- tones between points.
+  --
+  -- discontinuities sound gross,
+  -- but you still want the pitch
+  -- changes quick.
+  local cl=rnd(8)+24
+
+  local old=rnd(8)+56
+  for i=0,cl,4 do
+    local new=rnd(8)+56
+    for j=0,3 do
+      local pitch=lerp(old,new,j/4)
+      add(c,flr(pitch))
+    end
+    old=new
+  end
+
+  -- these are in frames, or
+  -- 1/30 of a second.
+  c.delay=rnd(7)+3
+
+  return setmetatable(c, {__index=self})
+end
+
+-- load a chirp into an sfx slot
+function chirp:load(i)
+  local base=0x3200+(68*i)
+
+  for i=0,63,1 do
+    poke(base+i,0)
+  end
+
+  -- set speed to 1.
+  poke(base+65,1)
+
+  -- set pitches.
+  local addr=base
+  for pitch in all(self) do
+    poke2(addr,0x0a00|pitch)
+    addr+=2
+  end
 end
 
 -->8

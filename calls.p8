@@ -68,8 +68,8 @@ vecmt={
 }
 
 function vec2(x,y)
-	return setmetatable(
-	 {x=x,y=y},vecmt)
+    return setmetatable(
+     {x=x,y=y},vecmt)
 end
 
 function print_center(s,x,y)
@@ -89,19 +89,19 @@ function show_menu(p,opts)
  menu_opts=opts
  menu_sel=nil
  menu_cur=1
- 
+
  while (menu_sel==nil) yield()
- 
+
  menu_p,menu_opts,menu_cur=nil,nil,nil
  return menu_sel
 end
 
 function update_menu()
  if (menu_p==nil) return
- 
+
  if (btnp(⬆️)) menu_cur-=1
  if (btnp(⬇️)) menu_cur+=1
- 
+
  if (menu_cur>#menu_opts) menu_cur=1
  if (menu_cur<1) menu_cur=#menu_opts
 
@@ -110,10 +110,10 @@ end
 
 function draw_menu()
  if (menu_p==nil) return
- 
+
  rectfill(2,2,125,52,0)
  print_center(menu_p,64,4)
- 
+
  for i=1,#menu_opts do
   local my=8+(8*i)
   print(menu_opts[i].t,11,my,7)
@@ -150,15 +150,15 @@ function _draw()
   j:draw()
  end
 
-	if announce~=nil then
-	 print_center(announce,64,56)
-	end
+    if announce~=nil then
+     print_center(announce,64,56)
+    end
 
  if error~=nil then
   print_center(error,64,66)
  end
-	
-	draw_menu()
+
+    draw_menu()
 end
 
 
@@ -171,15 +171,15 @@ chirp={}
 function chirp:new()
  local c={}
 
- -- i have found that it sounds 
- -- better if you lerp over 4 
+ -- i have found that it sounds
+ -- better if you lerp over 4
  -- tones between points.
- -- 
+ --
  -- discontinuities sound gross,
  -- but you still want the pitch
  -- changes quick.
  local cl=rnd(8)+24
- 
+
  local old=rnd(8)+56
  for i=0,cl,4 do
   local new=rnd(8)+56
@@ -190,32 +190,32 @@ function chirp:new()
   old=new
  end
 
- -- these are in frames, or 
+ -- these are in frames, or
  -- 1/30 of a second.
  c.delay=rnd(7)+3
 
  return setmetatable(
   c,
-  {__index=self}) 
+  {__index=self})
 end
 
 -- load a chirp into an sfx slot
 function chirp:load(i)
  local base=0x3200+(68*i)
- 
+
  for i=0,63,1 do
   poke(base+i,0)
  end
 
  -- set speed to 1.
- poke(base+65,1) 
+ poke(base+65,1)
 
- -- set pitches. 
+ -- set pitches.
  local addr=base
  for pitch in all(self) do
   poke2(addr,0x0a00|pitch)
   addr+=2
- end 
+ end
 end
 
 -- a song is a series of chirps
@@ -225,7 +225,7 @@ function song:new()
  for i=1,5 do
   add(notes,chirp:new())
  end
- 
+
  local s={}
  for i=2,ceil(rnd(6))+1 do
   local ni=ceil(rnd(4))
@@ -238,8 +238,8 @@ function song:new()
 end
 
 -- play the specified song using
--- the specified sfx index and 
--- output channel. (no matter 
+-- the specified sfx index and
+-- output channel. (no matter
 -- how many distinct chrips we
 -- have, we always use a single
 -- sfx channel, and load them in
@@ -253,7 +253,7 @@ end
 
 function song:update()
  local channel=self.channel
- 
+
  -- if we're not playing or our
  -- assigned channel is busy
  -- then we do nothing.
@@ -262,7 +262,7 @@ function song:update()
 
  -- we're playing and our channel
  -- is clear, update our inter-
- -- note delay, see if it is 
+ -- note delay, see if it is
  -- time for the next note.
  self.delay-=1
  if self.delay<0 then
@@ -270,7 +270,7 @@ function song:update()
   -- to play....
   if self.note_idx<#self then
    self.note_idx+=1
-   
+
    -- load the new note into our
    -- assigned channel...
    local note=self[self.note_idx]
@@ -278,11 +278,11 @@ function song:update()
 
    -- ...and set it to play...
    sfx(self.sfx,channel)
-   
+
    -- ...and then wait this long
-   -- before we play the next 
+   -- before we play the next
    -- note.
-   self.delay=note.delay   
+   self.delay=note.delay
   else
    -- reset us to be not playing
    -- anymore.
@@ -295,12 +295,12 @@ function song:playing()
  return self.note_idx~=nil
 end
 
--- nb: this is a helper function 
--- that really shouldn't live 
+-- nb: this is a helper function
+-- that really shouldn't live
 -- anywhere but here. :p
 function song:draw(tip_col)
  local pi,i,ni
- 
+
  if self.channel~=nil then
   pi=stat(20+self.channel)
  end
@@ -309,11 +309,11 @@ function song:draw(tip_col)
   local note=self[ni]
   for i=1,#note do
    local c,x=1,(ni-1)*32+i+1
-   if ni==self.note_idx and 
+   if ni==self.note_idx and
       i==pi then
     c=7
    end
-   
+
    -- pitch is 0-63, but we use
    -- so little of it! just take
    -- 32 off.
@@ -394,7 +394,7 @@ function bird:new()
   song=song:new(),
   state=state_incoming
  }
- 
+
  b=setmetatable(b,{__index=self})
  add(flock,b)
  return b
@@ -419,12 +419,12 @@ function bird:update()
    self.frame=1
 
    self.callback()
-  else 
+  else
    self.pos+=(delta/delta_len)*2
    self.frame+=0.5
-	  if self.frame>=4 then
-	   self.frame=2
-	  end
+      if self.frame>=4 then
+       self.frame=2
+      end
   end
  end
 end
@@ -436,7 +436,7 @@ function bird:draw()
   self.pos.x-4,
   self.pos.y-8)
  pal()
- 
+
  if true then --self.card then
   local x=2
   rectfill(x,2,x+59,42,0)
@@ -445,30 +445,30 @@ function bird:draw()
    self.name.." "..self.surname,
    x+30,37)
 
-		local score=self:score()
-	 rectfill(
-	  x+36,35,
-	  x+40,35-(24*score.variety),
-	  3)
-	 print(
-	  tostr(flr(score.variety*10)-1),
-	  x+37,30,7)
-	  
-	 rectfill(
-	  x+43,35,
-	  x+47,35-(24*score.length),
-	  9)
-	 print(
-	  tostr(flr(score.length*10)-1),
-	  x+44,30,7)
-	 
-	 rectfill(
-	  x+50,35,
-	  x+54,35-(24*score.pattern),
-	  12)
-	 print(
-	  tostr(flr(score.pattern*10)-1),
-	  x+51,30,7)
+        local score=self:score()
+     rectfill(
+      x+36,35,
+      x+40,35-(24*score.variety),
+      3)
+     print(
+      tostr(flr(score.variety*10)-1),
+      x+37,30,7)
+
+     rectfill(
+      x+43,35,
+      x+47,35-(24*score.length),
+      9)
+     print(
+      tostr(flr(score.length*10)-1),
+      x+44,30,7)
+
+     rectfill(
+      x+50,35,
+      x+54,35-(24*score.pattern),
+      12)
+     print(
+      tostr(flr(score.pattern*10)-1),
+      x+51,30,7)
  end
 end
 
@@ -481,11 +481,11 @@ end
 function bird:flyto(x,y)
  -- todo: this could be cleaner!
  local done=false
- 
+
  self:fly(
-  vec2(x,y), 
+  vec2(x,y),
   function() done=true end)
-  
+
  while (not done) yield()
 end
 
@@ -498,17 +498,17 @@ end
 -------------------------------
 function bird:score()
  if self.stats==nil then
-  -- variety: get the average 
-  --   pitch and measure the 
+  -- variety: get the average
+  --   pitch and measure the
   --   min difference between
   --   the max or minimum pitch.
-  --   if all pitches are used 
+  --   if all pitches are used
   --   evenly, this will be 4.
   --   if only one pitch is used
   --   then it will be 0.
-  --   if it favors higher or 
-  --   lower pitches then it 
-  --   will be smaller. 
+  --   if it favors higher or
+  --   lower pitches then it
+  --   will be smaller.
   local sum,count,minp,maxp=0,0,64,0
   for n in all(self.song) do
    for p in all(n) do
@@ -521,12 +521,12 @@ function bird:score()
   end
   local avg=sum/count
   local variety=min(maxp-avg,avg-minp)/4
- 
+
   -- length: 1 point for each
   --         note
   local length=#self.song
   length/=7 -- 7 max?
-  
+
   -- pattern: how many of the
   --          notes did we use?
   local pattern=0
@@ -538,7 +538,7 @@ function bird:score()
    end
   end
   pattern/=#self.song
-  
+
   self.stats={
    variety=variety,
    length=length,
@@ -568,7 +568,7 @@ function judge:new(ob)
    ob.first_name=ob.name
   end
  end
- 
+
  return setmetatable(
   ob,{__index=judge})
 end
@@ -577,13 +577,13 @@ function judge:draw()
  local i=self.i
  local x=i*32
  local y=75
- 
+
  if self.turn then
   spr(70,x,y,4,4)
 
   rectfill(x,y+32,x+32,y+37,1)
   rectfill(x+1,y+32,x+30,y+36,2)
-  
+
   clip(x+1,y+31,29,5)
   print(
     "i want you! i want you!",
@@ -592,33 +592,33 @@ function judge:draw()
   clip()
  else
   spr(64,x,y,4,4)
-  
+
   spr(self.body,x+8,y+1,2,4)
-  
+
   spr(68,x+10,y+14,2,2)
   rectfill(x,y+32,x+32,y+37,1)
   rectfill(x+1,y+32,x+30,y+36,2)
  end
- 
+
  print_center(
   self.first_name,x+16,y+41)
- 
+
  if self.status~=nil then
   print_center(
    self.status,x+16,y+47)
  end
 end
- 
+
 function judge:update()
  self.want_offset-=1
  if self.want_offset<-48 then
   -- "i want you! " is 12 chars
   -- 4 pixels for char is 48px
-  -- repeat it twice for 
+  -- repeat it twice for
   -- seamless scrolling!
   self.want_offset=0
  end
-end 
+end
 
 function judge:judge(b)
  -- score=1.0 range=5  100%
@@ -635,14 +635,14 @@ function judge:likes(b)
  if self.team and #self.team>=4 then
   return false
  end
- 
+
  return time()>=self.like_time
 end
 
 function like_score(name)
  return function(self,b)
   if self[b]==nil then
-   
+
    local s=b:score()[name]
    self[b]=time()+rnd(10*(1-s))
   end
@@ -650,7 +650,7 @@ function like_score(name)
  end
 end
 
-function init_judges() 
+function init_judges()
  judges={
   judge:new{
    i=0,
@@ -663,7 +663,7 @@ function init_judges()
       error="(your team is already full!)"
      else
       return true
-     end 
+     end
     end
     return false
    end,
@@ -700,23 +700,23 @@ function round1()
  for j in all(judges) do
   j.status="0"
   j.energy=10
-	end
-	
-	while (true) do_contestant()
+    end
+
+    while (true) do_contestant()
 end
 
 function do_contestant()
  for j in all(judges) do
   j.turn=false
  end
- 
+
  local b=bird:new()
  announce="here is a bird!" -- bird name
-	error=nil
+    error=nil
 
  b:flyto(64,80)
  bird_perform(b)
- 
+
  local candidates={}
  for j in all(judges) do
   if (j.turn) add(candidates,j)
@@ -731,8 +731,8 @@ function do_contestant()
  else
   announce="nobody liked it"
  end
- 
- b:flyto(128,32) 
+
+ b:flyto(128,32)
  b:hide()
 end
 
@@ -741,7 +741,7 @@ function convince_bird(judges)
  -- am i in the set?
  -- how do i judge?
  -- fair for everybody in
- -- contest: points and 
+ -- contest: points and
  --
  local sels={}
  for j in all(judges) do
@@ -780,7 +780,7 @@ function bird_perform(b)
  -- have bird b perform their
  -- song on stage. sing it over
  -- and over and over again for
- -- n seconds; this is how long 
+ -- n seconds; this is how long
  -- you have to vote.
  --
  -- we want to ask every frame
@@ -789,20 +789,20 @@ function bird_perform(b)
  for j in all(judges) do
   j:judge(b)
  end
- 
+
  local start=time()
  while true do
   b:sing(0,0)
   while b.song:playing() do
    if (time()-start>5) return
-    
+
    for j in all(judges) do
     if(j:likes(b)) j.turn=true
    end
-   
-   yield() -- back to nothing   
+
+   yield() -- back to nothing
   end
- end 
+ end
 end
 __gfx__
 00000000000000004440000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

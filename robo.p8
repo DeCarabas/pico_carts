@@ -387,11 +387,11 @@ function load_game()
 
   -- deal with the chapters.
   if chapter==2 then
-    start_ch2()
+    script:start_ch2()
   elseif chapter==3 then
-     start_ch3()
+     script:start_ch3()
   elseif chapter==4 then
-     start_ch4()
+     script:start_ch4()
   else
     penny:show(16,16,0)
   end
@@ -1657,50 +1657,64 @@ function add_flower(seed, age, tx, ty)
   mset(tx+32,ty,148) -- add placeholder
 end
 
+script={}
+function script:give_flower_post()
+   if chapter==3 then chapter = 4 end
+   penny:start_leave_then_wander()
+end
+
 function give_flower(item)
   if item.flower_count > 0 then
     if item.seed==penny.want_seed then
       if item.flower_count >= penny.want_count then
-        do_script({
-            {p=py_up_talk,
-             "Oh, a bunch of "..item.name.."\nflowers!"},
-            {p=py_mid_talk,
-             "I'll take them to\nmom.",
-             "I'm sure she'll love\nthem!"},
-            post=function()
-              if chapter==3 then chapter = 4 end
-              penny:start_leave_then_wander()
-            end
-        })
+        do_script([[
+p=py_up_talk
+Oh, a bunch of $1 flowers!
+
+p=py_mid_talk
+I'll take them to|mom
+I'm sure she'll love them!
+
+call=give_flower_post
+]], {item.name})
         item.flower_count-=penny.want_count
         penny.want_count=0
         penny.want_seed=nil
       else
         local more = penny.want_count-item.flower_count
-        do_script({
-            {p=py_up_talk, "That's the flower I want!"},
-            {p=py_mid_talk, "Can you collect\n"..more.." more?"}
-        })
+        do_script([[
+p=py_up_talk
+That's the flower I want!
+
+p=py_mid_talk
+Can you collect $1 more?
+        ]],{more})
       end
     elseif penny.want_seed then
-      do_script({
-          {p=py_mid_talk, "That's a very pretty\n"..item.name.." flower."},
-          {p=py_mid_wry, "I am looking for a\n"..penny.want_seed.name..", though."},
-          {p=py_mid_talk, "Can you grow me some?"},
-      })
+       do_script([[
+p=py_mid_talk
+That's a very pretty|$1 flower.
+
+p=py_mid_wry
+I am looking for a|$2, though.
+
+p=py_mid_talk
+Can you grow me some?
+      ]], {item.name, penny.want_seed.name})
     else
-      do_script({
-          {p=py_mid_talk, "What a pretty "..item.name.."!"}
-      })
+      do_script([[
+p=py_mid_talk
+What a pretty $1!
+      ]], {item.name})
     end
   else
-    do_script({
-        {p=py_mid_talk,
-         "That looks like a\n"..item.name.." seed.",
-         "Till the ground, then\nplant it.",
-         "So long as the\nground stays wet,",
-         "it will grow."}
-    })
+    do_script([[
+p=py_mid_talk
+That looks like a|$1 seed.
+Till the ground, then|plant it.
+So long as the|ground stays wet,
+it will grow.
+        ]], {item.name})
   end
 end
 
@@ -1794,25 +1808,30 @@ function give_tool(item)
       objective=nil
       do_script(cs_didclear)
     else
-      do_script({
-        {p=py_mid_talk,
-         "Help me move these\nrocks, ok?/We need a big clear\nspace."}
-      })
+      do_script([[
+p=py_mid_talk
+Help me move these|rocks, ok?
+We need a big clear|space.
+      ]])
     end
   elseif grabbed_item then
-    do_script({
-        {p=py_down_wry, "Hey, careful where\nyou put that."}
-    })
+    do_script([[
+p=py_down_wry
+Hey, careful where|you put that.
+    ]])
   elseif has_wanted_flowers() then
-     do_script({{
-       p=py_mid_wry,
-       "Hey there Robo!/Did you have\nflowers for me?/Pick them from the\nmenu and show me."
-     }})
+     do_script([[
+p=py_mid_wry
+Hey there Robo!
+Did you have|flowers for me?
+Pick them from the|menu and show me.
+     ]])
   else
-    do_script({{
-      p=py_mid_talk,
-      "Hey there Robo!/Enjoying yourself?"
-    }})
+    do_script([[
+p=py_mid_talk
+Hey there Robo!
+Enjoying yourself?
+    ]])
   end
 end
 
@@ -1851,21 +1870,6 @@ end
 
 -- portraits
 -- (for cut scenes but need them below)
---  py_ear_up=194
---  py_ear_mid=192
---  py_ear_down=196
---  py_head_wry=224
---  py_head_talk=226
---  py_head_closed=228
---  py_head_intense=230
-py_mid_wry={top=192,bot=224}
-py_mid_talk={top=192,bot=226}
-py_mid_closed={top=192,bot=228}
-py_up_talk={top=194,bot=226}
-py_up_closed={top=194,bot=228}
-py_up_intense={top=194,bot=230}
-py_down_wry={top=196,bot=224}
-py_down_smile={top=196,bot=232}
 
 
 tl_grab={
@@ -1873,28 +1877,35 @@ tl_grab={
   fn=i_grab,give=give_tool}
 tl_till={
   icon=141,name="till",
-  fn=i_till,give={
-    {p=py_mid_talk, "How's that plow\nworking?"},
-    {p=py_mid_closed,
-     "Remember, you need\nto clear the",
-     "ground before you\nplant flowers."}
-  }
+  fn=i_till,give=[[
+p=py_mid_talk
+How's that plow|working?
+
+p=py_mid_closed
+Remember, you need|to clear the
+ground before you|plant flowers.
+  ]]
 }
 tl_water={
   icon=143,name="water",
-  fn=i_water,give={
-    {p=py_up_talk,  "Don't get me wet!"},
-    {p=py_mid_wry, "Save that for the\nplants."}
-  }
+  fn=i_water,give=[[
+p=py_up_talk
+Don't get me wet!
+
+p=py_mid_wry
+Save that for the|plants.
+  ]]
 }
 tl_grass={
   icon=147,name="grass",
   fn=i_plant,plant=grass,
-  give={
-    {p=py_mid_talk, "Grass seeds!"},
-    {p=py_down_smile,
-     "I love the feel of\ngrass under my feet."}
-  }
+  give=[[
+p=py_mid_talk
+Grass seeds!
+
+p=py_down_smile
+I love the feel of|grass under my feet.
+  ]]
 }
 
 function get_items()
@@ -2101,118 +2112,123 @@ end
 -- portaits a
 
 -- cutscenes.
-cs_intro={
-  {
-    pre=function()
-      cls(0)
-      penny:show(base_x,base_y+1,0)
-      blank_screen=true
-    end,
-    "Penny?/PENNY!/.../Where is that girl?"
-  },
+function script:show_screen()
+   blank_screen=false
+end
 
-  {p=py_mid_closed, "OK...\nDeep breath..."},
+cs_intro=[[
+call=intro_pre
+Penny?
+PENNY!
+...
+Where is that girl?
 
-  {p=py_up_intense, "RX-228! Activate!!!"},
+p=py_mid_closed
+OK...|Deep breath...
 
-  {
-    pre=function()
-      blank_screen=false
-    end,
-    p=py_up_talk,
-    "It... it works?/It works!"
-  },
+p=py_up_intense
+RX-228! Activate!!!
 
-  {"PENNY? WHERE ARE\nYOU??"},
+call=show_screen
+p=py_up_talk
+It... it works?
+It works!
 
-  {
-    pre=function()
-      penny:show(penny.x,penny.y,2)
-    end,
-    p=py_up_intense,
-    "COMING MOM!"
-  },
+p=blank
+PENNY?
+WHERE ARE|YOU??
 
-  {
-    pre=function()
-      penny:show(penny.x,penny.y,0)
-    end,
-    p=py_mid_wry,
-    "OK. That's enough\nfor today./You sit tight./I'll be back soon to\nfinish up."
-  },
+call=intro_penny_turn
+p=py_up_intense
+COMING MOM!
 
-  post=function()
-    energy_level = max_energy/8
-    tank_level = 0
-    penny:start_leave()
-    chapter = 1
-  end
-}
+call=intro_penny_turn_back
+p=py_mid_wry
+OK. That's enough|for today.
+You sit tight.
+I'll be back soon to|finish up.
 
-function start_ch2()
+call=intro_post
+]]
+
+function script:intro_pre()
+   cls(0)
+   penny:show(base_x,base_y+1,0)
+   blank_screen=true
+end
+
+function script:intro_penny_turn()
+   penny:show(penny.x,penny.y,2)
+end
+
+function script:intro_penny_turn_back()
+   penny:show(penny.x,penny.y,0)
+end
+
+function script:intro_post()
+   energy_level = max_energy/8
+   tank_level = 0
+   penny:start_leave()
+   chapter = 1
+end
+
+function script:firstcharge_pre()
+   cls(0)
+   penny:show(base_x,base_y+1,0)
+   blank_screen = true
+
+   -- ♪: set the chapter early
+   --     so the base glows.
+   chapter = 2
+end
+
+cs_firstcharge=[[
+call=firstcharge_pre
+...
+Hey... how'd you get|over there?
+Oof...
+There you go!
+
+call=show_screen
+p=py_mid_wry
+Huh...
+I guess you reall|nDO work!
+
+p=py_up_intense
+Ha! I knew it!
+I AM THE BEST!
+
+p=py_mid_talk
+Well, I've finished|this base.
+If you stand there,|you'll recharge.
+
+p=py_mid_wry
+Try not to run out|of power, ok?
+
+p=blank
+PENNY!
+THAT FIELD CLEAR|YET?
+
+p=py_mid_wry
+Oh, uh...
+Hey, help me clear|this field?
+Mom wants a big|clear space...
+
+p=py_down_wry
+...but these rocks|are so big.
+
+p=py_up_talk
+Help me move these,|OK?
+
+call=start_ch2
+]]
+
+function script:start_ch2()
   penny:start_wander()
   objective="clear a 6x6 field"
   objective_fn=check_bigspace
 end
 
-cs_firstcharge={
-  {
-    pre=function()
-      cls(0)
-      penny:show(base_x,base_y+1,0)
-      blank_screen = true
-
-      -- ♪: set the chapter early
-      --     so the base glows.
-      chapter = 2
-    end,
-    ".../Hey... how'd you get\nover there?/Oof.../There you go!"
-  },
-
-  {
-    pre=function()
-      blank_screen=false
-    end,
-    p=py_mid_wry,
-    "Huh.../I guess you really\nDO work!"
-  },
-
-  {
-    p=py_up_intense,
-    "Ha! I knew it!/I AM THE BEST!"
-  },
-
-  {
-    p=py_mid_talk,
-    "Well, I've finished\nthis base./If you stand there,\nyou'll recharge."
-  },
-
-  {
-    p=py_mid_wry,
-    "Try not to run out\nof power, ok?"
-  },
-
-  {
-    "PENNY!/THAT FIELD CLEAR\nYET?"
-  },
-
-  {
-    p=py_mid_wry,
-    "Oh, uh.../Hey, help me clear\nthis field?/Mom wants a big\nclear space..."
-  },
-
-  {
-    p=py_down_wry,
-    "...but these rocks\nare so big."
-  },
-
-  {
-    p=py_up_talk,
-    "Help me move these,\nOK?"
-  },
-
-  post=start_ch2
-}
 
 function _check_clear(x,y)
   for iy=0,5 do
@@ -2241,7 +2257,7 @@ function check_bigspace()
   end
 end
 
-function start_ch3()
+function script:start_ch3()
   chapter = 3
   tank_level = max_tank
   objective_fn=check_wanted_flowers
@@ -2252,10 +2268,11 @@ function check_wanted_flowers()
    if has_wanted_flowers() then
       objective_fn=nil
       penny:face(px, py)
-      do_script({
-            {p=py_up_talk,
-             "Did you get the\nflowers?/Great!\nBring them here."}
-      })
+      do_script([[
+p=py_up_talk
+Did you get the|flowers?
+Great!|Bring them here.
+      ]])
    end
 end
 
@@ -2275,77 +2292,81 @@ function sfx_yield(i,c)
   repeat until stat(49)<0 yield()
 end
 
-cs_didclear={
-  {
-    pre=function()
+cs_didclear=[[
+call=didclear_look_at
+p=py_up_talk,
+Hey!|You did it!
+Looks great!
+
+p=py_mid_talk,
+Wait a bit, I'll be|back!
+
+call=didclear_leave_come_back
+p=py_mid_wry
+Now, don't move, OK?
+Just gonna open you|up...
+
+call=didclear_give_tools
+p=py_mid_talk
+Done!
+Ok, check it out.|Tools!
+I've given you some|useful stuff.
+You've got a|watering can...
+...and this neat|little plow...
+...and then this seed|pouch!
+
+p=py_mid_wry
+Press 🅾️ to open the|menu to see.
+
+p=blank
+PENNY!
+YOU LEFT THE DOOR|OPEN AGAIN!
+
+call=didclear_wantseed
+p=py_down_wry
+Whoops...
+She sounds mad.
+Maybe some flowers|will cheer her up...
+Can you get me 3 flowers?
+
+call=start_ch3
+]]
+
+function script:didclear_look_at()
       penny:face(px, py)
-    end,
-    p=py_up_talk,
-    "Hey!\nYou did it!/Looks great!"
-  },
+end
 
-  {
-    p=py_mid_talk,
-    "Wait a bit, I'll be\nback!"
-  },
+function script:didclear_leave_come_back()
+   local ox = penny.x
+   penny:leave()
 
-  {
-    pre=function()
-      local ox = penny.x
-      penny:leave()
+   -- :todo: a little bit between when she leaves and when
+   --        she comes back?
+   yield_frames(15)
 
-      -- :todo: a little bit between when she leaves and when
-      --        she comes back?
-      yield_frames(15)
+   penny:show(16, py+1, 2)
+   penny:run_to(px, penny.y)
+   penny:show(penny.x, penny.y, 0)
+end
 
-      penny:show(16, py+1, 2)
-      penny:run_to(px, penny.y)
-      penny:show(penny.x, penny.y, 0)
-    end,
+function script:didclear_want_tools()
+   d=2 -- look down (face penny)
+   for i=1,2 do
+      sfx_yield(1, 3) -- tool sound
+   end
 
-    p=py_mid_wry,
-    "Now, don't move, OK?/Just gonna open you\nup..."
-  },
+   -- grant the new flower seed.
+   -- this isn't in start_ch3 because we don't want to do this on
+   -- load_game.
+   get_flower(flower_seeds[1], 0, 3)
+end
 
-  {
-    pre=function()
-      d=2 -- look down (face penny)
-      for i=1,2 do
-        sfx_yield(1, 3) -- tool sound
-      end
+function script:didclear_wantseed()
+   penny.want_seed=flower_seeds[1]
+   penny.want_count=3
+end
 
-      -- grant the new flower seed.
-      --
-      -- this isn't in start_ch3 because we don't want to do this on
-      -- load_game.
-      get_flower(flower_seeds[1], 0, 3)
-    end,
-    p=py_mid_talk,
-    "Done!/Ok, check it out.\nTools!/I've given you some\nuseful stuff./You've got a\nwatering can.../...and this neat\nlittle plow.../...and then this seed\npouch!"
-  },
-
-  {
-    p=py_mid_wry,
-    "Press 🅾️ to open the\nmenu to see."
-  },
-
-  {
-    "PENNY!/YOU LEFT THE DOOR\nOPEN AGAIN!"
-  },
-
-  {
-    pre=function()
-      penny.want_seed=flower_seeds[1]
-      penny.want_count=3
-    end,
-    p=py_down_wry,
-    "Whoops.../She sounds mad./Maybe some flowers\nwill cheer her up...Can you get me 3 flowers?"
-  },
-
-  post=start_ch3
-}
-
-function start_ch4()
+function script:start_ch4()
   chapter = 4
   tank_level = max_tank
   penny:start_wander()
@@ -2408,26 +2429,78 @@ function update_script()
   assert(coresume(script_coro))
 end
 
-function do_script(script)
-  script_coro = cocreate(function()
-      local stage,s_line
-      for stage in all(script) do
-        if stage.pre then
-          stage.pre()
-        end
-        local p=stage.p or {}
-        for s_line in all(stage) do
-          for sl2 in all(split(s_line,"/")) do
-             show_text(sl2, p.top, p.bot, _coro)
-          end
-        end
+function strip(txt)
+   local s = 1
+   while sub(txt,s,s) == " " do
+      start+=1
+   end
+   local e= #txt
+   while sub(txt,e,e) == " " and e > 0 do
+      e-=1
+   end
+   return sub(txt,s,e)
+end
+
+function join(parts, sep)
+   local ret=parts[1]
+   for i=2,#parts do
+      ret..=sep..parts[i]
+   end
+   return ret
+end
+
+function doctor(line, args)
+   local ret,i="",1
+   while i<=#line do
+      if sub(line,i,i) == "$" then
+         i+=1 ret..=args[tonum(sub(line,i,i))]
+      else
+         ret..=sub(line,i,i)
       end
-      if script.post then
-        script:post()
-      end
-      update_fn=update_walk
-  end)
-  update_fn=update_script
+      i+=1
+   end
+   return ret
+end
+
+portraits={
+   blank={top=nil, bot=nil},
+
+   --  py_ear_up=194
+   --  py_ear_mid=192
+   --  py_ear_down=196
+   --  py_head_wry=224
+   --  py_head_talk=226
+   --  py_head_closed=228
+   --  py_head_intense=230
+   py_mid_wry={top=192,bot=224},
+   py_mid_talk={top=192,bot=226},
+   py_mid_closed={top=192,bot=228},
+   py_up_talk={top=194,bot=226},
+   py_up_closed={top=194,bot=228},
+   py_up_intense={top=194,bot=230},
+   py_down_wry={top=196,bot=224},
+   py_down_smile={top=196,bot=232},
+}
+
+function do_script(script_text, args)
+   script_coro = cocreate(function()
+         local p = portraits.blank
+         for line in all(split(script_text,"\n")) do
+            line=strip(line)
+            if #line==0 then
+               -- nothing
+            elseif sub(line,1,2)=="p=" then
+               p=portraits[sub(line,3)]
+            elseif sub(line,1,5)=="call=" then
+               script[sub(line,6)]()
+            else
+               line=doctor(join(split(line,"|"),"\n"), args)
+               show_text(line, p.top, p.bot)
+            end
+         end
+         update_fn=update_walk
+   end)
+   update_fn=update_script
 end
 
 local text
@@ -2436,7 +2509,7 @@ function init_text()
   text = nil
 end
 
-function show_text(t, top, bot, coro)
+function show_text(t, top, bot)
   text = t
   text_time = 0
   text_limit = #text + 5
@@ -2614,14 +2687,14 @@ function penny:wander_around()
     if chapter>=3 and not self.want_seed then
       self.want_seed=rnd(flower_seeds)
       self.want_count=flr(rnd(7)+3)
-      do_script({
-          {p=py_mid_talk,
-           "Robo?",
-           "I was wondering...",
-           "Could you please get\nme some flowers?",
-           tostr(self.want_count).." "..self.want_seed.name.." flowers?",
-           "Thanks!"}
-      })
+      do_script([[
+p=py_mid_talk
+Robo?
+I was wondering...
+Could you please get|me some flowers?
+$1 $2 flowers?
+Thanks!
+      ]], {self.want_count, self.want_seed.name})
     end
 
     local t=(rnd()*30)+45

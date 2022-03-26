@@ -17,7 +17,6 @@ __lua__
 -- :todo: zelda rock sprites
 -- :todo: only show water bar
 -- :todo: what is 6x6?
--- :todo: flower objective change if enough flowers
 -- :todo: increase range for penny to stay still
 -- :todo: penny move to you when you're in range?
 -- :todo: advice on first flower thingy? more instructions?
@@ -1124,7 +1123,14 @@ function draw_objective()
 
   local obj=objective
   if not obj and penny.want_seed then
-    obj="get "..penny.want_count.." "..penny.want_seed.name.." flowers"
+     -- do we have enough?
+     obj="get "..penny.want_count.." "..penny.want_seed.name.." flowers"
+     for fp in all(flower_pockets) do
+        if fp.seed == penny.want_seed and
+           fp.flower_count >= penny.want_count then
+           obj="give "..fp.name.." to penny"
+        end
+     end
   end
   if obj then
     add(lines, "goal: "..obj)

@@ -16,8 +16,6 @@ __lua__
 --
 -- :todo: zelda rock sprites
 -- :todo: what is 6x6?
--- :todo: increase range for penny to stay still
--- :todo: penny move to you when you're in range?
 -- :todo: advice on first flower thingy? more instructions?
 -- :todo: deal with too many flowers
 -- :todo: victory tune when cleared (a ping?)
@@ -1810,7 +1808,11 @@ function i_till(item,tx,ty)
         remove_flower(tx,ty)
         mset(tx+32,ty,0) -- destroy
       end
-      mset(tx,ty,66)    -- plowed
+      if map_flag(tx, ty, 5) then
+         mset(tx,ty,68)    -- wet plowed
+      else
+         mset(tx,ty,66)    -- plowed
+      end
   end)
 end
 
@@ -2125,7 +2127,7 @@ cs_intro={
   },
 
   post=function()
-    energy_level = max_energy/4
+    energy_level = max_energy/8
     tank_level = 0
     penny:start_leave()
     chapter = 1
@@ -2568,7 +2570,7 @@ function penny:leave()
 end
 
 function penny:is_close()
-  return abs(self.x-px)<=1 and abs(self.y-py)<=1
+  return abs(self.x-px)<=2 and abs(self.y-py)<=2
 end
 
 function penny:wander_around()
@@ -2599,13 +2601,14 @@ function penny:wander_around()
     end
 
     local t=(rnd()*30)+45
-    while daytime() and
-      (t>0 or self:is_close()) do
-      if self:is_close() then
-        self:face(px,py)
-      end
-      t=max(0,t-1)
-      yield()
+    while daytime() and t>0 do
+       if self:is_close() then
+          self:face(px,py)
+          t-=0.1
+       else
+          t-=1
+       end
+       yield()
     end
   end
 end

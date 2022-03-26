@@ -17,6 +17,7 @@ __lua__
 -- :todo: zelda rock sprites
 -- :todo: what is 6x6?
 -- :todo: advice on first flower thingy? more instructions?
+--        do this with chapter and a cut-scene objective fn
 -- :todo: victory tune when cleared (a ping?)
 
 -- the map is divided into 4

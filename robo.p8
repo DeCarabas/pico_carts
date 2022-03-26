@@ -15,17 +15,15 @@ __lua__
 -- [ ] lightning & fires
 --
 -- :todo: zelda rock sprites
--- :todo: tweak power usage
--- :todo: only on the base tho
 -- :todo: only show water bar
 -- :todo: recolor birds
--- :todo: need bigger battery for move more rocks
 -- :todo: what is 6x6?
 -- :todo: sleep after midnight oops too long
 -- :todo: flower objective change if enough flowers
 -- :todo: increase range for penny to stay still
 -- :todo: penny move to you when you're in range?
 -- :todo: advice on first flower thingy? more instructions?
+-- :todo: deal with too many flowers
 
 -- the map is divided into 4
 -- regions, horizontally. we
@@ -426,11 +424,11 @@ function init_player()
 
   max_energy=100
   energy_level=max_energy
-  walk_cost=0.2
+  walk_cost=0.1
   grab_cost=1
   plow_cost=1
-  water_cost=0.5
-  plant_cost=0.5
+  water_cost=0.2
+  plant_cost=0.2
 
   tx=px ty=py
 
@@ -605,7 +603,7 @@ function buzz(msg)
   buzz_time=3
   buzz_msg=msg
   buzz_msg_time=9
-  sfx(0, 3)
+  sfx(0, 3) -- buzz
 end
 
 is_sleeping = false
@@ -786,12 +784,17 @@ function update_menu()
   if btnp(⬆️) then menu_sel-=1 end
   if btnp(❎) then menu_mode=false end
   if btnp(🅾️) then
-    if menu_sel==#menu_items+1 then
-      sleep_until_morning()
-    else
-      item_sel=menu_sel
-    end
-    menu_mode=false
+     if menu_sel==#menu_items+1 then
+        if px==base_x and py==base_y then
+           sleep_until_morning()
+           menu_mode=false
+        else
+           sfx(0, 3) -- buzz
+        end
+     else
+        item_sel=menu_sel
+        menu_mode=false
+     end
   end
   menu_sel=mid(1,menu_sel,#menu_items+1)
   if not menu_mode then
@@ -887,6 +890,10 @@ function draw_menu(items, selection)
       print(">",lx,ly)
     end
     spr(150,lx+6,ly-1)
+
+    if px~=base_x or py~=base_y then
+       color(5)
+    end
     print("sleep",lx+16,ly)
   end
 end

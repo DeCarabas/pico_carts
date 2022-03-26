@@ -19,7 +19,6 @@ __lua__
 -- :todo: advice on first flower thingy? more instructions?
 -- :todo: deal with too many flowers
 -- :todo: victory tune when cleared (a ping?)
--- :todo: day display
 
 -- the map is divided into 4
 -- regions, horizontally. we
@@ -943,6 +942,21 @@ function draw_time()
   rectfill(16,2,110,11,bg)
   rect(16,2,110,11,fg)
   spr(sp,16+(87*frc),3,1,1,fl)
+
+  local seasons={"summer","fall","winter","spring"}
+  local season,dos=seasons[flr(day/28)+1],tostr((day%28)+1)
+  local ld=sub(dos,#dos)
+  if ld=="1" and dos~="11" then
+     dos..="st"
+  elseif ld=="2" and dos~="12" then
+     dos..="nd"
+  elseif ld=="3" and dos~="13" then
+     dos..="rd"
+  else
+     dos..="th"
+  end
+  dos..=" of "..season
+  printo(dos,64-2*#dos,13,7)
 end
 
 function draw_item()

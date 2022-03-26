@@ -17,7 +17,6 @@ __lua__
 -- :todo: zelda rock sprites
 -- :todo: what is 6x6?
 -- :todo: advice on first flower thingy? more instructions?
--- :todo: deal with too many flowers
 -- :todo: victory tune when cleared (a ping?)
 
 -- the map is divided into 4
@@ -437,6 +436,7 @@ end
 function init_menu()
   menu_mode=false
   menu_sel=1
+  menu_top=1
   menu_items={}
 end
 
@@ -509,6 +509,7 @@ function open_item_menu()
   menu_mode=true
   menu_sel=item_sel
   menu_items=get_items()
+  menu_top=1
   update_fn=update_menu
 end
 
@@ -796,6 +797,14 @@ function update_menu()
      end
   end
   menu_sel=mid(1,menu_sel,#menu_items+1)
+
+  -- scroll?
+  if menu_sel<menu_top then
+     menu_top=menu_sel
+  elseif menu_sel>menu_top+7 then
+     menu_top=menu_sel-7
+  end
+
   if not menu_mode then
     update_fn=update_walk
   end
@@ -849,16 +858,20 @@ end
 function draw_menu(items, selection)
   local hght
   if chapter>1 then
-    hght=4+#items
+    hght=2+#items
   else
     hght=1+#items
   end
-  hght=max(hght,4)
+  hght=ceil(hght*10/8)
+  hght=mid(hght,4,10)
 
   draw_box(56,0,7,hght)
+  clip(62,8,120,hght*8)
+  local yofs=10*(menu_top-1)
+
   color(7)
   local lx=63
-  local ly=9
+  local ly=9-yofs
   for i=1,#items do
     if selection == i then
       print(">",lx,ly)
@@ -884,7 +897,6 @@ function draw_menu(items, selection)
   end
 
   if chapter>1 then
-    ly=10 + (hght - 1) * 8
     if selection==#items+1 then
       print(">",lx,ly)
     end
@@ -895,6 +907,8 @@ function draw_menu(items, selection)
     end
     print("sleep",lx+16,ly)
   end
+
+  clip()
 end
 
 moon_phases={134,135,136,137,138,139,138,137,136,135}

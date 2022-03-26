@@ -15,7 +15,6 @@ __lua__
 -- [ ] lightning & fires
 --
 -- :todo: zelda rock sprites
--- :todo: only show water bar
 -- :todo: what is 6x6?
 -- :todo: increase range for penny to stay still
 -- :todo: penny move to you when you're in range?
@@ -969,6 +968,8 @@ function draw_meters()
     rectfill(111,57+41*tank_frac,115,98,12)
   end
 
+  local nrg_ofs=0
+  if chapter<3 then nrg_ofs=5 end
   local nrg_frac=(max_energy-energy_level)/max_energy
   local nrg_color
   if nrg_frac<0.5 then
@@ -978,7 +979,7 @@ function draw_meters()
   else
     nrg_color=8
   end
-  rectfill(116,57+41*nrg_frac,120,98,nrg_color)
+  rectfill(116-nrg_ofs,57+41*nrg_frac,120,98,nrg_color)
 end
 
 function world_to_screen(wx,wy)

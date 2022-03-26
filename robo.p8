@@ -16,7 +16,6 @@ __lua__
 --
 -- :todo: zelda rock sprites
 -- :todo: only show water bar
--- :todo: recolor birds
 -- :todo: what is 6x6?
 -- :todo: sleep after midnight oops too long
 -- :todo: flower objective change if enough flowers
@@ -1324,7 +1323,7 @@ function add_bird()
   local tx,ty=flr(rnd(10))+3,flr(rnd(10))+3
   local b
   b={
-    x=tx-16, y=ty-16, ty=ty, frame=1,
+    x=tx-16, y=ty-16, ty=ty, frame=1, c=rnd{8,13,14},
     thread=cocreate(function()
         -- bird is arriving.
         while b.x<tx do
@@ -1373,7 +1372,9 @@ end
 
 function draw_bird(bird)
   for b in all(birds) do
+    pal(4,b.c)
     spr(flr(151+b.frame),b.x*8,b.y*8)
+    pal()
   end
 end
 

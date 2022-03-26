@@ -303,10 +303,10 @@ function save_game()
 
   local want_seed,want_count=0, 0
   for fi=1,#flower_seeds do
-    if flower_seeds[fi]==penny.want_seed then
-      want_seed,want_count=fi-1,penny.want_count
-      break
-    end
+     if flower_seeds[fi]==penny.want_seed then
+        want_seed,want_count=fi-1,penny.want_count
+        break
+     end
   end
   w:pack(4, want_seed, want_count)-- 254
 
@@ -385,8 +385,8 @@ function load_game()
 
   fi = w:unpack(4)
   penny.want_count = w:unpack(4)
-  if chapter>=3 then
-    penny.want_seed=flower_seeds[fi]
+  if penny.want_count>0 then
+    penny.want_seed=flower_seeds[fi+1]
   else
     penny.want_seed=nil
   end
@@ -1110,18 +1110,14 @@ function draw_objective()
   local tx,ty=looking_at()
   local f,d=find_flower(tx,ty)
   if f then
-    if f.age>=1.0 then
-      add(lines,"full grown "..f.seed.name)
-    else
-      if f.age>=0.5 then
-        add(lines,"growing "..f.seed.name)
-      else
-        add(lines,f.seed.name.." sprout")
-      end
-      if not map_flag(f.x, f.y, 5) then
+     add(lines, f.seed.name)
+     if f.age>=1.0 then
+        add(lines,"full grown")
+     elseif not map_flag(f.x, f.y, 5) then
         add(lines,"needs water")
-      end
-    end
+     else
+        add(lines,"growing")
+     end
   else
     add(lines, descs[mget(tx+32,ty)])
   end

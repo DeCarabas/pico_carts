@@ -17,12 +17,13 @@ __lua__
 -- :todo: zelda rock sprites
 -- :todo: only show water bar
 -- :todo: what is 6x6?
--- :todo: sleep after midnight oops too long
 -- :todo: flower objective change if enough flowers
 -- :todo: increase range for penny to stay still
 -- :todo: penny move to you when you're in range?
 -- :todo: advice on first flower thingy? more instructions?
 -- :todo: deal with too many flowers
+-- :todo: victory tune when cleared (a ping?)
+-- :todo: day display
 
 -- the map is divided into 4
 -- regions, horizontally. we
@@ -615,8 +616,12 @@ function sleep_until_morning()
       {frame=13,duration=15},
       {frame=45,duration=15}},
     function()
-      is_sleeping=true
-      sleep_until=day+1
+       is_sleeping=true
+       if hour>=8 then
+          sleep_until=day+1
+       else
+          sleep_until=day
+       end
     end
   )
 end

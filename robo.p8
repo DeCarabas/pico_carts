@@ -486,15 +486,15 @@ function _init()
   new_game()
   init_game()
 
-  -- cheatz
-  menuitem(1,"+energy",function() energy_level=max_energy end)
-  menuitem(2,"-energy",function() energy_level=mid(max_energy,0,energy_level/2) end)
-  menuitem(3,"rain",function() raining=not raining end)
-  menuitem(4,"load", function()
-             if load_game() then
-               init_game()
-             end
-  end)
+  -- -- cheatz
+  -- menuitem(1,"+energy",function() energy_level=max_energy end)
+  -- menuitem(2,"-energy",function() energy_level=mid(max_energy,0,energy_level/2) end)
+  -- menuitem(3,"rain",function() raining=not raining end)
+  -- menuitem(4,"load", function()
+  --            if load_game() then
+  --              init_game()
+  --            end
+  -- end)
 
   -- title screen
   title_screen=true
@@ -812,7 +812,7 @@ end
 
 function update_title()
   update_core()
-  if btnp(⬇️) then
+  if btnp(⬇️) and @0x5e00>0 then
      menu_sel=2
   elseif btnp(⬆️) then
      menu_sel=1
@@ -1332,7 +1332,7 @@ function _draw()
      map(16,0,0,0,16,16)
 
      printo("new game",48,100,7)
-     printo("continue",48,108,7)
+     if (@0x5e00>0) printo("continue",48,108,7)
 
      local sy=100
      if menu_sel==2 then sy=108 end
@@ -3182,4 +3182,3 @@ __sfx__
 011000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __music__
 00 06074344
-

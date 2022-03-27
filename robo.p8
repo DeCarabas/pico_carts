@@ -1659,7 +1659,9 @@ end
 
 script={}
 function script:give_flower_post()
-   if chapter==3 then chapter = 4 end
+   if chapter==3 then
+      chapter = 4
+   end
    penny:start_leave_then_wander()
 end
 
@@ -1669,11 +1671,11 @@ function give_flower(item)
       if item.flower_count >= penny.want_count then
         do_script([[
 p=py_up_talk
-Oh, a bunch of $1 flowers!
+Oh, a bunch of $1|flowers!
 
 p=py_mid_talk
-I'll take them to|mom
-I'm sure she'll love them!
+I'll take them to|mom.
+I'm sure she'll love|them!
 
 call=give_flower_post
 ]], {item.name})
@@ -1684,10 +1686,10 @@ call=give_flower_post
         local more = penny.want_count-item.flower_count
         do_script([[
 p=py_up_talk
-That's the flower I want!
+That's the|flower I want!
 
 p=py_mid_talk
-Can you collect $1 more?
+Can you collect $1|more?
         ]],{more})
       end
     elseif penny.want_seed then
@@ -1699,7 +1701,7 @@ p=py_mid_wry
 I am looking for a|$2, though.
 
 p=py_mid_talk
-Can you grow me some?
+Can you grow me|some?
       ]], {item.name, penny.want_seed.name})
     else
       do_script([[
@@ -1882,8 +1884,8 @@ p=py_mid_talk
 How's that plow|working?
 
 p=py_mid_closed
-Remember, you need|to clear the
-ground before you|plant flowers.
+Remember, you need|to clear the ground
+before you plant|flowers.
   ]]
 }
 tl_water={
@@ -2192,7 +2194,7 @@ There you go!
 call=show_screen
 p=py_mid_wry
 Huh...
-I guess you reall|nDO work!
+I guess you really|DO work!
 
 p=py_up_intense
 Ha! I knew it!
@@ -2294,19 +2296,21 @@ end
 
 cs_didclear=[[
 call=didclear_look_at
-p=py_up_talk,
+p=py_up_talk
 Hey!|You did it!
 Looks great!
 
-p=py_mid_talk,
+p=py_mid_talk
 Wait a bit, I'll be|back!
 
 call=didclear_leave_come_back
+
 p=py_mid_wry
 Now, don't move, OK?
 Just gonna open you|up...
 
 call=didclear_give_tools
+
 p=py_mid_talk
 Done!
 Ok, check it out.|Tools!
@@ -2323,11 +2327,12 @@ PENNY!
 YOU LEFT THE DOOR|OPEN AGAIN!
 
 call=didclear_wantseed
+
 p=py_down_wry
 Whoops...
 She sounds mad.
 Maybe some flowers|will cheer her up...
-Can you get me 3 flowers?
+Can you get me 3|flowers?
 
 call=start_ch3
 ]]
@@ -2349,7 +2354,7 @@ function script:didclear_leave_come_back()
    penny:show(penny.x, penny.y, 0)
 end
 
-function script:didclear_want_tools()
+function script:didclear_give_tools()
    d=2 -- look down (face penny)
    for i=1,2 do
       sfx_yield(1, 3) -- tool sound
@@ -2374,45 +2379,47 @@ end
 
 
 --
+
+
+cs_nobattery=[[
+call=nobattery_pre
+
+p=blank
+Robo?
+Can you hear me?
+
+call=show_screen
+
+p=py_mid_wry
+Oh, thank goodness.
+
+p=py_up_closed
+Robo, you need to be|more careful!
+If you don't charge,|you'll get stuck!
+
+p=py_mid_wry
+Don't worry.
+I'll always be there|to help.
+
+call=nobattery_post
+]]
+
 local old_penny_visible=false
 
-cs_nobattery={
-  {
-    pre=function()
-      old_penny_visible = penny:visible()
+function script:nobattery_pre()
+   old_penny_visible = penny:visible()
 
-      cls(0)
-      penny:show(base_x, base_y+1, 0)
-      blank_screen=true
-    end,
+   cls(0)
+   penny:show(base_x, base_y+1, 0)
+   blank_screen=true
+end
 
-    "Robo?\nCan you hear me?"
-  },
 
-  {
-    pre=function()
-      blank_screen=false
-    end,
-    p=py_mid_wry,
-    "Oh, thank goodness."
-  },
-
-  {
-    p=py_up_closed,
-    "Robo, you need to be\nmore careful!/If you don't charge,\nyou'll get stuck!"
-  },
-
-  {
-    p=py_mid_wry,
-    "Don't worry./I'll always be there\nto help."
-  },
-
-  post=function()
-    if not old_penny_visible then
+function script:nobattery_post()
+   if not old_penny_visible then
       penny:leave()
-    end
-  end
-}
+   end
+end
 
 --
 
@@ -2432,7 +2439,7 @@ end
 function strip(txt)
    local s = 1
    while sub(txt,s,s) == " " do
-      start+=1
+      s+=1
    end
    local e= #txt
    while sub(txt,e,e) == " " and e > 0 do

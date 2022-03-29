@@ -1358,6 +1358,8 @@ function _draw()
      local sy=100
      if menu_sel==2 then sy=108 end
      printo(">",42,sy,7)
+
+     print("v1.0",112,122)
   end
 end
 

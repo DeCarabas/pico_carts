@@ -1728,7 +1728,7 @@ function give_flower(item)
       if item.flower_count >= penny.want_count then
         do_script([[
 p=py_up_talk
-Oh, a bunch of $1|flowers!
+Oh, a bunch of ^$1|flowers!
 
 p=py_mid_talk
 I'll take them to|mom.
@@ -1752,7 +1752,7 @@ Can you collect $1|more?
     elseif penny.want_seed then
        do_script([[
 p=py_mid_talk
-That's a very pretty|$1 flower.
+That's a very pretty|^$1 flower.
 
 p=py_mid_wry
 I am looking for a|$2, though.
@@ -1763,13 +1763,13 @@ Can you grow me|some?
     else
       do_script([[
 p=py_mid_talk
-What a pretty $1!
+What a pretty ^$1!
       ]], {item.name})
     end
   else
     do_script([[
 p=py_mid_talk
-That looks like a|$1 seed.
+That looks like a|^$1 seed.
 Till the ground, then|plant it.
 So long as the|ground stays wet,
 it will grow.
@@ -2755,8 +2755,9 @@ function penny:wander_around()
 p=py_mid_talk
 Robo?
 I was wondering...
-Could you please get|me some flowers?
-$1 $2 flowers?
+Could you please get|me more flowers?
+Mom really liked the|last ones.
+$1 ^$2 flowers?
 Thanks!
       ]], {self.want_count, self.want_seed.name})
     end
@@ -3215,4 +3216,3 @@ __music__
 04 09424344
 04 07424344
 04 0a424344
-

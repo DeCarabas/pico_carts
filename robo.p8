@@ -1451,6 +1451,10 @@ function update_birds()
   for b in all(birds) do
     assert(coresume(b.thread))
   end
+
+  if #birds>0 and rnd_int(150)==0 and not raining then
+    sfx(2,3)
+  end
 end
 
 function draw_bird(bird)

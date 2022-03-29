@@ -681,13 +681,19 @@ function update_time(inc)
         save_game()
     end)
   end
+end
+
+function update_bgm()
+  if is_sleeping then
+    return
+  end
 
   if not stat(57) then
      if time_near(10) then
         music(2)
-     elseif time_near(16) then
+     elseif time_near(14) then
         music(0)
-     elseif time_near(20) and not is_sleeping then
+     elseif time_near(20) then
         music(3)
      end
   end
@@ -712,6 +718,7 @@ function update_core()
   update_plants()
   penny:update()
   update_birds()
+  update_bgm()
 end
 
 function update_walk_impl()
@@ -1429,6 +1436,8 @@ function add_bird()
           if (b.frame>=4) b.frame=1
           yield()
         end
+
+        del(birds,b)
     end)
   }
   add(birds, b)
@@ -1441,9 +1450,6 @@ function update_birds()
 
   for b in all(birds) do
     assert(coresume(b.thread))
-    if costatus(b.thread)=="dead" then
-      del(birds,b)
-    end
   end
 end
 

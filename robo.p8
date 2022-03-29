@@ -37,8 +37,8 @@ __lua__
 function place_rand(count, sp)
   local cnt=0
   while cnt<count do
-    local x=1+flr(rnd(14))
-    local y=1+flr(rnd(14))
+    local x=1+rnd_int(14)
+    local y=1+rnd_int(14)
     if not map_flag(x,y,1) then
       mset(x+32,y,sp)
       cnt+=1
@@ -53,8 +53,8 @@ end
 --  chapter 3: till and plant
 function new_game()
   chapter=0
-  base_x=2+flr(rnd(12))
-  base_y=3+flr(rnd(8))
+  base_x=2+rnd_int(12)
+  base_y=3+rnd_int(8)
   day=0
   hour=8
   px=base_x
@@ -1404,7 +1404,7 @@ function init_birds()
 end
 
 function add_bird()
-  local tx,ty=flr(rnd(10))+3,flr(rnd(10))+3
+  local tx,ty=rnd_int(10)+3,rnd_int(10)+3
   local b
   b={
     x=tx-16, y=ty-16, ty=ty, frame=1, c=rnd{8,13,14},
@@ -1419,7 +1419,7 @@ function add_bird()
 
         -- bird is singing and dropping seed.
         b.frame=0
-        for i=1,flr(rnd(4))+1 do
+        for i=1,rnd_int(4)+1 do
           -- is the chirping good?
           -- if (not is_sleeping) sfx_yield(2, 3)
           yield_frames(15)
@@ -1468,13 +1468,16 @@ function flower:init(sy)
   flower.sy=sy
 end
 
+function rnd_int(n)
+  return flr(rnd(n))
+end
+
 function flip_coin()
-  if (flr(rnd(2))==0) return false
-  return true
+  return rnd_int(2)==0
 end
 
 function rnd_chr(s)
-  local i=flr(rnd(#s))+1
+  local i=rnd_int(#s)+1
   return sub(s,i,i)
 end
 
@@ -1503,7 +1506,7 @@ function flower:new(size, slot, seed, stem)
     size=size,
     seed=seed,
     stem=stem,
-    symm=flr(rnd(2)),
+    symm=rnd_int(2),
     flx=flx,
     slot=slot,
     name=self:name()
@@ -1513,8 +1516,8 @@ function flower:new(size, slot, seed, stem)
   while colors[4]==colors[5] do
     colors={
       0,0,0,
-      flr(rnd(8)+8),
-      flr(rnd(8)+8)
+      rnd_int(8)+8,
+      rnd_int(8)+8
     }
   end
 
@@ -1993,7 +1996,7 @@ function update_weather()
     weather_elapsed-=6
     local chance=seasons[flr(day/28)+1]
     assert(chance > 1, tostr(chance).." ??")
-    if flr(rnd(chance)) == 0 then
+    if rnd_int(chance) == 0 then
       raining=true
       sfx(3,2)
     else
@@ -2006,7 +2009,7 @@ end
 function update_particles()
   if raining and #rain<max_rain then
     for i=1,rnd(40) do
-      local tx,ty,life=flr(rnd(136)),flr(rnd(136)),flr(rnd(10))
+      local tx,ty,life=rnd_int(136),rnd_int(136),rnd_int(10)
       add(rain, {x=tx-life,y=ty-3*life,life=life})
     end
   end
@@ -2729,7 +2732,7 @@ end
 
 function penny:wander_around()
   while daytime() do
-    local dst = flr(rnd(16))
+    local dst = rnd_int(16)
     local tx, ty = self.x, self.y
     if rnd() >= 0.5 then
       tx=dst
@@ -2743,7 +2746,7 @@ function penny:wander_around()
 
     if chapter>=3 and not self.want_seed then
       self.want_seed=rnd(flower_seeds)
-      self.want_count=flr(rnd(7)+3)
+      self.want_count=rnd_int(7)+3
       do_script([[
 p=py_mid_talk
 Robo?
@@ -2754,7 +2757,7 @@ Thanks!
       ]], {self.want_count, self.want_seed.name})
     end
 
-    local t=(rnd()*30)+45
+    local t=rnd(30)+45
     while daytime() and t>0 do
        if self:is_close() then
           self:face(px,py)

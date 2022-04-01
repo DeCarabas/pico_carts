@@ -37,105 +37,114 @@ function _draw()
 end
 -->8
 -- trees
-function skele(d)
- local i,l
- local s={}
+-- function skele(d)
+--  local i,l
+--  local s={}
 
- -- generate child branches
- if d>1 then
-  for i=1,flr(rnd(3)) do
-   for l in all(skele(d-1)) do
-    add(s,l)
-   end
-  end
- end
+--  -- generate child branches
+--  if d>1 then
+--   for i=1,flr(rnd(3)) do
+--    for l in all(skele(d-1)) do
+--     add(s,l)
+--    end
+--   end
+--  end
 
- -- squish the branches into the
- -- upper half and move them to
- -- the starting point.
- local delta=(0.5-rnd())/2
- for l in all(s) do
-  l[1].x+=delta
-  l[2].x+=delta
-  l[1].y=0.4+l[1].y*0.6
-  l[2].y=0.4+l[2].y*0.6
- end
+--  -- squish the branches into the
+--  -- upper half and move them to
+--  -- the starting point.
+--  local delta=(0.5-rnd())/2
+--  for l in all(s) do
+--   l[1].x+=delta
+--   l[2].x+=delta
+--   l[1].y=0.4+l[1].y*0.6
+--   l[2].y=0.4+l[2].y*0.6
+--  end
 
- -- add our own line.
- add(s,{
-  {x=0.5,       y=0},
-  {x=0.5+delta, y=0.4}
- })
- return s
-end
+--  -- add our own line.
+--  add(s,{
+--   {x=0.5,       y=0},
+--   {x=0.5+delta, y=0.4}
+--  })
+--  return s
+-- end
 
 tree={}
 function tree:new()
- local f={}
+ local f={
+  leaves={},
+  flowers={}
+ }
 
  -- upside-down tree skele
- f.skeleton=skele(2)
- f.leaves={}
+ -- f.skeleton=skele(2)
  for i=1,200 do
   local pt=rndc()
-  pt.spr=flr(rnd(2)+1)
+  pt.spr=rnd_int(2)+1
   add(f.leaves,pt)
  end
 
  f.flower=flower:new(3)
- f.flowers={}
  for i=1,40 do
-  local pt=rndc()
-  add(f.flowers,pt)
+  add(f.flowers,rndc())
  end
 
  return setmetatable(f,{__index=self})
 end
 
--- fill a quadrilateral with
--- slanty sides but flat tops
--- and bottoms.
-function fill_quad(
-      xul,xur,ytop,xll,xlr,ybot)
-   local h=ybot-ytop
-   local sl=(xll-xul)/h
-   local ly
+-- -- fill a quadrilateral with
+-- -- slanty sides but flat tops
+-- -- and bottoms.
+-- function fill_quad(
+--       xul,xur,ytop,xll,xlr,ybot)
+--    local h=ybot-ytop
+--    local sl=(xll-xul)/h
+--    local ly
 
-   for ly=ytop,ybot do
-      local t=(ly-ytop)/h
-      local xl,xr=xul+t*(xll-xul),xur+t*(xlr-xur)
-      local sw=mid(xr-xl,0,2)
-      line(xl,ly,xr-sw,ly,4)
-      line(xr-sw,ly,xr,ly,5)
-   end
-end
+--    for ly=ytop,ybot do
+--       local t=(ly-ytop)/h
+--       local xl,xr=xul+t*(xll-xul),xur+t*(xlr-xur)
+--       local sw=mid(xr-xl,0,2)
+--       line(xl,ly,xr-sw,ly,4)
+--       line(xr-sw,ly,xr,ly,5)
+--    end
+-- end
 
 -- draw with x,y centered at
 -- bottom of trunk?
 function tree:draw(x,y,age)
    local lx,ly
 
-   local w,h=24,24
-
    -- full width/height at 0.5
    local af=mid(age/0.5,0,1)
-   w*=af h*=af
-   x-=flr(w/2) y-=flr(h) -- upper-left?
 
-   for l in all(self.skeleton) do
-      local tw=(1-l[2].y)*w*0.5
-      local top_x=x+flr(l[2].x*w)
-      local top_y=y+flr(h-l[2].y*h)
+   local trunk_sz=flr(16*af)
+   sspr(
+     56,16,
+     16,16,
+     x-trunk_sz/2,y-trunk_sz,
+     trunk_sz,trunk_sz)
 
-      local bw=(1-l[1].y)*w*0.5
-      local bot_x=x+flr(l[1].x*w)
-      local bot_y=y+flr(h-l[1].y*h)
-      if tw and bw then
-         fill_quad(
-            flr(top_x-tw/2),ceil(top_x+tw/2),top_y,
-            flr(bot_x-bw/2),ceil(bot_x+bw/2),bot_y)
-      end
-   end
+   -- for l in all(self.skeleton) do
+   --    local tw=(1-l[2].y)*w*0.5
+   --    local top_x=x+flr(l[2].x*w)
+   --    local top_y=y+flr(h-l[2].y*h)
+
+   --    local bw=(1-l[1].y)*w*0.5
+   --    local bot_x=x+flr(l[1].x*w)
+   --    local bot_y=y+flr(h-l[1].y*h)
+   --    if tw and bw then
+   --       fill_quad(
+   --          flr(top_x-tw/2),ceil(top_x+tw/2),top_y,
+   --          flr(bot_x-bw/2),ceil(bot_x+bw/2),bot_y)
+   --    end
+   -- end
+
+
+   -- full width/height at 0.5
+   local sz=flr(24*af)
+   x-=sz/2 y-=sz -- upper-left?
+
 
    -- leaves from 0.2 to 0.6
    local leaf_cnt=#self.leaves
@@ -146,8 +155,8 @@ function tree:draw(x,y,age)
    local leaf_i
    for leaf_i=1,leaf_cnt-1 do
       local pt=self.leaves[leaf_i]
-      lx=(4*af)+x+pt[1]*w
-      ly=y-(4*af)+pt[2]*h/2
+      lx=(4*af)+x+pt[1]*sz
+      ly=y-(4*af)+pt[2]*sz/2
 
       spr(pt.spr,lx,ly)
    end
@@ -160,12 +169,11 @@ function tree:draw(x,y,age)
    local flower_i
    for flower_i=1,flower_cnt-1 do
       local pt=self.flowers[flower_i]
-      lx=x+(w/4)+pt[1]*w*0.75
-      ly=y-pt[2]*h/2
+      lx=x+(sz/4)+pt[1]*sz*0.75
+      ly=y-pt[2]*sz/2
       self.flower:draw(lx,ly,1)
    end
 end
-
 -->8
 -- actual flower stuff.
 flower={}
@@ -175,12 +183,12 @@ function flower:new(size)
  while colors[4]==colors[5] do
   colors={
    0,0,0,
-   flr(rnd(8)+8),
-   flr(rnd(8)+8)
+   rnd_int(8)+8,
+   rnd_int(8)+8
   }
  end
 
- local symm=flr(rnd(2))
+ local symm=rnd_int(2)
  for y=0,size-1 do
   for x=0,size-1 do
    local c=rnd(colors)
@@ -215,13 +223,12 @@ function flower:draw(x,y,scale)
 end
 
 -->8
--- util
-function lerp(a,b,t)
- return a+(b-a)*t
-end
-
 -- random point within a unit
 -- circle
+function rnd_int(n)
+  return flr(rnd(n))
+end
+
 function rndc()
  local x,y=-1,-1
  while sqrt(x*x+y*y)>1 do
@@ -248,11 +255,19 @@ __gfx__
 000000000000ffeeeff0000000000000000000000000000000f55500000000000000000000000000000000000000000000000000000000000000000000000000
 000000000000fffffff0000000000000000000000000000000555500000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000005555500000000000000000000000000000000f00f00000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000055555550000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000056666650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000056666650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000056666650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000056666650000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000005555500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000005000500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000005000500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000000055555550000000000000000000000000000000000000444445551014451000000000000000000000000000000000000000000000000000000000
+00000000000056666650000000000000000000000000000000000000144444555144551000000000000000000000000000000000000000000000000000000000
+00000000000056666650000000000000000000000000000000000000144444455444551000000000000000000000000000000000000000000000000000000000
+00000000000056666650000000000000000000000000000000000000144444444444551000000000000000000000000000000000000000000000000000000000
+00000000000056666650000000000000000000000000000000000000014444444445551000000000000000000000000000000000000000000000000000000000
+00000000000005555500000000000000000000000000000000000000000144444445551000000000000000000000000000000000000000000000000000000000
+00000000000005000500000000000000000000000000000000000000000144444445510000000000000000000000000000000000000000000000000000000000
+00000000000005000500000000000000000000000000000000000000001444444455510000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000001444444455510000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000001444444455100000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000001444444555100000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000014444444555100000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000014444444555100000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000014444445555100000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000144444455551000000000000000000000000000000000000000000000000000000000000
+00000000000000000000000000000000000000000000000000000000144444455551000000000000000000000000000000000000000000000000000000000000

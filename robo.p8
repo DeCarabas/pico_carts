@@ -947,19 +947,7 @@ function draw_menu(items, selection)
   clip()
 end
 
-moon_phases={134,135,136,137,138,139,138,137,136,135}
-function moon()
-  -- 3 days in a phase
-  -- 10 moon phases in a month
-  -- :note: this doesn't align with calendar "season"
-  -- months (which would be 2.8 days/phase) and i
-  -- kind of love it.
-  local phase=flr(day/3)%10
-  return {
-    sprite=moon_phases[phase+1],
-    flipped=phase>5
-  }
-end
+--moon_phases={134,135,136,137,138,139,138,137,136,135}
 
 function draw_time()
   -- daytime is 06:00-18:00
@@ -983,10 +971,18 @@ function draw_time()
   end
 
   if not is_day then
-    local mun=moon()
-    sp=mun.sprite
-    fl=mun.flipped
-    bg=0 fg=5
+     -- 3 days in a phase
+     -- 10 moon phases in a month
+     -- :note: this doesn't align with calendar "season"
+     -- months (which would be 2.8 days/phase) and i
+     -- kind of love it.
+     local phase=flr(day/3)%10
+
+     --sp,fl=moon_phases[phase+1],phase>5
+     sp,fl=134+phase,phase>5
+     if fl then sp=139-(phase-5) end
+
+     bg=0 fg=5
   end
 
   rectfill(16,2,110,11,bg)

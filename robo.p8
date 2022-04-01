@@ -489,7 +489,7 @@ function _init()
   -- -- cheatz
   -- menuitem(1,"+energy",function() energy_level=max_energy end)
   -- menuitem(2,"-energy",function() energy_level=mid(max_energy,0,energy_level/2) end)
-  -- menuitem(3,"rain",function() raining=not raining end)
+  -- menuitem(1,"rain",function() day=2*28 raining=not raining end)
   -- menuitem(4,"load", function()
   --            if load_game() then
   --              init_game()
@@ -659,12 +659,14 @@ function update_time(inc)
 
     -- every night at midnight we
     -- dry everything out.
-    for y=0,31 do
-      for x=0,31 do
-        local wet=mget(x,y)
-        local dry=dry_map[wet]
-        if dry then
-          mset(x,y,dry)
+    if not winter then
+      for y=0,31 do
+        for x=0,31 do
+          local wet=mget(x,y)
+          local dry=dry_map[wet]
+          if dry then
+            mset(x,y,dry)
+          end
         end
       end
     end
@@ -681,6 +683,9 @@ function update_time(inc)
         save_game()
     end)
   end
+
+  season = flr(day/28)+1
+  winter = season==3
 end
 
 function update_bgm()
@@ -1000,7 +1005,7 @@ function draw_time()
   spr(sp,16+(87*frc),3,1,1,fl)
 
   local seasons={"summer","fall","winter","spring"}
-  local season,dos=seasons[flr(day/28)+1],tostr(day%28+1)
+  local sn,dos=seasons[season],tostr(day%28+1)
   local ld=sub(dos,#dos)
   if ld=="1" and dos~="11" then
      dos..="st"
@@ -1011,7 +1016,7 @@ function draw_time()
   else
      dos..="th"
   end
-  dos..=" of "..season
+  dos..=" of "..sn
   printo(dos,64-2*#dos,13,7)
 end
 
@@ -1061,7 +1066,11 @@ function draw_map()
     ofy+=cos(buzz_time)
     ofx+=sin(buzz_time)
   end
+  if winter then
+    pal(5,6) pal(1,7)
+  end
   map( 0,0,ofx+0,ofy+0,16,16) -- base
+  pal()
 
   map(32,0,ofx+0,ofy+0,16,16) -- item
 end
@@ -1953,14 +1962,14 @@ function init_weather()
   rain={}
   max_rain=2000
   weather_elapsed=6
-  seasons = {10,4,2,4} -- 1 is summer
+  season_rain = {10,4,2,3} -- 1 is summer
 end
 
 function update_weather()
   weather_elapsed += hour_inc
   if weather_elapsed>=6 then
     weather_elapsed-=6
-    local chance=seasons[flr(day/28)+1]
+    local chance=season_rain[season]
     assert(chance > 1, tostr(chance).." ??")
     if rnd_int(chance) == 0 then
       raining=true
@@ -1976,14 +1985,24 @@ function update_particles()
   if raining and #rain<max_rain then
     for i=1,rnd(40) do
       local tx,ty,life=rnd_int(136),rnd_int(136),rnd_int(10)
-      add(rain, {x=tx-life,y=ty-3*life,life=life})
+      local drop={x=tx,y=ty-3*life,life=life,o=rnd()}
+      if winter then
+        drop.y=ty-0.5*life
+      end
+      add(rain, drop)
     end
   end
 
   for drop in all(rain) do
-    drop.y+=3
-    drop.x+=1
-    drop.life-=1
+    if winter then
+      drop.y+=1
+      drop.x+=sin(t()+drop.o)/2
+      drop.life-=0.5
+    else
+      drop.y+=3
+      drop.x+=1
+      drop.life-=1
+    end
     if drop.life < 0 then
       del(rain,drop)
       if drop.x<128 and drop.y<128 then
@@ -1995,7 +2014,9 @@ end
 
 function draw_weather()
   for r in all(rain) do
-    if r.life==0 then
+    if winter then
+      circ(r.x,r.y,1,7)
+    elseif r.life==0 then
       circ(r.x,r.y,1,12)
     else
       line(r.x,r.y-2,r.x+1,r.y,12)
@@ -2940,14 +2961,14 @@ ccd510ccccdd51100000000000001161cc0bbbb0cccccccccccccccccccccccc000000001fef11fe
 d55110dddd5110000000000000001aa1c0bb00bb0ccccccccccccccccccccccc000000001fef11fef1c1ff77ff1ccccccccccccccccccccccccccccccccccccc
 ee82101eee8822100000000000111661c03b0c0b0ccccccccccccccccccccccc00000000c1ff11ff1cc1ffffff1ccccccccccccccccccccccccccccccccccccc
 f94210f7fff9421000000000001aaaa1cc0bb0c0cccccccccccccccccccccccc00000000c1ffffff1c1ffffffff1cccccccccccccccccccccccccccccccccccc
-00000000000000006666666600116661c003b0cccccccccccccccccccccccccc000000001ff7ff7ff11feffffef1cccccccccccccccccccccccccccccccccccc
-0000000000000000666666660001aaa10bb0bb0ccccccccccccc00c00ccccccc000000001f7dffd7f11feffffef1cccccccccccccccccccccccccccccccccccc
-000000000000000066566566011166613bbbbb0cccccccccccc0bb03b0c00ccc000000001fffeefff11feffffef1cccccccccccccccccccccccccccccccccccc
-00000000000000006656656601aaaaa103330b0cccccccccccc033bbb00bb0cc00000000c11ffff11cc1f7ff7f1ccccccccccccccccccccccccccccccccccccc
-00000000000000006656656601166661c00003b0cccccccccccc003bb0b330cc00000000c1ffffff1c1f7dffd7f1cccccccccccccccccccccccccccccccccccc
-000000000000000066566566001aaaa1ccccc03b0ccccccccccccc03bb300ccc000000001ffeffeff11f1feef1f1cccccccccccccccccccccccccccccccccccc
-00000000000000006656656611166661cccccc03b0cccccccccccc03b00ccccc000000001ffeffeff11f1ffff1f1cccccccccccccccccccccccccccccccccccc
-0000000000000000666666661aaaaaa1cccccc03b0cccccccccccc03b0cccccc00000000c11111111c1f111111f1cccccccccccccccccccccccccccccccccccc
+01011010001010006666666600116661c003b0cccccccccccccccccccccccccc000000001ff7ff7ff11feffffef1cccccccccccccccccccccccccccccccccccc
+1717717101717110666666660001aaa10bb0bb0ccccccccccccc00c00ccccccc000000001f7dffd7f11feffffef1cccccccccccccccccccccccccccccccccccc
+017117100111717166566566011166613bbbbb0cccccccccccc0bb03b0c00ccc000000001fffeefff11feffffef1cccccccccccccccccccccccccccccccccccc
+17177171177771106656656601aaaaa103330b0cccccccccccc033bbb00bb0cc00000000c11ffff11cc1f7ff7f1ccccccccccccccccccccccccccccccccccccc
+17177171011777716656656601166661c00003b0cccccccccccc003bb0b330cc00000000c1ffffff1c1f7dffd7f1cccccccccccccccccccccccccccccccccccc
+017117101717111066566566001aaaa1ccccc03b0ccccccccccccc03bb300ccc000000001ffeffeff11f1feef1f1cccccccccccccccccccccccccccccccccccc
+17177171011717106656656611166661cccccc03b0cccccccccccc03b00ccccc000000001ffeffeff11f1ffff1f1cccccccccccccccccccccccccccccccccccc
+0101101000010100666666661aaaaaa1cccccc03b0cccccccccccc03b0cccccc00000000c11111111c1f111111f1cccccccccccccccccccccccccccccccccccc
 cccccccccccccccccc53350000000500000000000000000000555500005555000055550000555500000000000055550066555500665555000006666000076000
 cccccccccccccccccc53350000000050000005000990909005777750057777500577755005777550057755500555555056677750566777500067777607666660
 cccc555555555555cc53350000000505000033500099999057777775577777555777755557775555577555555555555505667765056677656677666600000000

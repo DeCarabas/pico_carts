@@ -31,8 +31,7 @@ __lua__
 function place_rand(count, sp)
   local cnt=0
   while cnt<count do
-    local x=1+rnd_int(14)
-    local y=1+rnd_int(14)
+    local x,y=1+rnd_int(14),1+rnd_int(14)
     if not map_flag(x,y,1) then
       mset(x+32,y,sp)
       cnt+=1
@@ -877,34 +876,29 @@ function draw_box(x, y, w, h)
   palt(0, false)
   palt(12, true)
   spr(128,x,y)
+
+  local xr = x+(w+1)*8
+  local yb = y+(h+1)*8
+
   for ix=1,w do
     spr(129,x+ix*8,y)
-  end
-  local xr = x+(w+1)*8
-  spr(128,xr,y,1,1,true)
-  for iy=1,h do
-    spr(130,x, y+iy*8,1,1,false)
-    spr(130,xr,y+iy*8,1,1,true)
-  end
-  local yb = y+(h+1)*8
-  spr(128,x,yb,1,1,false,true)
-  for ix=1,w do
     spr(129,x+ix*8,yb,1,1,false,true)
   end
+
+  spr(128,xr,y,1,1,true)
+  for iy=1,h do
+    spr(130,x, y+iy*8) -- ,1,1,false
+    spr(130,xr,y+iy*8,1,1,true)
+  end
+  spr(128,x,yb,1,1,false,true)
   spr(128,xr,yb,1,1,true,true)
+
   rectfill(x+8,y+8,xr,yb,0)
   palt()
 end
 
 function draw_menu(items, selection)
-  local hght
-  if chapter>1 then
-    hght=2+#items
-  else
-    hght=1+#items
-  end
-  hght=ceil(hght*10/8)
-  hght=mid(hght,4,10)
+  local hght=mid(ceil((2+#items)*10/8),4,10)
 
   draw_box(56,0,7,hght)
   clip(62,8,120,hght*8)
@@ -914,24 +908,25 @@ function draw_menu(items, selection)
   local lx=63
   local ly=9-yofs
   for i=1,#items do
+    local it=items[i]
     if selection == i then
       print(">",lx,ly)
     end
-    if items[i].icon then
-      spr(items[i].icon,lx+6,ly-1)
+    if it.icon then
+      spr(it.icon,lx+6,ly-1)
     else
       sspr(
-        items[i].sx,items[i].sy,
+        it.sx,it.sy,
         flower_size,flower_size,
         -- x+6,y-1 looks good for 8x8 sprites,
         -- for smaller flowers we need to adjust
         -- lx+6+4-...,ly-1+4-...
-        lx+10-(flower_size/2),ly+3-(flower_size/2))
+        lx+10-flower_size/2,ly+3-flower_size/2)
     end
-    print(items[i].name,lx+16,ly)
-    if items[i].flower_count then
+    print(it.name,lx+16,ly)
+    if it.flower_count then
       print(
-        items[i].flower_count.."/"..items[i].seed_count,
+        it.flower_count.."/"..it.seed_count,
         lx+40, ly)
     end
     ly += 10
@@ -1024,7 +1019,7 @@ function draw_item()
     sspr(
       items[item_sel].sx,items[item_sel].sy,
       flower_size,flower_size,
-      116-(flower_size/2),116-(flower_size/2))
+      116-flower_size/2,116-flower_size/2)
   end
 end
 
@@ -1746,7 +1741,7 @@ function get_flower(seed, flower_count, seed_count)
     end
   end
 
-  if fp==nil then
+  if not fp then
     fp = {sx=seed.slot*flower_size,sy=flower_sy,
           name=seed.name,fn=i_plant,give=give_flower,
           seed=seed,flower_count=0,

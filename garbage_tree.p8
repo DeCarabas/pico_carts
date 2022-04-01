@@ -8,6 +8,9 @@ __lua__
 -- https://youtu.be/s6kxh_zyiqs
 -- https://pyrofoux.itch.io/tea-garden
 
+
+-- Need to save 511 tokens.
+
 function _init()
 end
 
@@ -146,15 +149,13 @@ function tree:draw(x,y,age)
    x-=sz/2 y-=sz -- upper-left?
 
 
-   -- leaves from 0.2 to 0.6
-   local leaf_cnt=#self.leaves
-   leaf_cnt=flr(mid(leaf_cnt*((age-0.2)/0.4),
-                    0,
-                    leaf_cnt))
+   function aged_count(start_age,span,count)
+      return flr(mid(count*(age-start_age)/span,0,count))
+   end
 
-   local leaf_i
-   for leaf_i=1,leaf_cnt-1 do
-      local pt=self.leaves[leaf_i]
+   -- leaves from 0.2 to 0.6
+   for i=1,aged_count(0.2,0.4,#self.leaves)-1 do
+      local pt=self.leaves[i]
       lx=(4*af)+x+pt[1]*sz
       ly=y-(4*af)+pt[2]*sz/2
 
@@ -162,13 +163,8 @@ function tree:draw(x,y,age)
    end
 
    -- flowers from 0.4 to 1.0
-   local flower_cnt=#self.flowers
-   flower_cnt=flr(
-      mid(flower_cnt*((age-0.4)/0.6),0,flower_cnt))
-
-   local flower_i
-   for flower_i=1,flower_cnt-1 do
-      local pt=self.flowers[flower_i]
+   for i=1,aged_count(0.4,0.6,#self.flowers)-1 do
+      local pt=self.flowers[i]
       lx=x+(sz/4)+pt[1]*sz*0.75
       ly=y-pt[2]*sz/2
       self.flower:draw(lx,ly,1)

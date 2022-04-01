@@ -1599,8 +1599,6 @@ grass={
   stages={144,145,146,147}
 }
 
-plant_classes={grass}
-
 flower_seeds={}
 
 flowers={}
@@ -1610,10 +1608,8 @@ function init_plants()
   -- init the reverse-lookup
   -- table for the plant data.
   local plant_spr={}
-  for p in all(plant_classes) do
-    for s in all(p.stages) do
-      plant_spr[s]=p
-    end
+  for s in all(grass.stages) do
+    plant_spr[s]=p
   end
 
   -- these are all the live
@@ -1665,37 +1661,6 @@ function draw_flower(plant)
   plant.seed:draw(4+plant.x*8, 8+plant.y*8, plant.age)
 end
 
-function remove_plant(x,y)
-  for p in all(plants) do
-    if p.x==x and p.y==y then
-      del(plants, p)
-      return
-    end
-  end
-end
-
-function add_plant(p,st,tx,ty)
-  add(
-    plants,
-    {age=1,x=tx,y=ty,cls=p})
-  mset(tx+32,ty,p.stages[st])
-end
-
-function i_plant(item,tx,ty)
-  if map_flag(tx,ty,1) then
-    buzz("can't plant here")
-    return
-  end
-  if energy_level < plant_cost then
-    buzz("insufficient energy")
-    return
-  end
-
-  energy_level-=plant_cost
-  local p=item.plant
-  add_plant(p,1,tx,ty)
-end
-
 function find_flower(x,y)
   for f in all(flowers) do
     if f.x==x and f.y==y then
@@ -1704,7 +1669,15 @@ function find_flower(x,y)
   end
 end
 
-function remove_flower(x,y)
+
+function remove_plant(x,y)
+  for p in all(plants) do
+    if p.x==x and p.y==y then
+      del(plants, p)
+      return
+    end
+  end
+
   local f = find_flower(x,y)
   if f then
     del(flowers, f)
@@ -1790,7 +1763,7 @@ function get_flower(seed, flower_count, seed_count)
 
   if fp==nil then
     fp = {sx=seed.slot*flower_size,sy=flower_sy,
-          name=seed.name,fn=i_flower,give=give_flower,
+          name=seed.name,fn=i_plant,give=give_flower,
           seed=seed,flower_count=0,
           seed_count=0}
     add(flower_pockets,fp)
@@ -1800,7 +1773,7 @@ function get_flower(seed, flower_count, seed_count)
   fp.flower_count=min(63,fp.flower_count+flower_count)
 end
 
-function i_flower(item,tx,ty)
+function i_plant(item,tx,ty)
   if map_flag(tx,ty,1) then
     buzz("can't plant here")
     return
@@ -1809,20 +1782,30 @@ function i_flower(item,tx,ty)
     buzz("insufficient energy")
     return
   end
-  if not map_flag(tx, ty, 4) then
-    buzz("ground not plowed")
-    return
-  end
-  if item.seed_count==0 then
-    buzz("no more seeds")
-    return
+
+  if item==grass then
+    local p=item.plant
+    add(
+      plants,
+      {age=1,x=tx,y=ty,cls=p})
+    mset(tx+32,ty,p.stages[st])
+  else
+    if not map_flag(tx, ty, 4) then
+      buzz("ground not plowed")
+      return
+    end
+    if item.seed_count==0 then
+      buzz("no more seeds")
+      return
+    end
+
+    item.seed_count-=1
+
+    local seed=item.seed
+    add_flower(seed, 0.25, tx, ty)
   end
 
-  item.seed_count-=1
   energy_level-=plant_cost
-
-  local seed=item.seed
-  add_flower(seed, 0.25, tx, ty)
 end
 
 
@@ -1836,10 +1819,9 @@ function i_grab(item,tx,ty)
       -- nopers
       buzz("can't drop here")
     else
-      mset(tx,ty,64) -- bare dirt
+      mset(tx,ty,64) -- unplowed
       mset(tx+32,ty,grabbed_item)
       remove_plant(tx,ty)
-      remove_flower(tx,ty)
       grabbed_item=nil
     end
   elseif fget(tgt,2) then
@@ -1851,7 +1833,7 @@ function i_grab(item,tx,ty)
         else
           get_flower(flower.seed, 0, 1)
         end
-        remove_flower(tx,ty)
+        remove_plant(tx,ty)
       else
         grabbed_item=tgt
       end
@@ -1914,7 +1896,6 @@ function i_till(item,tx,ty)
     function()
       if mget(tx+32,ty)~=0 then
         remove_plant(tx,ty)
-        remove_flower(tx,ty)
         mset(tx+32,ty,0) -- destroy
       end
       if map_flag(tx, ty, 5) then

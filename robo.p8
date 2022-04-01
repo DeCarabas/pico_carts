@@ -1176,7 +1176,7 @@ function draw_objective()
   local lines={}
 
   local tx,ty=looking_at()
-  local f,d=find_flower(tx,ty)
+  local f=find_flower(tx,ty)
   if f then
      add(lines, f.seed.name)
      if f.age>=1.0 then
@@ -1593,11 +1593,7 @@ end
 -->8
 -- plants and items
 
-grass={
-  name="grass",
-  rate=0.0006,
-  stages={144,145,146,147}
-}
+grass_rate = 0.0006
 
 flower_seeds={}
 
@@ -1605,28 +1601,15 @@ flowers={}
 flower_size=6
 
 function init_plants()
-  -- init the reverse-lookup
-  -- table for the plant data.
-  local plant_spr={}
-  for s in all(grass.stages) do
-    plant_spr[s]=p
-  end
-
   -- these are all the live
-  -- plants
+  -- plants, really just grass
+  -- these days.
   plants={}
   for y=1,15 do
     for x=1,15 do
       local sp,age=mget(32+x,y),1
-      local pl=plant_spr[sp]
-      if pl then
-        while pl.stages[age]~=sp do
-          age+=1
-        end
-        age+=rnd()
-        add(
-          plants,
-          {age=age,x=x,y=y,cls=pl})
+      if sp>=144 and sp<147 then
+        add(plants,{age=rnd(),x=x,y=y})
       end
     end
   end
@@ -1634,15 +1617,14 @@ end
 
 function update_plants()
   for p in all(plants) do
-    local class=p.cls
-    local age=p.age
-    if age < #class.stages then
-      -- update the age
-      local new_age=age+class.rate
-      if flr(new_age)~=flr(age) then
-        mset(p.x+32,p.y,class.stages[flr(new_age)])
+    local sp = mget(p.x+32, p.y)
+    if sp<147 then
+      local age=p.age + grass_rate
+      if age>=1 then
+        age-=1
+        mset(p.x+32,p.y,sp+1)
       end
-      p.age=new_age
+      p.age=age
     end
   end
 
@@ -1783,12 +1765,9 @@ function i_plant(item,tx,ty)
     return
   end
 
-  if item==grass then
-    local p=item.plant
-    add(
-      plants,
-      {age=1,x=tx,y=ty,cls=p})
-    mset(tx+32,ty,p.stages[st])
+  if item==tl_grass then
+    add(plants, {age=0,x=tx,y=ty})
+    mset(tx+32,ty,144)
   else
     if not map_flag(tx, ty, 4) then
       buzz("ground not plowed")
@@ -2110,7 +2089,7 @@ end
 --    end
 -- end
 
--- function dump_obj(o)
+-- function repr(o)
 --    local t = type(o)
 --    if o == nil then
 --       return "nil"
@@ -2121,7 +2100,7 @@ end
 --          if not first_item then
 --             r=r..", "
 --          end
---          r=r..dump_obj(o[i])
+--          r=r..repr(o[i])
 --          first_item=false
 --       end
 --       for k,v in pairs(o) do
@@ -2129,7 +2108,7 @@ end
 --             if not first_item then
 --                r=r..", "
 --             end
---             r=r..dump_obj(k).."="..dump_obj(v)
+--             r=r..repr(k).."="..repr(v)
 --             first_item=false
 --          end
 --       end

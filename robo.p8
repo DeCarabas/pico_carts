@@ -163,9 +163,6 @@ function stream:pack(width, ...)
   self.buffer=buffer
   self.write_bits=bits
 end
-function stream:flush()
-
-end
 
 
 -- list all the sprite values that can be saved here.

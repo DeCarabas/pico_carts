@@ -29,12 +29,11 @@ __lua__
 -- and there's only so much we
 -- can throw away when we load
 function place_rand(count, sp)
-  local cnt=0
-  while cnt<count do
+  while count>0 do
     local x,y=1+rnd_int(14),1+rnd_int(14)
     if not map_flag(x,y,1) then
       mset(x+32,y,sp)
-      cnt+=1
+      count-=1
     end
   end
 end
@@ -62,30 +61,25 @@ function new_game()
   place_rand(70,160) --rock
 
   -- clear off base
-  for y=base_y-1,base_y+1 do
-    for x=base_x-1,base_x+1 do
-      mset(x+32,y,0)
+  for y=-1,1 do
+    for x=-1,1 do
+      mset(base_x+x+32,base_y+y,0)
     end
   end
 
   flower_pockets={}
 
   flower_seeds={}
-  for fi=1,16 do
-    add(flower_seeds, flower:new(flower_size,fi-1))
+  for fi=0,15 do
+    add(flower_seeds, flower:new(flower_size,fi))
   end
 end
 
 stream={}
-function stream:new_write(address, limit)
-  return setmetatable(
-    {buffer=0,bits=8,address=address,limit=limit},
-    {__index=self})
-end
-function stream:new_read(address, limit)
-  return setmetatable(
-    {buffer=0,bits=0,address=address,limit=limit},
-    {__index=self})
+function stream:new(address,limit)
+   return setmetatable(
+      {buffer=0,write_bits=8,read_bits=0,address=address,limit=limit},
+      {__index=self})
 end
 function stream:read()
   assert(self.limit > 0)
@@ -102,7 +96,7 @@ function stream:read2()
 end
 function stream:unpack(width)
   local buffer = self.buffer
-  local bits = self.bits
+  local bits = self.read_bits
 
   local result = 0
   while width > 0 do
@@ -122,7 +116,7 @@ function stream:unpack(width)
   end
 
   self.buffer = buffer
-  self.bits = bits
+  self.read_bits = bits
   return result
 end
 function stream:write(v)
@@ -142,7 +136,7 @@ function stream:write2(v)
   self.address+=2
 end
 function stream:pack(width, ...)
-  local bits=self.bits
+  local bits=self.write_bits
   local buffer=self.buffer
   local values={...}
 
@@ -166,11 +160,12 @@ function stream:pack(width, ...)
   end
 
   self.buffer=buffer
-  self.bits=bits
+  self.write_bits=bits
 end
 function stream:flush()
-  assert(self.bits==8 and self.buffer==0)
+
 end
+
 
 -- list all the sprite values that can be saved here.
 -- we store the index in this list (so it can fit in
@@ -183,7 +178,7 @@ function save_game()
   --       could theoretically use cstore() to let us save
   --       way more data, but that comes with other limits
   -- compare with load_game
-  local w = stream:new_write(0x5e00,256)
+  local w = stream:new(0x5e00,256)
 
   -- write a version byte first so that we know if there's
   -- a savegame or not. We should probably find something
@@ -266,8 +261,8 @@ function save_game()
       end
       w:pack(6, encoded)
     end
-  end
-  w:flush()                       -- 229
+  end                            -- 229
+  -- assert(w.write_bits==8 and w.buffer==0)
 
   -- write the flower pockets
   -- 16 flowers, 63 max=6 bits, 2 values=12 bits
@@ -284,8 +279,8 @@ function save_game()
       end
     end
     w:pack(6, fc, sc)
-  end
-  w:flush()                       -- 253
+  end                            -- 253
+  -- assert(w.write_bits==8 and w.buffer==0)
 
   local want_seed,want_count=0, 0
   for fi=1,#flower_seeds do
@@ -301,7 +296,7 @@ end
 
 function load_game()
   -- see save_game for details
-  local w = stream:new_read(0x5e00,256)
+  local w = stream:new(0x5e00,256)
 
   if w:read() ~= 0x02 then
     return false
@@ -436,7 +431,7 @@ end
 -- tick every frame. (tweak for
 -- fun!)
 function init_time()
-  hour_inc=0.0036 --*100
+  hour_inc=0.0036 --*10
 
   recharge_rate=100*hour_inc/4
   water_rate=100*hour_inc/2
@@ -697,10 +692,6 @@ function update_bgm()
   end
 end
 
-function daytime()
-  return hour >= 8 and hour <= 18
-end
-
 function update_core()
   -- this is the core update fn
   -- of the game: what runs while
@@ -952,25 +943,25 @@ end
 function draw_time()
   -- daytime is 06:00-18:00
   -- night is 18:00-06:00
+  -- NOTE: This different from the "daytime" which penny uses.
   -- where are we?
   local bg=12
   local fg=9
   local sp=133
   local fl=false
 
-  local is_day=true
   local frc
+  local is_night=true
   if hour>=6 and hour<18 then
-    frc=(hour-6)/12
+     frc=(hour-6)/12
+     is_night=false
   elseif hour>=18 then
-    frc=(hour-18)/12
-    is_day=false
+     frc=(hour-18)/12
   else
-    frc=(hour+6)/12
-    is_day=false
+     frc=(hour+6)/12
   end
 
-  if not is_day then
+  if is_night then
      -- 3 days in a phase
      -- 10 moon phases in a month
      -- :note: this doesn't align with calendar "season"
@@ -2583,13 +2574,13 @@ function draw_text()
   color(7)
   if text_time==text_limit and
     time()%2>1 then
-    print("🅾️",128-16,128-14)
+    print("🅾️",112,114)
   end
 
   -- portrait
   if text_sprite_top then
-    spr(text_sprite_top,8,114-24,2,2)
-    spr(text_sprite_bot,8,114-8,2,2)
+    spr(text_sprite_top,8,90,2,2)
+    spr(text_sprite_bot,8,106,2,2)
   end
 end
 
@@ -2639,6 +2630,7 @@ function draw_penny()
 end
 
 function penny:update()
+  daytime = hour >= 8 and hour <= 18
   if self._thread and costatus(self._thread) ~= "dead" then
     assert(coresume(self._thread))
   end
@@ -2703,7 +2695,7 @@ function penny:is_close()
 end
 
 function penny:wander_around()
-  while daytime() do
+  while daytime do
     local dst = rnd_int(16)
     local tx, ty = self.x, self.y
     if rnd() >= 0.5 then
@@ -2731,7 +2723,7 @@ Thanks!
     end
 
     local t=rnd(30)+45
-    while daytime() and t>0 do
+    while daytime and t>0 do
        if self:is_close() then
           self:face(px,py)
           t-=0.1

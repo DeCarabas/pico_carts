@@ -82,14 +82,14 @@ function stream:new(address,limit)
       {__index=self})
 end
 function stream:read()
-  assert(self.limit > 0)
+  --assert(self.limit > 0)
   self.limit-=1
   self.address+=1
 
   return @(self.address-1)
 end
 function stream:read2()
-  assert(self.limit > 1)
+  --assert(self.limit > 1)
   self.limit-=2
   self.address+=2
   return %(self.address-2)
@@ -101,10 +101,11 @@ function stream:unpack(width)
   local result = 0
   while width > 0 do
     if bits == 0 then
-      assert(self.limit > 0) self.limit -= 1
-      buffer = @self.address
-      self.address += 1
-      bits = 8
+       --assert(self.limit > 0)
+       self.limit -= 1
+       buffer = @self.address
+       self.address += 1
+       bits = 8
     end
 
     local consume = min(bits, width)
@@ -121,15 +122,15 @@ function stream:unpack(width)
 end
 function stream:write(v)
   if (v==nil) v=0
-  assert(v>=0 and v<256)
-  assert(self.limit > 0)
+  --assert(v>=0 and v<256)
+  --assert(self.limit > 0)
   self.limit -= 1
 
   poke(self.address, v)
   self.address+=1
   end
 function stream:write2(v)
-  assert(self.limit > 1)
+  --assert(self.limit > 1)
   self.limit -= 2
 
   poke2(self.address, v)
@@ -142,14 +143,14 @@ function stream:pack(width, ...)
 
   for v in all(values) do
     local remaining = width
-    assert(v>=0 and v<(1<<remaining))
+    --assert(v>=0 and v<(1<<remaining))
     while remaining > 0 do
       local consume = min(bits, remaining)
       buffer = (buffer << consume) | (v >> (remaining - consume))
       bits -= consume
       if bits == 0 then
         poke(self.address, buffer)
-        assert(self.limit > 0) self.limit -= 1
+        --assert(self.limit > 0) self.limit -= 1
         self.address+=1
         bits = 8
         buffer = 0
@@ -202,7 +203,7 @@ function save_game()
 
   -- now pack up the seeds. we can have 16 flower seeds,
   -- and each uses two bytes, so we use 32 bytes here.
-  assert(#flower_seeds<=16)
+  --assert(#flower_seeds<=16)
   for fi=1,16 do
     local s=0
     if fi<=#flower_seeds then
@@ -238,7 +239,7 @@ function save_game()
                 -- in [1-16] anyway.) the next bit
                 -- indicates whether the flower is
                 -- old or young.
-                assert(si>=1 and si<=16)
+                --assert(si>=1 and si<=16)
                 encoded = 0b100000 | (si-1)
                 if flower.age > 0.5 then
                   encoded |= 0b010000
@@ -343,7 +344,7 @@ function load_game()
           age = 1.0
         end
 
-        assert(si>0 and si<=#flower_seeds, x.." "..y.." "..si)
+        --assert(si>0 and si<=#flower_seeds, x.." "..y.." "..si)
         add_flower(flower_seeds[si], age, x, y)
       else
         mset(32+x, y, save_item_code[encoded])
@@ -356,7 +357,7 @@ function load_game()
   for fi=1,16 do
     local fc,sc=w:unpack(6),w:unpack(6)
     if fc>0 or sc>0 then
-      assert(fi<=#flower_seeds,tostr(fi))
+      --assert(fi<=#flower_seeds,tostr(fi))
       get_flower(flower_seeds[fi], fc, sc)
     end
   end
@@ -629,14 +630,11 @@ function time_near(t)
    return abs(hour-t) <= hour_inc * 2
 end
 
-function update_time(inc)
+function update_time()
   buzz_time = max(buzz_time - 0.75, 0)
   buzz_msg_time = max(buzz_msg_time - 0.75, 0)
 
-  if inc==nil then
-    inc=hour_inc
-  end
-  hour+=inc
+  hour += hour_inc
   if hour>=24 then
     day+=1
     hour-=24
@@ -1449,83 +1447,154 @@ function draw_bird(bird)
 end
 
 -->8
--- actual flower stuff.
+-- trees and actual flower stuff.
+
+-- trees
+
+function rndc()
+   local x,y=-1,-1
+   while sqrt(x*x+y*y)>1 do
+      x,y = 1-rnd(2),1-rnd(2)
+   end
+   return {x,y}
+end
+
+tree={}
+function tree:new(size, slot, seed)
+   local f={
+      leaves={},
+      flowers={}
+   }
+
+   for i=1,200 do
+      local pt=rndc()
+      pt.spr=rnd_int(2)+1
+      add(f.leaves,pt)
+   end
+
+   f.flower=flower:new(size, slot, seed, false)
+   for i=1,40 do
+      add(f.flowers,rndc())
+   end
+
+   return setmetatable(f,{__index=self})
+end
+
+-- draw with x,y centered at
+function tree:draw(x,y,age)
+   -- full width/height at 0.5
+   local af=mid(age/0.5, 0, 1)
+
+   local trunk_sz=flr(16*af)
+   sspr(
+      56,16,
+      16,16,
+      x-trunk_sz/2,y-trunk_sz,
+      trunk_sz,trunk_sz)
+
+   -- full width/height at 0.5
+   local sz=flr(24*af)
+   x-=sz/2 y-=sz -- upper-left?
+
+
+   function aged_count(start_age,span,count)
+      return flr(mid(count*(age-start_age)/span,0,count))-1
+   end
+
+   -- leaves from 0.2 to 0.6
+   af*=4
+   for i=1,aged_count(0.2,0.4,#self.leaves) do
+      local pt=self.leaves[i]
+      local lx=af+x+pt[1]*sz
+      local ly=y-af+pt[2]*sz/2
+
+      spr(pt.spr,lx,ly)
+   end
+
+   -- flowers from 0.4 to 1.0
+   for i=1,aged_count(0.4,0.6,#self.flowers) do
+      local pt=self.flowers[i]
+      local lx=x+(sz/4)+pt[1]*sz*0.75
+      local ly=y-pt[2]*sz/2
+      self.flower:draw(lx,ly,1)
+   end
+end
+
 flower={}
 function flower:init(sy)
-  flower.sy=sy
+   flower.sy=sy
 end
 
 function rnd_int(n)
-  return flr(rnd(n))
+   return flr(rnd(n))
 end
 
 function flip_coin()
-  return rnd_int(2)==0
+   return rnd_int(2)==0
 end
 
 function rnd_chr(s)
-  local i=rnd_int(#s)+1
-  return sub(s,i,i)
+   local i=rnd_int(#s)+1
+   return sub(s,i,i)
 end
 
 function flower:name()
-  local cons="wrtpsdfghjklzxcvbnm"
-  local vowl="aeiou"
+   local cons="wrtpsdfghjklzxcvbnm"
+   local vowl="aeiou"
 
-  local result=rnd_chr(cons)..rnd_chr(vowl)
-  if flip_coin() then
-    result=result..rnd_chr(cons)..rnd_chr(vowl)
-  else
-    result=result..rnd({"th","ch","ph","ke","te","se"})
-  end
+   local result=rnd_chr(cons)..rnd_chr(vowl)
+   if flip_coin() then
+      result=result..rnd_chr(cons)..rnd_chr(vowl)
+   else
+      result=result..rnd({"th","ch","ph","ke","te","se"})
+   end
 
-  return result
+   return result
 end
 
 function flower:new(size, slot, seed, stem)
-  seed=seed or rnd()
-  if stem==nil then stem=true end
-  srand(seed)
+   seed=seed or rnd()
+   if stem==nil then stem=true end
+   srand(seed)
 
-  local flx=flip_coin()
+   local flx=flip_coin()
 
-  local f={
-    size=size,
-    seed=seed,
-    stem=stem,
-    symm=rnd_int(2),
-    flx=flx,
-    slot=slot,
-    name=self:name()
-  }
+   local f={
+      size=size,
+      seed=seed,
+      stem=stem,
+      symm=rnd_int(2),
+      flx=flx,
+      slot=slot,
+      name=self:name()
+   }
 
-  local colors={}
-  while colors[4]==colors[5] do
-    colors={
-      0,0,0,
-      rnd_int(8)+8,
-      rnd_int(8)+8
-    }
-  end
+   local colors={}
+   while colors[4]==colors[5] do
+      colors={
+         0,0,0,
+         rnd_int(8)+8,
+         rnd_int(8)+8
+      }
+   end
 
-  -- Flowers are rendered into the sprite sheet starting
-  -- at y 64 and left-to-right at slot*size. So if size
-  -- is 6, which is typical, then the first one is at (0,64)
-  -- and the next one is at (6,64), etc.
-  local symm=f.symm
-  for y=0,size-1 do
-    for x=0,size-1 do
-      local c=rnd(colors)
-      sset(x+(slot*size),y+self.sy,c)
-      if symm==0 then
-        sset(y+(slot*size),x+self.sy,c)
-      else
-        sset(size-1-x+(slot*size),y+self.sy,c)
+   -- Flowers are rendered into the sprite sheet starting
+   -- at y 64 and left-to-right at slot*size. So if size
+   -- is 6, which is typical, then the first one is at (0,64)
+   -- and the next one is at (6,64), etc.
+   for y=0,size-1 do
+      for x=0,size-1 do
+         local c=rnd(colors)
+         sset(x+slot*size,y+self.sy,c)
+         if f.symm==0 then
+            sset(y+slot*size,x+self.sy,c)
+         else
+            sset(size-1-x+slot*size,y+self.sy,c)
+         end
       end
-    end
-  end
+   end
 
-  return setmetatable(f,{__index=self})
+   return setmetatable(f,{__index=self})
 end
 
 function flower:draw(x,y,scale)
@@ -1574,7 +1643,7 @@ end
 -->8
 -- plants and items
 
-grass_rate = 0.0006
+--grass_rate =
 
 flower_seeds={}
 
@@ -1600,7 +1669,7 @@ function update_plants()
   for p in all(plants) do
     local sp = mget(p.x+32, p.y)
     if sp<147 then
-      local age=p.age + grass_rate
+      local age=p.age + 0.0006 --grass_rate
       if age>=1 then
         age-=1
         mset(p.x+32,p.y,sp+1)
@@ -1942,7 +2011,7 @@ function update_weather()
   if weather_elapsed>=6 then
     weather_elapsed-=6
     local chance=season_rain[season]
-    assert(chance > 1, tostr(chance).." ??")
+    --assert(chance > 1, tostr(chance).." ??")
     if rnd_int(chance) == 0 then
       raining=true
       sfx(3,2)
@@ -2870,7 +2939,7 @@ function draw_string(str,x,y,c,m)
       end
 
       local glyph=font[c]
-      assert(glyph, "char "..chr(c).." not in font")
+      --assert(glyph, "char "..chr(c).." not in font")
       if (not m) draw_font_glyph(glyph,lx,ly)
       lx+=glyph.w+1
     end

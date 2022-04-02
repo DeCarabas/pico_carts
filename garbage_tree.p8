@@ -116,8 +116,6 @@ end
 -- draw with x,y centered at
 -- bottom of trunk?
 function tree:draw(x,y,age)
-   local lx,ly
-
    -- full width/height at 0.5
    local af=mid(age/0.5,0,1)
 
@@ -154,10 +152,11 @@ function tree:draw(x,y,age)
    end
 
    -- leaves from 0.2 to 0.6
+   af*=4
    for i=1,aged_count(0.2,0.4,#self.leaves)-1 do
       local pt=self.leaves[i]
-      lx=(4*af)+x+pt[1]*sz
-      ly=y-(4*af)+pt[2]*sz/2
+      local lx=af+x+pt[1]*sz
+      local ly=y-af+pt[2]*sz/2
 
       spr(pt.spr,lx,ly)
    end
@@ -165,8 +164,8 @@ function tree:draw(x,y,age)
    -- flowers from 0.4 to 1.0
    for i=1,aged_count(0.4,0.6,#self.flowers)-1 do
       local pt=self.flowers[i]
-      lx=x+(sz/4)+pt[1]*sz*0.75
-      ly=y-pt[2]*sz/2
+      local lx=x+(sz/4)+pt[1]*sz*0.75
+      local ly=y-pt[2]*sz/2
       self.flower:draw(lx,ly,1)
    end
 end

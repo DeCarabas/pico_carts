@@ -743,9 +743,7 @@ function update_walk_impl()
   if walking then
     energy_level-=walk_cost
     idle_time=0
-  end
-
-  if not walking then
+  else -- if not walking then
     if btnp(❎) and
       grabbed_item==nil then
       open_item_menu()
@@ -1361,9 +1359,7 @@ end
 
 function wet_ground(tx, ty)
   local ground=mget(tx,ty)
-  if wet_map[ground] then
-    mset(tx,ty,wet_map[ground])
-  end
+  mset(tx,ty,wet_map[ground] or ground)
 end
 
 function i_water(item,tx,ty)
@@ -1960,8 +1956,13 @@ end
 function update_particles()
   if raining and #rain<max_rain then
     for i=1,rnd(40) do
-      local tx,ty,life=rnd_int(136),rnd_int(136),rnd_int(10)
-      local drop={x=tx,y=ty-3*life,life=life,o=rnd()}
+      local ty,life=rnd_int(136),rnd_int(10)
+      local drop={
+         x=rnd_int(136),
+         y=ty-3*life,
+         life=life,
+         o=rnd()
+      }
       if winter then
         drop.y=ty-0.5*life
       end
@@ -2014,13 +2015,12 @@ function init_fx()
 
   -- dark levels by hour.
   -- :todo: should also factor in phase of moon?
-  local sm={}
-  for i=0,4   do sm[i]=3    end
-  for i=5,8   do sm[i]=8-i  end
-  for i=9,16  do sm[i]=0    end
-  for i=17,19 do sm[i]=i-16 end
-  for i=20,24 do sm[i]=3    end
-  sunshine_map=sm
+  sunshine_map={}
+  for i=0,4   do sunshine_map[i]=3    end
+  for i=5,8   do sunshine_map[i]=8-i  end
+  for i=9,16  do sunshine_map[i]=0    end
+  for i=17,19 do sunshine_map[i]=i-16 end
+  for i=20,24 do sunshine_map[i]=3    end
 end
 
 function enable_sunshine(t)
@@ -2252,13 +2252,13 @@ function _check_clear(x,y)
   for iy=0,5 do
     for ix=0,5 do
       if map_flag(x+ix,y+iy,0) then
-        DBG_clear_fail_pt={x+ix,y+iy}
+        --DBG_clear_fail_pt={x+ix,y+iy}
         return false
       end
     end
   end
 
-  DBG_clear_fail_pt=nil
+  --DBG_clear_fail_pt=nil
   return true
 end
 
@@ -2302,12 +2302,6 @@ function has_wanted_flowers()
       end
    end
    return false
-end
-
-function sfx_yield(i,c)
-  sfx(i, c)
-  repeat until stat(49)>0 yield()
-  repeat until stat(49)<0 yield()
 end
 
 cs_didclear=[[
@@ -2373,7 +2367,9 @@ end
 function script:didclear_give_tools()
    d=2 -- look down (face penny)
    for i=1,2 do
-      sfx_yield(1, 3) -- tool sound
+      sfx(1, 3) -- tool sound
+      repeat until stat(49)>0 yield()
+      repeat until stat(49)<0 yield()
    end
 
    -- grant the new flower seed.
@@ -2420,10 +2416,16 @@ I'll always be there|to help.
 call=nobattery_post
 ]]
 
-local old_penny_visible=false
+-- local old_penny_visible
 
 function script:nobattery_pre()
-   old_penny_visible = penny:visible()
+   -- Since it's always 8am let's just allow this?
+   -- function penny:visible()
+   -- local x,y=penny.x,penny.y
+   -- old_penny_visible = x ~= nil and y ~= nil and
+   --    x >= 0 and x < 16 and
+   --    y >= 0 and y < 16
+   -- end
 
    cls(0)
    penny:show(base_x, base_y+1, 0)
@@ -2432,9 +2434,9 @@ end
 
 
 function script:nobattery_post()
-   if not old_penny_visible then
-      penny:leave()
-   end
+   -- if not old_penny_visible then
+   --    penny:leave()
+   -- end
 end
 
 --
@@ -2774,12 +2776,6 @@ end
 function penny:show(x,y,d)
   self.x=x self.y=y self.d=d
   self.frame = 0
-end
-
-function penny:visible()
-  return self.x ~= nil and self.y ~= nil and
-    self.x >= 0 and self.x < 16 and
-    self.y >= 0 and self.y < 16
 end
 
 function penny:want_flowers(seed,count)

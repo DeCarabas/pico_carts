@@ -2,6 +2,40 @@ pico-8 cartridge // http://www.pico-8.com
 version 18
 __lua__
 
+running_thread=nil
+threads={}
+function start_thread(fn)
+  add(threads,cocreate(fn))
+end
+function update_threads(fn)
+  for t in all(threads) do
+    running_thread=t
+    assert(coresume(t))
+    if costatus(t)=="dead" then
+      del(threads,t)
+    end
+  end
+  running_thread=nil
+end
+event={}
+function event:new()
+  return setmetatable({waiting={}},{__index=self})
+end
+function event:wait()
+  if not self.set then
+    add(self.waiting, current_thread)
+    del(threads,current_thread)
+    yield()
+  end
+end
+function event:set()
+  self.set=true
+  for t in all(self.waiting) do
+    add(threads, t)
+  end
+  self.threads={}
+end
+
 __gfx__
 00000000acccccca0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000cbbbbccc0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

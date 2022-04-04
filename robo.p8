@@ -786,6 +786,8 @@ end
 function update_menu()
   if btnp(⬇️) then menu_sel+=1 end
   if btnp(⬆️) then menu_sel-=1 end
+  menu_sel=mid(1,menu_sel,#menu_items+1)
+
   if btnp(❎) then menu_mode=false end
   if btnp(🅾️) then
      if menu_sel==#menu_items+1 then
@@ -800,7 +802,6 @@ function update_menu()
         menu_mode=false
      end
   end
-  menu_sel=mid(1,menu_sel,#menu_items+1)
 
   -- scroll?
   if menu_sel<menu_top then

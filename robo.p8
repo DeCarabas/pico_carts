@@ -1336,7 +1336,7 @@ function _draw()
      if menu_sel==2 then sy=108 end
      printo(">",42,sy,7)
 
-     print("v1.01",108,122)
+     print("v1.02",108,122)
   end
 end
 
@@ -3243,4 +3243,3 @@ __music__
 04 09424344
 04 07424344
 04 0a424344
-

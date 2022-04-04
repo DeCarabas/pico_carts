@@ -713,14 +713,11 @@ function update_walk_impl()
   if not is_sleeping and px==tx and py==ty then
     if btnp(⬅️) then
       if d~=0 then d=0 else tx=px-1 end
-    end
-    if btnp(➡️) then
+    elseif btnp(➡️) then
       if d~=1 then d=1 else tx=px+1 end
-    end
-    if btnp(⬇️) then
+    elseif btnp(⬇️) then
       if d~=2 then d=2 else ty=py+1 end
-    end
-    if btnp(⬆️) then
+    elseif btnp(⬆️) then
       if d~=3 then d=3 else ty=py-1 end
     end
     if tx<1  then buzz() tx=1  end

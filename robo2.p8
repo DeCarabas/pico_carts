@@ -8,31 +8,38 @@ __lua__
 --
 -- $ cat robo.p8 | sed 's/--.*//g' | sed '/^[ ]*$/d' > robo_release.p8
 --
--- :todo: zelda rock sprites
 -- :todo: what is 6x6?
 -- :todo: victory tune when cleared (a ping?)
 
--- the map is divided into 4
--- regions, horizontally. we
--- don't use the bottom layer
--- because we want to use that
--- part of the sprite sheet.
---
--- x=[0,32)   base layer
--- x=[32,64)  item sprite layer
--- x=[64,96)  ???
--- x=[96,128) ???
---
--- in theory we can do so much
--- here but we have to be able
--- to save our game in 256 bytes
--- and there's only so much we
+-- the pico-8  map is 128x32
+
+-- that's two maps tall and eight maps wide
+-- currently we use the first two maps in the top row as
+-- base layers in a map, and the bottom two maps in the
+-- row as item layers. we might use other maps as necessary.
+
+-- in theory we can do so much here but we have to be able
+-- to save our game in 256 bytes and there's only so much we
 -- can throw away when we load
+
+-- :todo: don't draw stuff offscreen(!)
+
+-- fetch the item for the tile (off of the item layer)
+function get_item(x,y)
+   return mget(x,y+16)
+end
+
+-- set the item for the tile (onto the item layer)
+function set_item(x,y,i)
+   return mset(x,y+16,i)
+end
+
+-- place a random number of the given sp on the item layer
 function place_rand(count, sp)
   while count>0 do
     local x,y=1+rnd_int(14),1+rnd_int(14)
     if not map_flag(x,y,1) then
-      mset(x+32,y,sp)
+      set_item(x,y,sp)
       count-=1
     end
   end
@@ -45,8 +52,6 @@ end
 --  chapter 3: till and plant
 function new_game()
   chapter=0
-  base_x=2+rnd_int(12)
-  base_y=3+rnd_int(8)
   day=0
   hour=8
   px=base_x
@@ -59,13 +64,6 @@ function new_game()
   place_rand(20,146) --grass
   place_rand(20,147) --grass
   place_rand(70,160) --rock
-
-  -- clear off base
-  for y=-1,1 do
-    for x=-1,1 do
-      mset(base_x+x+32,base_y+y,0)
-    end
-  end
 
   flower_pockets={}
 
@@ -181,22 +179,17 @@ function save_game()
   -- write a version byte first so that we know if there's
   -- a savegame or not. We should probably find something
   -- to pack in here but....
-  w:write(0x02)             -- 1
-
-  -- pack in various things. the map coordinates can always
-  -- be packed into a single byte because they have a max
-  -- of 15.
-  w:pack(4, base_x, base_y) -- 2
+  w:write(0x03)             -- 1
 
   -- all these have more than 4 bits of value. (chapter
   -- probably doesn't more than 4 but ... it's not worth
   -- packing it up more)
-  w:write(chapter)          -- 3
-  w:write((day+1)%112)      -- 4
+  w:write(chapter)          -- 2
+  w:write((day+1)%112)      -- 3
   -- hour = 8
   -- tank_level = 100
   -- energy_level = 100
-  w:write(grabbed_item)     -- 5
+  w:write(grabbed_item)     -- 4
 
   -- now pack up the seeds. we can have 16 flower seeds,
   -- and each uses two bytes, so we use 32 bytes here.
@@ -207,7 +200,7 @@ function save_game()
       s = flower_seeds[fi].seed<<16
     end
     w:write2(s)
-  end                      -- 37
+  end                      -- 36
 
   -- now pack up the items. each item gets 6 bits.
   -- the high bits are the signal bits:
@@ -220,7 +213,7 @@ function save_game()
   for y=0,15 do
     for x=0,15 do
       local encoded=nil
-      local item = mget(x+32, y)
+      local item = get_item(x, y)
       if item==148 then
         -- placeholder for a flower.
         -- first we need to find the flower...
@@ -259,7 +252,7 @@ function save_game()
       end
       w:pack(6, encoded)
     end
-  end                            -- 229
+  end                            -- 228
   -- assert(w.write_bits==8 and w.buffer==0)
 
   -- write the flower pockets
@@ -277,7 +270,7 @@ function save_game()
       end
     end
     w:pack(6, fc, sc)
-  end                            -- 253
+  end                            -- 252
   -- assert(w.write_bits==8 and w.buffer==0)
 
   local want_seed,want_count=0, 0
@@ -287,29 +280,25 @@ function save_game()
         break
      end
   end
-  w:pack(4, want_seed, want_count)-- 254
+  w:pack(4, want_seed, want_count)-- 253
 
-  -- 2 bytes to spare! tree seeds maybe! :)
+  -- 3 bytes to spare! tree seeds maybe! :)
 end
 
 function load_game()
   -- see save_game for details
   local w = stream:new(0x5e00,256)
 
-  if w:read() ~= 0x02 then
+  if w:read() ~= 0x03 then
     return false
   end
 
-  base_x = w:unpack(4)
-  base_y = w:unpack(4)
   px = base_x
   py = base_y
 
   chapter = w:read()
   day = w:read()
   hour = 8
-  tank_level = 100
-  energy_level = 100
   grabbed_item = w:read()
   if grabbed_item == 0 then
     grabbed_item = nil
@@ -344,7 +333,7 @@ function load_game()
         --assert(si>0 and si<=#flower_seeds, x.." "..y.." "..si)
         add_flower(flower_seeds[si], age, x, y)
       else
-        mset(32+x, y, save_item_code[encoded])
+        set_item(x,y,save_item_code[encoded])
       end
     end
   end
@@ -392,6 +381,10 @@ end
 --   print("\n")
 -- end
 
+-- in v1 these were random but now, no.
+base_x=24
+base_y=4
+
 -- player state
 function init_player()
   d=2 spd=0.125 walking=false
@@ -402,6 +395,7 @@ function init_player()
 
   max_energy=100
   energy_level=max_energy
+
   walk_cost=0.1
   grab_cost=1
   plow_cost=1
@@ -436,13 +430,6 @@ function init_time()
   flower_rate=1*hour_inc/24
 end
 
-function init_base()
-  -- the base points.
-  mset(base_x-1,base_y,83)
-  mset(base_x+1,base_y,83)
-  mset(base_x,base_y,114)
-end
-
 function init_game()
   blank_screen=false
 
@@ -450,7 +437,6 @@ function init_game()
   init_plants()
   init_menu()
   init_time()
-  init_base()
   init_player()
   init_weather()
   init_water()
@@ -485,6 +471,7 @@ function _init()
 
   -- title screen
   title_screen=true
+  map_left=0
   penny:show(2,2,0)
   penny:start_wander()
 end
@@ -511,15 +498,16 @@ end
 -- 3: plowable
 -- 4: plowed
 -- 5: wet
+-- 6: tp outside/inside
 --
 function map_flag(x,y,f)
   return fget(mget(x,y),f) or
-    fget(mget(x+32,y),f)
+     fget(get_item(x,y),f)
 end
 
 function map_flag_all(x,y,f)
   return fget(mget(x,y),f) and
-    fget(mget(x+32,y),f)
+     fget(get_item(x,y),f)
 end
 
 function use_thing()
@@ -657,15 +645,16 @@ function update_time()
   end
 
   if is_sleeping and day == sleep_until and hour >= 8 then
-    is_sleeping=false
-    sleep_until=nil
-    animate(
-      {{frame=45, duration=15},
-        {frame=13, duration=15},
-        {frame=1,  duration=15}},
-      function()
-        save_game()
-    end)
+     energy_level=max_energy
+     is_sleeping=false
+     sleep_until=nil
+     animate(
+        {{frame=45, duration=15},
+           {frame=13, duration=15},
+           {frame=1,  duration=15}},
+        function()
+           save_game()
+     end)
   end
 
   season = flr(day/28)+1
@@ -699,7 +688,6 @@ function update_core()
   -- time (cutscenes, etc.)
   update_time()
   update_weather()
-  update_base()
   update_plants()
   penny:update()
   update_birds()
@@ -720,10 +708,10 @@ function update_walk_impl()
     elseif btnp(⬆️) then
       if d~=3 then d=3 else ty=py-1 end
     end
-    if tx<1  then buzz() tx=1  end
-    if tx>14 then buzz() tx=14 end
-    if ty<1  then buzz() ty=1  end
-    if ty>14 then buzz() ty=14 end
+    --if tx<1  then buzz() tx=1  end
+    --if tx>14 then buzz() tx=14 end
+    --if ty<1  then buzz() ty=1  end
+    --if ty>14 then buzz() ty=14 end
     if collide(px,py,tx,ty) then
       tx=flr(px) ty=flr(py)
     end
@@ -753,7 +741,6 @@ function update_walk_impl()
         px=base_x py=base_y d=2
         tx=px ty=py walking=false
         day+=1 hour=8
-        energy_level=max_energy
         is_sleeping=false
         if chapter < 2 then
           do_script(cs_firstcharge)
@@ -834,18 +821,6 @@ function update_title()
 end
 
 update_fn=update_title
-
-function update_base()
-  -- before penny fixes the base
-  if (chapter < 2) return
-
-  if px==base_x and py==base_y then
-    energy_level=min(max_energy, energy_level+recharge_rate)
-    if chapter >= 3 then
-      tank_level=min(max_tank, tank_level+water_rate)
-    end
-  end
-end
 
 function _update()
   update_animation()
@@ -1024,23 +999,20 @@ function draw_meters()
 end
 
 function world_to_screen(wx,wy)
-  return {x=wx*8+4,y=wy*8+4}
+   return (wx-map_left)*8+4,wy*8+4
 end
 
 function draw_map()
-  local ofx=0
-  local ofy=0
-  if buzz_time>0 then
-    ofy+=cos(buzz_time)
-    ofx+=sin(buzz_time)
-  end
-  if winter then
-    pal(5,6) pal(1,7)
-  end
-  map( 0,0,ofx+0,ofy+0,16,16) -- base
-  pal()
-
-  map(32,0,ofx+0,ofy+0,16,16) -- item
+   local ofx, ofy=sin(buzz_time),0
+   if buzz_time>0 then
+      ofy+=cos(buzz_time)
+   end
+   if winter then
+      pal(5,6) pal(1,7)
+   end
+   map(map_left, 0,ofx,ofy,16,16) -- base
+   pal()
+   map(map_left,16,ofx,ofy,16,16) -- item
 end
 
 function draw_player()
@@ -1067,7 +1039,7 @@ function draw_player()
   elseif d==0 then idx+=4 fl=true
   end
 
-  local sc=world_to_screen(px,py)
+  local sc_x, sc_y = world_to_screen(px,py)
 
   local dx=0 local dy=-14
   if grabbed_item then
@@ -1080,8 +1052,8 @@ function draw_player()
     if d==3 then
       spr(
         grabbed_item,
-        sc.x+dx,
-        sc.y+dy,
+        sc_x+dx,
+        sc_y+dy,
         1,1)
     end
   end
@@ -1089,39 +1061,39 @@ function draw_player()
   -- draw robo.
   palt(0, false)
   palt(12, true)
-  spr(idx,sc.x-8,sc.y-12,2,2,fl)
+  spr(idx,sc_x-8,sc_y-12,2,2,fl)
   palt()
 
   if grabbed_item and
     d~=3 then
     spr(
       grabbed_item,
-      sc.x+dx,
-      sc.y+dy,
+      sc_x+dx,
+      sc_y+dy,
       1,1)
   end
 end
 
 function draw_base()
-  local bsx=8*base_x
-  local bsy=8*base_y
+   local bsx=8*(base_x-map_left)
+   local bsy=8*base_y
 
-  if chapter < 2 or
-    px~=base_x or
-    py~=base_y then
-    pal(10,6) -- no glow
-  end
+   if chapter < 2 or
+      px~=base_x or
+      py~=base_y then
+      pal(10,6) -- no glow
+   end
 
-  spr(115,bsx-8,bsy)
-  spr(115,bsx+8,bsy,1,1,true)
-  spr(99,bsx-8,bsy-8)
-  spr(99,bsx+8,bsy-8,1,1,true)
-  circ(bsx-2,bsy-8,3,1)
-  circfill(bsx-2,bsy-8,2,10)
-  circ(bsx+9,bsy-8,3,1)
-  circfill(bsx+9,bsy-8,2,10)
+   spr(115,bsx-8,bsy)
+   spr(115,bsx+8,bsy,1,1,true)
+   spr(99,bsx-8,bsy-8)
+   spr(99,bsx+8,bsy-8,1,1,true)
+   circ(bsx-2,bsy-8,3,1)
+   circfill(bsx-2,bsy-8,2,10)
+   circ(bsx+9,bsy-8,3,1)
+   circfill(bsx+9,bsy-8,2,10)
 
-  pal()
+   pal()
 end
 
 function sort(ks,vs)
@@ -1164,7 +1136,7 @@ function draw_objective()
         add(lines,"growing")
      end
   else
-    add(lines, descs[mget(tx+32,ty)])
+     add(lines, descs[get_item(tx,ty)])
   end
 
   local obj=objective
@@ -1242,12 +1214,14 @@ end
 -- always on the screen at the
 -- same time.
 function draw_game()
-  -- first, we adjust the pals so
-  -- that it looks like the right
-  -- time of day. (but if we get
-  -- here and the palette is
-  -- already dark then just let it
-  -- be.)
+   -- map left always follows the player...
+   if not title_screen then
+      map_left = flr(px/16)*16
+   end
+
+  -- we adjust the pals so that it looks like the right
+  -- time of day. (but if we get here and the palette is
+  -- already dark then just let it be.)
   if pal==original_pal then
     enable_sunshine(hour)
   end
@@ -1315,10 +1289,9 @@ function _draw()
   -- won't bother drawing the
   -- game. (cut-scenes use this
   -- to do a blackout.)
-  if blank_screen then
-    cls(0)
-  else
-    draw_game()
+  cls(0)
+  if not blank_screen then
+     draw_game()
   end
 
   -- the little box where people
@@ -1337,7 +1310,7 @@ function _draw()
     if menu_sel==2 then sy=108 end
     printo(">",42,sy,7)
 
-    print("v1.02",108,122)
+    print("v2.00A",104,122)
   end
 end
 
@@ -1438,7 +1411,7 @@ end
 function draw_bird(bird)
   for b in all(birds) do
     pal(4,b.c)
-    spr(flr(161+b.frame),b.x*8,b.y*8)
+    spr(flr(161+b.frame),(b.x-map_left)*8,b.y*8)
     pal()
   end
 end
@@ -1660,25 +1633,25 @@ function init_plants()
   plants={}
   for y=1,15 do
     for x=1,15 do
-      local sp,age=mget(32+x,y),1
-      if sp>=144 and sp<147 then
-        add(plants,{age=rnd(),x=x,y=y})
-      end
+       local sp,age=get_item(x,y),1
+       if sp>=144 and sp<147 then
+          add(plants,{age=rnd(),x=x,y=y})
+       end
     end
   end
 end
 
 function update_plants()
   for p in all(plants) do
-    local sp = mget(p.x+32, p.y)
-    if sp<147 then
-      local age=p.age + 0.0006 --grass_rate
-      if age>=1 then
-        age-=1
-        mset(p.x+32,p.y,sp+1)
-      end
-      p.age=age
-    end
+     local sp = get_item(p.x, p.y)
+     if sp<147 then
+        local age=p.age + 0.0006 --grass_rate
+        if age>=1 then
+           age-=1
+           set_item(p.x, p.y, sp+1)
+        end
+        p.age=age
+     end
   end
 
   for f in all(flowers) do
@@ -1690,10 +1663,10 @@ function update_plants()
 end
 
 function draw_flower(plant)
-  -- OK we have an x and a y which are tile coords
-  -- and a seed which is a flower{} object
-  -- flower:draw() takes the bottom center location
-  plant.seed:draw(4+plant.x*8, 8+plant.y*8, plant.age)
+   -- OK we have an x and a y which are tile coords
+   -- and a seed which is a flower{} object
+   -- flower:draw() takes the bottom center location
+   plant.seed:draw(4+(plant.x-map_left)*8, 8+plant.y*8, plant.age)
 end
 
 function find_flower(x,y)
@@ -1721,7 +1694,7 @@ end
 
 function add_flower(seed, age, tx, ty)
   add(flowers, {x=tx,y=ty,seed=seed,age=age})
-  mset(tx+32,ty,148) -- add placeholder
+  set_item(tx,ty,148) -- add placeholder
 end
 
 script={}
@@ -1820,7 +1793,7 @@ function i_plant(item,tx,ty)
 
   if item==tl_grass then
     add(plants, {age=0,x=tx,y=ty})
-    mset(tx+32,ty,144)
+    set_item(tx,ty,144)
   else
     if not map_flag(tx, ty, 4) then
       buzz("ground not plowed")
@@ -1842,7 +1815,7 @@ end
 
 
 function i_grab(item,tx,ty)
-  local tgt=mget(tx+32,ty)
+  local tgt=get_item(tx,ty)
   if grabbed_item then
     -- drop
     if fget(tgt,0) or
@@ -1852,7 +1825,7 @@ function i_grab(item,tx,ty)
       buzz("can't drop here")
     else
       mset(tx,ty,64) -- unplowed
-      mset(tx+32,ty,grabbed_item)
+      set_item(tx,ty,grabbed_item)
       remove_plant(tx,ty)
       grabbed_item=nil
     end
@@ -1869,7 +1842,7 @@ function i_grab(item,tx,ty)
       else
         grabbed_item=tgt
       end
-      mset(tx+32,ty,0)
+      set_item(tx,ty,0)
       energy_level-=grab_cost
     else
       buzz("insufficient energy")
@@ -1926,9 +1899,9 @@ function i_till(item,tx,ty)
   animate(
     {{frame=33, duration=5}},
     function()
-      if mget(tx+32,ty)~=0 then
+      if get_item(tx,ty)~=0 then
         remove_plant(tx,ty)
-        mset(tx+32,ty,0) -- destroy
+        set_item(tx,ty,0) -- destroy
       end
       if map_flag(tx, ty, 5) then
          mset(tx,ty,68)    -- wet plowed
@@ -2062,6 +2035,7 @@ function update_particles()
 end
 
 function draw_weather()
+  if map_left>0 then return end
   for r in all(rain) do
     if winter then
       circ(r.x,r.y,1,7)
@@ -2242,9 +2216,9 @@ call=intro_post
 ]]
 
 function script:intro_pre()
+   blank_screen=true
    cls(0)
    penny:show(base_x,base_y+1,0)
-   blank_screen=true
 end
 
 function script:intro_penny_turn()
@@ -2256,16 +2230,19 @@ function script:intro_penny_turn_back()
 end
 
 function script:intro_post()
-   energy_level = max_energy/8
+   energy_level = walk_cost * 32
    tank_level = 0
-   penny:start_leave()
    chapter = 1
+   penny:run_to(22,5)
+   penny:run_to(22,9)
+   penny:hide()
 end
 
 function script:firstcharge_pre()
+   blank_screen=true
    cls(0)
    penny:show(base_x,base_y+1,0)
-   blank_screen = true
+   energy_level=max_energy
 
    -- ♪: set the chapter early
    --     so the base glows.
@@ -2289,8 +2266,8 @@ Ha! I knew it!
 I AM THE BEST!
 
 p=py_mid_talk
-Well, I've finished|this base.
-If you stand there,|you'll recharge.
+Well, I've fixed your|charging stand.
+If you sleep there,|you'll recharge.
 
 p=py_mid_wry
 Try not to run out|of power, ok?
@@ -2499,9 +2476,10 @@ function script:nobattery_pre()
    --    y >= 0 and y < 16
    -- end
 
+   blank_screen=true
    cls(0)
    penny:show(base_x, base_y+1, 0)
-   blank_screen=true
+   energy_level = max_energy*0.75
 end
 
 
@@ -2598,6 +2576,7 @@ function do_script(script_text, args)
          update_fn=update_walk
    end)
    update_fn=update_script
+   assert(coresume(script_coro)) -- one step
 end
 
 local text
@@ -2658,14 +2637,18 @@ function draw_text()
   end
 end
 
+-- :todo: penny being all object-oriented wastes
+--        some tokens that we could reclaim
 penny = {
-  x=nil, y=nil, d=0,
-  speed=0.09,
-  frame=0,
-  _thread=nil
+   -- hidden=nil or false
+   x=nil, y=nil, d=0,
+   speed=0.09,
+   frame=0,
+   _thread=nil
 }
 
 function penny:draw()
+  if self.hidden then return end
   if self.x ~= nil then
     local f,sy,sh,sx,sw=false,32,16
     if self.d==0 or self.d==2 then
@@ -2691,7 +2674,7 @@ function penny:draw()
     palt(12, true)
     sspr(
       sx,sy,sw,sh,
-      self.x*8,---(sw/2),
+      (self.x-map_left)*8,---(sw/2),
       self.y*8-8,
       sw,sh,
       f)
@@ -2846,14 +2829,21 @@ function penny:start_leave()
 end
 
 function penny:show(x,y,d)
-  self.x=x self.y=y self.d=d
-  self.frame = 0
+   self.hidden=false
+   self.x=x self.y=y self.d=d
+   self.frame = 0
 end
 
 function penny:want_flowers(seed,count)
   self.want_seed=seed
   self.want_count=count
 end
+
+function penny:hide()
+   -- :todo: waste of tokens??
+   self.hidden=true
+end
+
 
 -->8
 -- big font code
@@ -2984,20 +2974,20 @@ c000000cccc000e00e000ccc0e7007e00e7007e0cc0ee00e0000070ccc0ee0077000070cccc00700
 00000000ccc0000000000cccccc0000000000ccccc000c0000000000cc000c0000000cccccc0000000000cccccc0000000000cccccc0000000000ccc00000000
 444444440566660054454445555555551551555155555555444444444444444444444444cc11cc11cc1f111111f1cccccccccccccccccccccccccccccccccccc
 454444446655566045445454515555555155151522222522444444444444444444444444c1ff11ff1c1f1ffff1f1ccccc11ccccccccccccccccccccccccccccc
-4444454466656666454544545555515551515515222525224444444444ffffffffffff441fff11fff11f1feef1f1cccc1fe1cccccccccc11111ccccccccccccc
-444444446655666654454445555555551551555122222522fffffffffffccccccccccfff1fff11fff1c17dffd71ccccc1fe1ccccccccc1eeeee1cccccccccccc
-4444444455665565454454545555555551551515555555554444444444fccccccccccf441fff11fff11ff7ff7ff1cccc1ffe1cccccccc1fffffe11111ccccccc
-4444544466656565454544545555155551515515225222224444444444fccccccccccf441fff11fff11fdffffdf1ccccc1ff1ccccccccc1111fffff7f1cccccc
-4454444406556650544544455515555515515551225252224444444444fccccccccccf44c1ff11ff1c1fdffffdf1cccccc1f11ccccc1111111111f7dfe1ccccc
-444444440055550045445454555555555155151522522222fffffffffffccccccccccfffc1ffffff1c1fdffffdf1ccccc1ff7f1ccc177fffff111fffff1ccccc
-0000000000000000000000004444444455555555000000000000000044ffffffffffff441ffffffff11ffffffff1ccccc1f7dfe1cc177ffffffffffff1cccccc
-1110001111000000000000004444444455555555000000000000000044fccccccccccf441ffffffff11ffffffff1cccc11fffff1ccc1fffffffffff11ccccccc
-2211002521100000000000004444444455555555000000000000000044fccccccccccf441ffffffff1c1ff77ff1cc111ffffff1ccc1ffffffffffff11ccccccc
-33311033331100000000000044444444555555550000000000000000fffccccccccccfffc11ffff11cc1f7777f1c177ffffff1ccc1fff111111ffffff1cccccc
-4221102d44221000000000004444444455555555000000000000000044fccccccccccf44c1ffffff1cc1f1771f1c177ffffff1cccc111cccccc111111ccccccc
-5511105555110000000000004445544455511555000000000000000044fccccccccccf441fff77fff11ff1111ff11ffffefff1cccccccccccccccccccccccccc
-66d5106666dd5100000000004445544455511555000000000000000044ffffffffffff441ff7777ff11ff1cc1ff11fffffefff1ccccccccccccccccccccccccc
-776d1077776dd5500000000044444444555555550000000000000000ffffffffffffffffc11111111c1f1cccc1f1c111111111cccccccccccccccccccccccccc
+4444454466656666454544545555515551515515222525224444444444555555555555441fff11fff11f1feef1f1cccc1fe1cccccccccc11111ccccccccccccc
+444444446655666654454445555555551551555122222522ffffffffff5cccccccccc5ff1fff11fff1c17dffd71ccccc1fe1ccccccccc1eeeee1cccccccccccc
+44444444556655654544545455555555515515155555555544444444445cccccccccc5441fff11fff11ff7ff7ff1cccc1ffe1cccccccc1fffffe11111ccccccc
+44445444666565654545445455551555515155152252222244444444445cccccccccc5441fff11fff11fdffffdf1ccccc1ff1ccccccccc1111fffff7f1cccccc
+44544444065566505445444555155555155155512252522244444444445cccccccccc544c1ff11ff1c1fdffffdf1cccccc1f11ccccc1111111111f7dfe1ccccc
+444444440055550045445454555555555155151522522222ffffffffff5cccccccccc5ffc1ffffff1c1fdffffdf1ccccc1ff7f1ccc177fffff111fffff1ccccc
+000000000000000000000000444444445555555555555555f333333344555555555555441ffffffff11ffffffff1ccccc1f7dfe1cc177ffffffffffff1cccccc
+111000111100000000000000444444445555555522222522f3333333445cccccccccc5441ffffffff11ffffffff1cccc11fffff1ccc1fffffffffff11ccccccc
+221100252110000000000000444444445555555522252522f3333333445cccccccccc5441ffffffff1c1ff77ff1cc111ffffff1ccc1ffffffffffff11ccccccc
+333110333311000000000000444444445555555522222522ffffffffff5cccccccccc5ffc11ffff11cc1f7777f1c177ffffff1ccc1fff111111ffffff1cccccc
+4221102d44221000000000004444444455555555555555553333f333445cccccccccc544c1ffffff1cc1f1771f1c177ffffff1cccc111cccccc111111ccccccc
+5511105555110000000000004445544455511555225222223333f333445cccccccccc5441fff77fff11ff1111ff11ffffefff1cccccccccccccccccccccccccc
+66d5106666dd5100000000004445544455511555225252223333f33344555555555555441ff7777ff11ff1cc1ff11fffffefff1ccccccccccccccccccccccccc
+776d1077776dd55000000000444444445555555522522222ffffffffff555555555555ffc11111111c1f1cccc1f1c111111111cccccccccccccccccccccccccc
 88221018888221000000000000000000cccccccccccccccccccccccccccccccc00000000cc11cc11cc1f1cccc1f1cccccccccccccccccccccccccccccccccccc
 9422104c999421000000000000000000cccccccccccccccccccccccccccccccc00000000c1ff11ff1c1ff1cc1ff1cccccccccccccccccccccccccccccccccccc
 a9421047aa9942100000000000000111cccc00cccccccccccccccccccccccccc000000001fef11fef11ff1111ff1cccccccccccccccccccccccccccccccccccc
@@ -3208,19 +3198,19 @@ __label__
 44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444
 
 __gff__
-0800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008071828380000000000000000000000000000030300000000000000000000000000000300000000000000000000000000000203000000000000000000000000
+0800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008071828380203000000000000000000000003030342030000000000000000000000000300000000000000000000000000000203000000000000000000000000
 000000000000000000000000000000000a0a0a0a0e0000000000000000000000070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
-4040404040404040404040404040404000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4040404040404040404040404040404000000000464748464646000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4040404040404040404040404040404000000000465758464646000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4040404040404040404040404040404000000000464646464646000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4040404040404040404040404040404000000000454545454545000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4040404040404040404040404040404000000000454545454545000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4040404040404040404040404040404000000000454545454545000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4040404040404040404040404040404000000000454545454545000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4040404040404040404040404040404000000000000045450000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-4040404040404040404040404040404000000000000045450000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4040404040565655555656404040404000005252525252525252525200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4040404040404040404040404040404000005246464748464646465200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4040404040404040404040404040404000005246465758464646465200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4040404040404040404040404040404000005246464646464646465200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4040404040404040404040404040404000005245454545457245455200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4040404040404040404040404040404000005245454545454545455200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4040404040404040404040404040404000005245454545454545455200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4040404040404040404040404040404000005245454545454545455200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4040404040404040404040404040404000005252525255555252525200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+4040404040404040404040404040404000000000005252525200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 4040404040404040404040404040404000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 4040404040404040404040404040404000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 4040404040404040404040404040404000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

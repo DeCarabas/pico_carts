@@ -64,6 +64,8 @@ function new_game()
   place_rand(20,146) --grass
   place_rand(20,147) --grass
   place_rand(70,160) --rock
+  set_item(7,1,0) -- clear the front door
+  set_item(8,1,0)
 
   flower_pockets={}
 
@@ -708,10 +710,10 @@ function update_walk_impl()
     elseif btnp(⬆️) then
       if d~=3 then d=3 else ty=py-1 end
     end
-    --if tx<1  then buzz() tx=1  end
-    --if tx>14 then buzz() tx=14 end
-    --if ty<1  then buzz() ty=1  end
-    --if ty>14 then buzz() ty=14 end
+    if tx-map_left<0  then buzz() tx=map_left+0  end
+    if tx-map_left>15 then buzz() tx=map_left+15 end
+    if ty<0  then buzz() ty=0  end
+    if ty>15 then buzz() ty=15 end
     if collide(px,py,tx,ty) then
       tx=flr(px) ty=flr(py)
     end
@@ -733,6 +735,16 @@ function update_walk_impl()
       use_thing()
       idle_time=0
     end
+  end
+
+  if map_flag(px,py,6) then
+     -- fade out?
+     if map_left>0 then
+        py=1 px-=15
+     else
+        py=7 px+=15
+     end
+     tx,ty=px,py
   end
 
   if energy_level<=0 then
@@ -998,6 +1010,7 @@ function draw_meters()
   rectfill(116-nrg_ofs,57+41*nrg_frac,120,98,nrg_color)
 end
 
+-- :todo: a waste of tokens?
 function world_to_screen(wx,wy)
    return (wx-map_left)*8+4,wy*8+4
 end
@@ -2230,7 +2243,7 @@ function script:intro_penny_turn_back()
 end
 
 function script:intro_post()
-   energy_level = walk_cost * 32
+   energy_level = walk_cost * 28
    tank_level = 0
    chapter = 1
    penny:run_to(22,5)
@@ -3234,4 +3247,3 @@ __music__
 04 09424344
 04 07424344
 04 0a424344
-

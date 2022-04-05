@@ -23,6 +23,12 @@ __lua__
 -- can throw away when we load
 
 -- :todo: don't draw stuff offscreen(!)
+-- :todo: fix transition walking in
+-- :todo: fix sleeping effect
+-- :todo: birds flying inside
+-- :todo: weather through the window
+-- :todo: weather sound indoors
+-- :todo: birds singing at night?
 
 -- fetch the item for the tile (off of the item layer)
 function get_item(x,y)
@@ -48,8 +54,9 @@ end
 -- game progress
 --  chapter 0: pre-intro
 --  chapter 1: walking/no charge
---  chapter 2: clear field
---  chapter 3: till and plant
+--  chapter 2: walk outside
+--  chapter 3: clear field
+--  chapter 4: till and plant
 function new_game()
   chapter=0
   day=0
@@ -366,8 +373,10 @@ function load_game()
      script:start_ch3()
   elseif chapter==4 then
      script:start_ch4()
+  elseif chapter==5 then
+     script:start_ch5()
   else
-    penny:show(16,16,0)
+    penny:leave()
   end
 
   return true
@@ -991,13 +1000,13 @@ end
 
 function draw_meters()
   draw_box(104,50,1,5)
-  if tank_level>0 then
+  if chapter>=4 then
     local tank_frac=(max_tank-tank_level)/max_tank
     rectfill(111,57+41*tank_frac,115,98,12)
   end
 
   local nrg_ofs=0
-  if chapter<3 then nrg_ofs=5 end
+  if chapter<4 then nrg_ofs=5 end
   local nrg_frac=(max_energy-energy_level)/max_energy
   local nrg_color
   if nrg_frac<0.5 then
@@ -1388,7 +1397,7 @@ function add_bird()
           -- if (not is_sleeping) sfx_yield(2, 3)
           yield_frames(15)
         end
-        if (title_screen or chapter>=3) and not map_flag(tx,ty,1) then
+        if (title_screen or chapter>=4) and not map_flag(tx,ty,1) then
           add_flower(rnd(flower_seeds), 0.25, tx, ty)
         end
 
@@ -1712,8 +1721,8 @@ end
 
 script={}
 function script:give_flower_post()
-   if chapter==3 then
-      chapter = 4
+   if chapter==4 then
+      chapter=5
    end
    penny:start_leave_then_wander()
 end
@@ -1864,7 +1873,7 @@ function i_grab(item,tx,ty)
 end
 
 function give_tool(item)
-  if chapter==2 then
+  if chapter==3 then
     if objective == "talk to penny" then
       objective=nil
       do_script(cs_didclear)
@@ -1970,7 +1979,7 @@ I love the feel of|grass under my feet.
 
 function get_items()
   local items
-  if chapter < 3 then
+  if chapter < 4 then
     items = {tl_grab}
   else
     items = {
@@ -2243,12 +2252,10 @@ function script:intro_penny_turn_back()
 end
 
 function script:intro_post()
-   energy_level = walk_cost * 28
-   tank_level = 0
-   chapter = 1
-   penny:run_to(22,5)
-   penny:run_to(22,9)
-   penny:hide()
+  penny:leave()
+  energy_level = walk_cost * 28
+  tank_level = 0
+  chapter = 1
 end
 
 function script:firstcharge_pre()
@@ -2291,24 +2298,55 @@ THAT FIELD CLEAR|YET?
 
 p=py_mid_wry
 Oh, uh...
-Hey, help me clear|this field?
-Mom wants a big|clear space...
+I could use some|help.
+Will you come|outside with me?
 
-p=py_down_wry
-...but these rocks|are so big.
-
-p=py_up_talk
-Help me move these,|OK?
-
+call=firstcharge_ch2_transition
 call=start_ch2
 ]]
 
+function script:firstcharge_ch2_transition()
+  penny:leave()
+end
+
 function script:start_ch2()
+  penny:show(7,1,0)
+  penny:start_wander()
+  objective="go outside"
+  objective_fn=check_outside
+end
+
+function check_outside()
+  if px<16 and not penny.hidden then
+    penny:face(px, py)
+    do_script(cs_move_rocks)
+  end
+end
+
+cs_move_rocks=[[
+p=py_up_talk
+Hey, there you are!
+
+p=py_mid_talk
+Mom wants a big|clear space...
+
+p=py_down_wry
+...but these rocks|are so heavy.
+
+p=py_up_talk
+Now I've got you,|though!
+This will be easy|for you!
+Help me move these,|OK?
+
+call=start_ch3
+]]
+
+function script:start_ch3()
+  chapter=3
   penny:start_wander()
   objective="clear a 6x6 field"
   objective_fn=check_bigspace
 end
-
 
 function _check_clear(x,y)
   for iy=0,5 do
@@ -2337,8 +2375,8 @@ function check_bigspace()
   end
 end
 
-function script:start_ch3()
-  chapter = 3
+function script:start_ch4()
+  chapter = 4
   tank_level = max_tank
   objective_fn=check_wanted_flowers
   penny:start_wander()
@@ -2406,7 +2444,7 @@ She sounds mad.
 Maybe some flowers|will cheer her up...
 Can you get me 3|flowers?
 
-call=start_ch3
+call=start_ch4
 ]]
 
 function script:didclear_look_at()
@@ -2435,7 +2473,7 @@ function script:didclear_give_tools()
    end
 
    -- grant the new flower seed.
-   -- this isn't in start_ch3 because we don't want to do this on
+   -- this isn't in start_ch4 because we don't want to do this on
    -- load_game.
    get_flower(flower_seeds[1], 0, 3)
 end
@@ -2445,8 +2483,8 @@ function script:didclear_wantseed()
    penny.want_count=3
 end
 
-function script:start_ch4()
-  chapter = 4
+function script:start_ch5()
+  chapter = 5
   tank_level = max_tank
   penny:start_wander()
 end
@@ -2755,9 +2793,14 @@ function penny:run_to(tx, ty)
 end
 
 function penny:leave()
-  if self.y ~= nil then
+  if self.hidden then
+  elseif self.x<16 then
     self:run_to(16, self.y)
+  else
+    self:run_to(22,8)
+    self:run_to(22,9)
   end
+  self.hidden=true
 end
 
 function penny:is_close()
@@ -2766,7 +2809,7 @@ end
 
 function penny:wander_around()
   while daytime do
-    local dst = rnd_int(16)
+    local dst = rnd_int(14)+1
     local tx, ty = self.x, self.y
     if rnd() >= 0.5 then
       tx=dst
@@ -2778,7 +2821,7 @@ function penny:wander_around()
 
     self:run_to(tx, ty)
 
-    if chapter>=3 and not self.want_seed then
+    if chapter>=4 and not self.want_seed then
       self.want_seed=rnd(flower_seeds)
       self.want_count=rnd_int(7)+3
       do_script([[
@@ -2852,11 +2895,8 @@ function penny:want_flowers(seed,count)
   self.want_count=count
 end
 
-function penny:hide()
-   -- :todo: waste of tokens??
-   self.hidden=true
+function penny:leave_house()
 end
-
 
 -->8
 -- big font code

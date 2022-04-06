@@ -469,8 +469,9 @@ end
 
 function draw_tree(t)
    if tree_shadows then all_colors(0) end
-   spr(t.s, t.x*8-4, t.y*8-8,2,2)
-   spr(202, t.x*8-12,t.y*8-24,4,4)
+   local tpx,tpy=(t.x-map_left)*8, t.y*8
+   spr(t.s, tpx-4, tpy-8,2,2)
+   spr(202, tpx-12,tpy-24,4,4)
    pal()
 end
 

@@ -461,9 +461,17 @@ function init_game()
 end
 
 -- garbage
+tree_shadows=false
+
+function all_colors(x)
+   for i=1,15 do pal(i,x) end
+end
+
 function draw_tree(t)
-  spr(t.s, t.x*8-4, t.y*8-8,2,2)
-  spr(202, t.x*8-12,t.y*8-24,4,4)
+   if tree_shadows then all_colors(0) end
+   spr(t.s, t.x*8-4, t.y*8-8,2,2)
+   spr(202, t.x*8-12,t.y*8-24,4,4)
+   pal()
 end
 
 flower_sy=88
@@ -1246,7 +1254,7 @@ end
 -- since almost everything is
 -- always on the screen at the
 -- same time.
-function draw_game(draw_trees)
+function draw_game()
    -- map left always follows the player...
    if not title_screen then
       map_left = flr(px/16)*16
@@ -1272,11 +1280,9 @@ function draw_game(draw_trees)
     add(draws, {draw_penny,"pny"})
     add(ys, penny.y+0.1)
   end
-  if draw_trees then
-    for t in all(trees) do
-      add(draws, {draw_tree, t})
-      add(ys, t.y)
-    end
+  for t in all(trees) do
+     add(draws, {draw_tree, t})
+     add(ys, t.y)
   end
   for f in all(flowers) do
     add(draws, {draw_flower,f})
@@ -1291,6 +1297,13 @@ function draw_game(draw_trees)
   -- DBG_last_draws=draws
   for dd in all(draws) do
     dd[1](dd[2])
+  end
+
+  if not tree_shadows then
+     all_colors(1)
+     draw_player()
+     draw_penny()
+     pal()
   end
 
   -- now rain and stuff
@@ -1322,6 +1335,14 @@ function draw_game(draw_trees)
   -- draw_debug()
 end
 
+--helper wrapper for sspr that
+--allows us to conveniently
+--change a line function into
+--an sspr function
+function ssprline(x1,y1,x2,y2)
+   sspr(x1,y1,1,y2-y1,x1,y1)
+end
+
 function _draw()
   -- dirty hack: if you set
   -- blank_screen to true then we
@@ -1330,12 +1351,25 @@ function _draw()
   -- to do a blackout.)
   cls(0)
   if not blank_screen then
-    draw_game()
-    memcpy(0X8000,0X6000,0X2000)
-    draw_game(true)
-    --spr+sspr statements will draw from the screen back onto the screen now
-    poke(0x5f54,0x60) --remap gfx to screen?
-    poke(0x5f54,0)
+     -- render a frame with all good colors but holes for trees
+     tree_shadows=true
+     draw_game()
+     memcpy(0x8000,0x6000,0x2000) -- screenshot with holes for trees
+
+     -- now render the frame with all the trees, but penny and robo are in shadow
+     tree_shadows=false
+     draw_game()
+
+     memcpy(0,0x8000,0x2000) -- copy screenshot to sprite sheet
+
+     -- now copy the original render over the new render. the trees were holes,
+     -- so the trees we rendered in the second pass are the only thing that is
+     -- retained. *also* if penny or robo were behind trees, then they will *also*
+     -- be retained, but as shadows. this also has the nice effect of doing pixel-
+     -- accurate clipping, for partial shadowing.
+     sspr(0,0,128,128,0,0)
+
+     reload(0,0,0x2000) -- reload spritesheet
   end
 
   -- the little box where people
@@ -2749,11 +2783,10 @@ function penny:draw()
     palt(0, false)
     palt(12, true)
     sspr(
-      sx,sy,sw,sh,
-      (self.x-map_left)*8,---(sw/2),
-      self.y*8-8,
-      sw,sh,
-      f)
+       sx,sy,sw,sh,
+       (self.x-map_left)*8, self.y*8-8,
+       sw,sh,
+       f)
     palt()
   end
 end

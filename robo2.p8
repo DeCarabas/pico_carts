@@ -19,6 +19,9 @@ __lua__
 -- :todo: weather sound indoors
 -- :todo: birds singing at night?
 
+-- the base object for the cutscene system
+script={}
+
 -- the pico-8  map is 128x32
 
 -- that's two maps tall and eight maps wide
@@ -73,13 +76,14 @@ function new_game()
   place_rand(30,149) --stump
   place_rand(40,160) --rock
 
-  for x=6,9 do       -- clear the front door
-    for y=1,3 do
+  for x=5,10 do       -- clear the front door
+    for y=1,4 do
       set_item(x,y,0)
     end
   end
 
   flower_pockets={}
+  flowers={}
 
   flower_seeds={}
   for fi=0,15 do
@@ -219,7 +223,8 @@ function save_game()
   -- now pack up the items. each item gets 6 bits.
   -- the high bits are the signal bits:
   --
-  --   0b0xxxxx     xxxxx = raw sprite index
+  --   0b00xxxx     xxxx  = raw sprite index
+  --   0b01xxxx     xxxx  = tree (xxxx=style?)
   --   0b1axxxx     xxxx  = seed index, a = age
   --                        (0=half grown, 1=full grown)
   --
@@ -248,19 +253,25 @@ function save_game()
                 if flower.age > 0.5 then
                   encoded |= 0b010000
                 end
-                written=true
-                break
               end
             end
-            break
           end
         end
+      elseif item==149 then
+         encoded = 0b010000
+         for t in all(trees) do
+            if t.x==x and t.y==y then
+               if t.s==207 then
+                  encoded = 0b011000
+               else
+                  encoded = 0b011001
+               end
+            end
+         end
       else
         for ii=1,#save_item_code do
           if save_item_code[ii]==item then
             encoded = ii
-            written=true
-            break
           end
         end
       end
@@ -279,7 +290,6 @@ function save_game()
       for fp in all(flower_pockets) do
         if fp.seed==seed then
           fc,sc=fp.flower_count,fp.seed_count
-          break
         end
       end
     end
@@ -291,7 +301,6 @@ function save_game()
   for fi=1,#flower_seeds do
      if flower_seeds[fi]==penny.want_seed then
         want_seed,want_count=fi-1,penny.want_count
-        break
      end
   end
   w:pack(4, want_seed, want_count)-- 253
@@ -346,6 +355,13 @@ function load_game()
 
         --assert(si>0 and si<=#flower_seeds, x.." "..y.." "..si)
         add_flower(flower_seeds[si], age, x, y)
+      elseif encoded & 0b010000 ~= 0 then
+        set_item(x,y,149)
+        if encoded==0b011000 then
+           add(trees,{x=x,y=y,s=206})
+        elseif encoded==0b011001 then
+           add(trees,{x=x,y=y,s=238})
+        end
       else
         set_item(x,y,save_item_code[encoded])
       end
@@ -414,7 +430,7 @@ function init_player()
 
   walk_cost=0.1
   grab_cost=1
-  plow_cost=1
+  saw_cost=3
   water_cost=0.2
   plant_cost=0.2
 
@@ -485,7 +501,7 @@ function _init()
   --poke(0x5f36,0x40) -- disable print scroll
   flower:init(flower_sy)
 
-  cartdata("doty_robo_p8")
+  cartdata("doty_robo_2_p8")
 
   load_font()
   init_fx()
@@ -530,8 +546,8 @@ end
 -- 0: collision
 -- 1: cannot plant
 -- 2: grab-able
--- 3: plowable
--- 4: plowed
+-- 3: cut-able
+-- 4: dig-able
 -- 5: wet
 -- 6: tp outside/inside
 --
@@ -560,29 +576,28 @@ function use_thing()
   end
 end
 
+-- anim is a comma-separated list of numbers forming frame,duration pairs
+-- eg 1,34,87,12 means "frame 1 for 34 frames, then 87 for 12 frames."
 function animate(anim,done)
-  animation=anim
-  anim_done=done
-  anim_index=1
-
-  local frame=anim[1]
-  anim_duration=frame.duration
+   animation=split(anim)
+   anim_done=done
+   anim_index=1
+   anim_duration=animation[2]
 end
 
 function update_animation()
-  if animation then
-    anim_duration-=1
-    if anim_duration==0 then
-      anim_index+=1
-      if anim_index>#animation then
-        animation=nil
-        anim_done()
-      else
-        local frame=animation[anim_index]
-        anim_duration=frame.duration
+   if animation then
+      anim_duration-=1
+      if anim_duration==0 then
+         anim_index+=2
+         if anim_index>#animation then
+            animation=nil
+            if anim_done then anim_done() end
+         else
+            anim_duration=animation[anim_index+1]
+         end
       end
-    end
-  end
+   end
 end
 
 function collide(px,py,tx,ty)
@@ -610,23 +625,31 @@ function buzz(msg)
 end
 
 is_sleeping = false
-sleep_until = nil
 
 function sleep_until_morning()
-  d=2
-  animate(
-    {{frame=1,duration=15},
-      {frame=13,duration=15},
-      {frame=45,duration=15}},
-    function()
-       is_sleeping=true
-       if hour>=8 then
-          sleep_until=day+1
-       else
-          sleep_until=day
-       end
-    end
-  )
+   sleep_thread=cocreate(function()
+         animate("1,15,13,15,45,15")
+         yield()
+
+         is_sleeping=true
+         fade_out()
+
+         day+=1 hour=8
+         save_game()
+
+         fade_in()
+         animate("45,15,13,15,1,15")
+         yield()
+
+         is_sleeping=false
+         update_fn=update_walk
+   end)
+   update_fn=update_sleep
+   assert(coresume(sleep_thread))
+end
+
+function update_sleep()
+   assert(coresume(sleep_thread))
 end
 
 function yield_until(until_hour)
@@ -679,28 +702,11 @@ function update_time()
     end
   end
 
-  if is_sleeping and day == sleep_until and hour >= 8 then
-     energy_level=max_energy
-     is_sleeping=false
-     sleep_until=nil
-     animate(
-        {{frame=45, duration=15},
-           {frame=13, duration=15},
-           {frame=1,  duration=15}},
-        function()
-           save_game()
-     end)
-  end
-
   season = flr(day/28)+1
   winter = season==3
 end
 
 function update_bgm()
-  if is_sleeping then
-    return
-  end
-
   if not stat(57) then
      if time_near(10) then
         music(2)
@@ -729,11 +735,11 @@ function update_core()
   update_bgm()
 end
 
-function update_walk_impl()
+function update_walk()
   update_core()
   check_objective()
 
-  if not is_sleeping and px==tx and py==ty then
+  if px==tx and py==ty then
     if btnp(⬅️) then
       if d~=0 then d=0 else tx=px-1 end
     elseif btnp(➡️) then
@@ -781,35 +787,15 @@ function update_walk_impl()
   end
 
   if energy_level<=0 then
-    -- uh oh, trouble.
-    fade_out(function()
-        px=base_x py=base_y d=2
-        tx=px ty=py walking=false
-        day+=1 hour=8
-        is_sleeping=false
-        if chapter < 2 then
-          do_script(cs_firstcharge)
-        else
-          do_script(cs_nobattery)
-        end
-    end)
+     -- uh oh, trouble.
+     if chapter < 2 then
+        do_script(cs_firstcharge)
+     else
+        do_script(cs_nobattery)
+     end
   end
 
   idle_time+=0.0333
-end
-
-function update_walk()
-  -- all the good stuff is in update_walk_impl but we have this
-  -- stutter to make it easier to loop updates when sleeping or
-  -- whatever.
-  if is_sleeping then
-    for _i=1,20 do
-      update_walk_impl()
-      if not is_sleeping then return end
-    end
-  else
-    update_walk_impl()
-  end
 end
 
 function update_menu()
@@ -823,6 +809,7 @@ function update_menu()
         if px==base_x and py==base_y then
            sleep_until_morning()
            menu_mode=false
+           return
         else
            sfx(0, 3) -- buzz
         end
@@ -1066,17 +1053,16 @@ function draw_player()
   local fl=false
 
   if animation then
-    local frame=animation[anim_index]
-    idx=frame.frame
+     idx=animation[anim_index]
   elseif grabbed_item then
-    idx=35
+     idx=35
   elseif is_sleeping then
-    idx=45
-    d=2
+     idx=45
+     d=2
   elseif not title_screen then
-    if (flr(time()*4)%2)==0 then
-      idx+=2
-    end
+     if (flr(time()*4)%2)==0 then
+        idx+=2
+     end
   end
 
   --if d==2 then fl=false end
@@ -1360,7 +1346,24 @@ function _draw()
   -- to do a blackout.)
   cls(0)
   if not blank_screen then
+     -- render a frame with all good colors but holes for trees
      draw_game()
+     memcpy(0x8000,0x6000,0x2000) -- screenshot with holes for trees
+
+     -- now render the frame with all the trees, but penny and robo are in shadow
+     --tree_shadows=false
+     --draw_game()
+
+     --memcpy(0,0x8000,0x2000) -- copy screenshot to sprite sheet
+
+     -- now copy the original render over the new render. the trees were holes,
+     -- so the trees we rendered in the second pass are the only thing that is
+     -- retained. *also* if penny or robo were behind trees, then they will *also*
+     -- be retained, but as shadows. this also has the nice effect of doing pixel-
+     -- accurate clipping, for partial shadowing.
+     --sspr(0,0,128,128,0,0)
+
+     --reload(0,0,0x2000) -- reload spritesheet
   end
 
   -- the little box where people
@@ -1412,11 +1415,12 @@ function i_water(item,tx,ty)
 
   energy_level-=water_cost
   animate(
-    {{frame=35,duration=10}},
-    function()
-      tank_level-=10
-      wet_ground(tx, ty)
-  end)
+     "35,10",
+     function()
+        tank_level-=10
+        wet_ground(tx, ty)
+     end
+  )
 end
 
 function init_birds()
@@ -1769,7 +1773,6 @@ function add_flower(seed, age, tx, ty)
   set_item(tx,ty,148) -- add placeholder
 end
 
-script={}
 function script:give_flower_post()
    if chapter==4 then
       chapter=5
@@ -1955,54 +1958,38 @@ Enjoying yourself?
   end
 end
 
-function i_till(item,tx,ty)
-  -- check *plowable*
-  if not map_flag_all(tx,ty,3) then
-    buzz("not plowable")
-    return
-  end
-
-  if energy_level<plow_cost then
+function i_saw(item,tx,ty)
+  if energy_level<saw_cost then
     buzz("insufficient energy")
     return
   end
 
-  energy_level-=plow_cost
+  energy_level-=saw_cost
   animate(
-    {{frame=33, duration=5}},
-    function()
-      if get_item(tx,ty)~=0 then
-        remove_plant(tx,ty)
-        set_item(tx,ty,0) -- destroy
-      end
-      if map_flag(tx, ty, 5) then
-         mset(tx,ty,68)    -- wet plowed
-      else
-         mset(tx,ty,66)    -- plowed
-      end
-  end)
+     "33,5",
+     function()
+        for t in all(trees) do
+           if t.x==tx and t.y==ty then
+              del(trees, t) -- but leave the stump
+           end
+        end
+     end
+  )
 end
 
 function init_items()
   item_sel=1
 end
 
--- portraits
--- (for cut scenes but need them below)
-
-
 tl_grab={
   icon=142,name="grab",
   fn=i_grab,give=give_tool}
-tl_till={
-  icon=141,name="till",
-  fn=i_till,give=[[
+tl_saw={
+   icon=140,name="saw",
+  fn=i_saw,give=[[
 p=py_mid_talk
-How's that plow|working?
-
-p=py_mid_closed
-Remember, you need|to clear the ground
-before you plant|flowers.
+Hey, careful with|that!
+That thing's sharp!
   ]]
 }
 tl_water={
@@ -2030,10 +2017,10 @@ I love the feel of|grass under my feet.
 function get_items()
   local items
   if chapter < 4 then
-    items = {tl_grab}
+    items = {tl_grab,tl_saw}
   else
     items = {
-      tl_grab,tl_till,tl_water,
+      tl_grab,tl_saw,tl_water,
       tl_grass}
 
     for fp in all(flower_pockets) do
@@ -2171,26 +2158,27 @@ function fx_pal(s,t,p)
   end
 end
 
-function fade_out(fn)
-  fade_t=5
-  fade_lvl=sunshine_map[flr(hour)]
-  update_fn=update_fade
-  fade_cb=fn
+function fade_loop(fade_lvl)
+   for _xi=1,5 do
+      enable_dark(fade_lvl)
+      yield()
+   end
 end
 
-function update_fade()
-  enable_dark(fade_lvl)
-  fade_t-=1
-  if fade_t<=0 then
-    fade_lvl+=1
-    if fade_lvl>5 then
-      disable_dark()
-      fade_cb()
-    else
-      fade_t=5
-    end
-  end
+function fade_out()
+   for fade_lvl=sunshine_map[flr(hour)],5 do
+      fade_loop(fade_lvl)
+   end
 end
+
+function fade_in()
+   local fade_lvl=5
+   while fade_lvl>=sunshine_map[flr(hour)] do
+      fade_loop(fade_lvl)
+      fade_lvl-=1
+   end
+end
+
 
 -- function dump_darkness()
 --    pal()
@@ -2308,7 +2296,15 @@ function script:intro_post()
   chapter = 1
 end
 
+function fadeout_charge()
+   fade_out()
+   px=base_x py=base_y d=2
+   tx=px ty=py walking=false
+   day+=1 hour=8
+end
+
 function script:firstcharge_pre()
+   fadeout_charge()
    blank_screen=true
    cls(0)
    penny:show(base_x,base_y+1,0)
@@ -2569,6 +2565,8 @@ call=nobattery_post
 -- local old_penny_visible
 
 function script:nobattery_pre()
+   fadeout_charge()
+
    -- Since it's always 8am let's just allow this?
    -- function penny:visible()
    -- local x,y=penny.x,penny.y
@@ -2912,6 +2910,7 @@ function penny:start_wander()
         yield_until(8)
 
         -- come back to the field
+        self.hidden=false
         self:run_to(old_x, self.y)
       end
   end)
@@ -3301,8 +3300,8 @@ __label__
 44444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444444
 
 __gff__
-0800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000008071828380203000000000000000000000003030342030000000000000000000000000300000000000000000000000000000203000000000000000000000000
-000000000000000000000000000000000a0a0a0a0e0700000000000000000000070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000071820380203000000000000000000000003030342030000000000000000000000000300000000000000000000000000000203000000000000000000000000
+000000000000000000000000000000000a0a0a0a0e1b00000000000000000000070000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 4040404040565655555656404040404000005252525252525252525200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 4040404040404040404040404040404000005246464748464646465200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

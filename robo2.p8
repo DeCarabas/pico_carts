@@ -461,18 +461,22 @@ function init_game()
 end
 
 -- garbage
-tree_shadows=false
-
 function all_colors(x)
-   for i=1,15 do pal(i,x) end
+   for i=0,15 do pal(i,x) end
 end
 
 function draw_tree(t)
-   if tree_shadows then all_colors(0) end
    local tpx,tpy=(t.x-map_left)*8, t.y*8
    spr(t.s, tpx-4, tpy-8,2,2)
    spr(202, tpx-12,tpy-24,4,4)
-   pal()
+end
+
+function intersect_tree(px,py)
+   for t in all(trees) do
+      if abs(px-t.x)<2 and abs(py-t.y+2)<2 then
+         return true
+      end
+   end
 end
 
 flower_sy=88
@@ -1300,12 +1304,16 @@ function draw_game()
     dd[1](dd[2])
   end
 
-  if not tree_shadows then
+  -- draw things behind trees in shadow
+  if intersect_tree(penny.x,penny.y) then
+     all_colors(1)
+     draw_penny()
+  end
+  if intersect_tree(px,py) then
      all_colors(1)
      draw_player()
-     draw_penny()
-     pal()
   end
+  pal()
 
   -- now rain and stuff
   draw_weather()
@@ -1352,25 +1360,7 @@ function _draw()
   -- to do a blackout.)
   cls(0)
   if not blank_screen then
-     -- render a frame with all good colors but holes for trees
-     tree_shadows=true
      draw_game()
-     memcpy(0x8000,0x6000,0x2000) -- screenshot with holes for trees
-
-     -- now render the frame with all the trees, but penny and robo are in shadow
-     tree_shadows=false
-     draw_game()
-
-     memcpy(0,0x8000,0x2000) -- copy screenshot to sprite sheet
-
-     -- now copy the original render over the new render. the trees were holes,
-     -- so the trees we rendered in the second pass are the only thing that is
-     -- retained. *also* if penny or robo were behind trees, then they will *also*
-     -- be retained, but as shadows. this also has the nice effect of doing pixel-
-     -- accurate clipping, for partial shadowing.
-     sspr(0,0,128,128,0,0)
-
-     reload(0,0,0x2000) -- reload spritesheet
   end
 
   -- the little box where people

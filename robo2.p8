@@ -482,17 +482,14 @@ function all_colors(x)
 end
 
 function draw_tree(t)
-   local tpx,tpy=(t.x-map_left)*8, t.y*8
-   spr(t.s, tpx-4, tpy-8,2,2)
-   spr(202, tpx-12,tpy-24,4,4)
-end
-
-function intersect_tree(px,py)
-   for t in all(trees) do
-      if abs(px-t.x)<2 and abs(py-t.y+2)<2 then
-         return true
-      end
-   end
+  local tpx,tpy=(t.x-map_left)*8, t.y*8
+  if t.angle then
+    spr_r(t.s, tpx-4,  tpy-8,  t.angle, 2, 2,  8, 16)
+    spr_r(202, tpx-12, tpy-24, t.angle, 4, 4, 16, 32)
+  else
+    spr(t.s, tpx-4, tpy-8, 2,2)
+    spr(202, tpx-12,tpy-24,4,4)
+  end
 end
 
 flower_sy=88
@@ -1030,11 +1027,6 @@ function draw_meters()
   rectfill(116-nrg_ofs,57+41*nrg_frac,120,98,nrg_color)
 end
 
--- :todo: a waste of tokens?
-function world_to_screen(wx,wy)
-   return (wx-map_left)*8+4,wy*8+4
-end
-
 function draw_map()
    local ofx, ofy=sin(buzz_time),0
    if buzz_time>0 then
@@ -1071,7 +1063,7 @@ function draw_player()
   elseif d==0 then idx+=4 fl=true
   end
 
-  local sc_x, sc_y = world_to_screen(px,py)
+  local sc_x, sc_y = (px-map_left)*8+4,py*8+4
 
   local dx=0 local dy=-14
   if grabbed_item then
@@ -1251,6 +1243,10 @@ function draw_game()
       map_left = flr(px/16)*16
    end
 
+   -- draw the mask for the tree shadows
+   for t in all(trees) do draw_tree(t) end
+   memcpy(0x8000,0X6000,0X2000)
+
   -- we adjust the pals so that it looks like the right
   -- time of day. (but if we get here and the palette is
   -- already dark then just let it be.)
@@ -1290,17 +1286,6 @@ function draw_game()
     dd[1](dd[2])
   end
 
-  -- draw things behind trees in shadow
-  if intersect_tree(penny.x,penny.y) then
-     all_colors(1)
-     draw_penny()
-  end
-  if intersect_tree(px,py) then
-     all_colors(1)
-     draw_player()
-  end
-  pal()
-
   -- now rain and stuff
   draw_weather()
 
@@ -1330,14 +1315,6 @@ function draw_game()
   -- draw_debug()
 end
 
---helper wrapper for sspr that
---allows us to conveniently
---change a line function into
---an sspr function
-function ssprline(x1,y1,x2,y2)
-   sspr(x1,y1,1,y2-y1,x1,y1)
-end
-
 function _draw()
   -- dirty hack: if you set
   -- blank_screen to true then we
@@ -1346,24 +1323,7 @@ function _draw()
   -- to do a blackout.)
   cls(0)
   if not blank_screen then
-     -- render a frame with all good colors but holes for trees
-     draw_game()
-     memcpy(0x8000,0x6000,0x2000) -- screenshot with holes for trees
-
-     -- now render the frame with all the trees, but penny and robo are in shadow
-     --tree_shadows=false
-     --draw_game()
-
-     --memcpy(0,0x8000,0x2000) -- copy screenshot to sprite sheet
-
-     -- now copy the original render over the new render. the trees were holes,
-     -- so the trees we rendered in the second pass are the only thing that is
-     -- retained. *also* if penny or robo were behind trees, then they will *also*
-     -- be retained, but as shadows. this also has the nice effect of doing pixel-
-     -- accurate clipping, for partial shadowing.
-     --sspr(0,0,128,128,0,0)
-
-     --reload(0,0,0x2000) -- reload spritesheet
+    draw_game()
   end
 
   -- the little box where people
@@ -1736,6 +1696,15 @@ function update_plants()
       f.age=min(f.age+flower_rate, 1)
     end
   end
+
+  for t in all(trees) do
+    if t.angle then
+      t.angle+=0.1
+      if t.angle>=0.25 then
+        del(trees,t)
+      end
+    end
+  end
 end
 
 function draw_flower(plant)
@@ -1970,7 +1939,7 @@ function i_saw(item,tx,ty)
      function()
         for t in all(trees) do
            if t.x==tx and t.y==ty then
-              del(trees, t) -- but leave the stump
+             t.angle=0
            end
         end
      end
@@ -2179,6 +2148,24 @@ function fade_in()
    end
 end
 
+-- Draw a sprite, rotated.
+-- :todo: w,h should be pixels
+-- soooo... much... tokens....
+function spr_r(s,x,y,a,w,h,x0,y0)
+  local sw,sh,sx,sy,sa,ca=w*8,h*8,(s%16)*8,flr(s/16)*8,sin(a),cos(a)
+  for ix=-sw,sw do
+    for iy=-sh,sh do
+      local dx,dy=ix-x0,iy-y0
+      local xx,yy=dx*ca-dy*sa+x0,dx*sa+dy*ca+y0
+      if xx>=0 and xx<sw and yy>=0 and yy<=sh then
+        local pval=sget(sx+xx,sy+yy)
+        if pval~=0 then
+          pset(x+ix,y+iy,pval)
+        end
+      end
+    end
+  end
+end
 
 -- function dump_darkness()
 --    pal()
@@ -2277,7 +2264,6 @@ call=intro_post
 
 function script:intro_pre()
    blank_screen=true
-   cls(0)
    penny:show(base_x,base_y+1,0)
 end
 
@@ -2306,7 +2292,6 @@ end
 function script:firstcharge_pre()
    fadeout_charge()
    blank_screen=true
-   cls(0)
    penny:show(base_x,base_y+1,0)
    energy_level=max_energy
 
@@ -2941,9 +2926,6 @@ end
 function penny:want_flowers(seed,count)
   self.want_seed=seed
   self.want_count=count
-end
-
-function penny:leave_house()
 end
 
 -->8

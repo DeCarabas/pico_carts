@@ -299,8 +299,8 @@ function save_game()
 
   local want_seed,want_count=0, 0
   for fi=1,#flower_seeds do
-     if flower_seeds[fi]==penny.want_seed then
-        want_seed,want_count=fi-1,penny.want_count
+     if flower_seeds[fi]==penny_want_seed then
+        want_seed,want_count=fi-1,penny_want_count
      end
   end
   w:pack(4, want_seed, want_count)-- 253
@@ -379,11 +379,11 @@ function load_game()
   end
 
   fi = w:unpack(4)
-  penny.want_count = w:unpack(4)
-  if penny.want_count>0 then
-    penny.want_seed=flower_seeds[fi+1]
+  penny_want_count = w:unpack(4)
+  if penny_want_count>0 then
+    penny_want_seed=flower_seeds[fi+1]
   else
-    penny.want_seed=nil
+    penny_want_seed=nil
   end
 
 
@@ -397,7 +397,7 @@ function load_game()
   elseif chapter==5 then
      script:start_ch5()
   else
-    penny:leave()
+    penny_leave()
   end
 
   return true
@@ -521,8 +521,8 @@ function _init()
   -- title screen
   title_screen=true
   map_left=0
-  penny:show(2,2,0)
-  penny:start_wander()
+  penny_show(2,2,0)
+  penny_start_wander()
 end
 
 function open_item_menu()
@@ -563,7 +563,7 @@ function use_thing()
   local item=get_items()[item_sel]
   local tx,ty=looking_at()
   local give=item.give
-  if tx==penny.x and ty==penny.y and give then
+  if tx==penny_x and ty==penny_y and give then
     if type(give)=="function" then
       give(item)
     else
@@ -728,7 +728,7 @@ function update_core()
   update_time()
   update_weather()
   update_plants()
-  penny:update()
+  penny_update()
   update_birds()
   update_bgm()
 end
@@ -1163,12 +1163,12 @@ function draw_objective()
   end
 
   local obj=objective
-  if not obj and penny.want_seed then
+  if not obj and penny_want_seed then
      -- do wee have enough?
      if has_wanted_flowers() then
-        obj="give "..penny.want_seed.name.." to penny"
+        obj="give "..penny_want_seed.name.." to penny"
      else
-        obj="get "..penny.want_count.." "..penny.want_seed.name.." flowers"
+        obj="get "..penny_want_count.." "..penny_want_seed.name.." flowers"
      end
   end
   if obj then
@@ -1192,17 +1192,17 @@ end
 --   if chapter != nil then
 --     print("chapter: "..chapter)
 --   end
---   if penny.x!=nil then
---     print("penny x "..penny.x.." y "..penny.y.." s "..penny.speed)
---     print("      f "..penny.frame.." d "..penny.d)
---     if penny._thread and costatus(penny._thread) ~= "dead" then
---       if penny.DBG_thread_name then
---         print("      act: "..penny.DBG_thread_name)
+--   if penny_x!=nil then
+--     print("penny x "..penny_x.." y "..penny_y.." s "..penny_speed)
+--     print("      f "..penny_frame.." d "..penny_d)
+--     if penny__thread and costatus(penny__thread) ~= "dead" then
+--       if penny_DBG_thread_name then
+--         print("      act: "..penny_DBG_thread_name)
 --       else
 --         print("      act: ????")
 --       end
 --     end
---     local gx,gy=penny.x*8,penny.y*8
+--     local gx,gy=penny_x*8,penny_y*8
 --     rect(gx,gy,gx+8,gy+8,4)
 --   end
 --   -- for fi=1,#flowers do
@@ -1257,9 +1257,9 @@ function draw_game()
     {draw_base,"base"}
   }
   local ys={py, base_y}
-  if penny.y then
+  if penny_y then
     add(draws, {draw_penny,"pny"})
-    add(ys, penny.y+0.1)
+    add(ys, penny_y+0.1)
   end
   for t in all(trees) do
      add(draws, {draw_tree, t})
@@ -1278,7 +1278,7 @@ function draw_game()
   -- DBG_last_draws=draws
 
   -- setup clip
-  -- :todo: should be robo, not penny.
+  -- :todo: should be robo, not penny_
   local _px,_py=px*8-12,py*8-16
   clip(_px,_py,32,32)
 
@@ -1776,13 +1776,13 @@ function script:give_flower_post()
    if chapter==4 then
       chapter=5
    end
-   penny:start_leave_then_wander()
+   penny_start_leave_then_wander()
 end
 
 function give_flower(item)
   if item.flower_count > 0 then
-    if item.seed==penny.want_seed then
-      if item.flower_count >= penny.want_count then
+    if item.seed==penny_want_seed then
+      if item.flower_count >= penny_want_count then
         do_script([[
 p=py_up_talk
 Oh, a bunch of ^$1|flowers!
@@ -1793,11 +1793,11 @@ I'm sure she'll love|them!
 
 call=give_flower_post
 ]], {item.name})
-        item.flower_count-=penny.want_count
-        penny.want_count=0
-        penny.want_seed=nil
+        item.flower_count-=penny_want_count
+        penny_want_count=0
+        penny_want_seed=nil
       else
-        local more = penny.want_count-item.flower_count
+        local more = penny_want_count-item.flower_count
         do_script([[
 p=py_up_talk
 That's the|flower I want!
@@ -1806,7 +1806,7 @@ p=py_mid_talk
 Can you collect $1|more?
         ]],{more})
       end
-    elseif penny.want_seed then
+    elseif penny_want_seed then
        do_script([[
 p=py_mid_talk
 That's a very pretty|^$1 flower.
@@ -1816,7 +1816,7 @@ I am looking for a|$2, though.
 
 p=py_mid_talk
 Can you grow me|some?
-      ]], {item.name, penny.want_seed.name})
+      ]], {item.name, penny_want_seed.name})
     else
       do_script([[
 p=py_mid_talk
@@ -2294,19 +2294,19 @@ call=intro_post
 
 function script:intro_pre()
    blank_screen=true
-   penny:show(base_x,base_y+1,0)
+   penny_show(base_x,base_y+1,0)
 end
 
 function script:intro_penny_turn()
-   penny:show(penny.x,penny.y,2)
+   penny_show(penny_x,penny_y,2)
 end
 
 function script:intro_penny_turn_back()
-   penny:show(penny.x,penny.y,0)
+   penny_show(penny_x,penny_y,0)
 end
 
 function script:intro_post()
-  penny:leave()
+  penny_leave()
   energy_level = walk_cost * 28
   tank_level = 0
   chapter = 1
@@ -2322,7 +2322,7 @@ end
 function script:firstcharge_pre()
    fadeout_charge()
    blank_screen=true
-   penny:show(base_x,base_y+1,0)
+   penny_show(base_x,base_y+1,0)
    energy_level=max_energy
 
    -- ♪: set the chapter early
@@ -2367,19 +2367,19 @@ call=start_ch2
 ]]
 
 function script:firstcharge_ch2_transition()
-  penny:leave()
+  penny_leave()
 end
 
 function script:start_ch2()
-  penny:show(7,1,0)
-  penny:start_wander()
+  penny_show(7,1,0)
+  penny_start_wander()
   objective="go outside"
   objective_fn=check_outside
 end
 
 function check_outside()
-  if px<16 and not penny.hidden then
-    penny:face(px, py)
+  if px<16 and not penny_hidden then
+    penny_face(px, py)
     do_script(cs_move_rocks)
   end
 end
@@ -2404,7 +2404,7 @@ call=start_ch3
 
 function script:start_ch3()
   chapter=3
-  penny:start_wander()
+  penny_start_wander()
   objective="clear a 6x6 field"
   objective_fn=check_bigspace
 end
@@ -2440,13 +2440,13 @@ function script:start_ch4()
   chapter = 4
   tank_level = max_tank
   objective_fn=check_wanted_flowers
-  penny:start_wander()
+  penny_start_wander()
 end
 
 function check_wanted_flowers()
    if has_wanted_flowers() then
       objective_fn=nil
-      penny:face(px, py)
+      penny_face(px, py)
       do_script([[
 p=py_up_talk
 Did you get the|flowers?
@@ -2457,8 +2457,8 @@ end
 
 function has_wanted_flowers()
    for fp in all(flower_pockets) do
-      if fp.seed == penny.want_seed and
-         fp.flower_count >= penny.want_count then
+      if fp.seed == penny_want_seed and
+         fp.flower_count >= penny_want_count then
          return true
       end
    end
@@ -2509,20 +2509,20 @@ call=start_ch4
 ]]
 
 function script:didclear_look_at()
-      penny:face(px, py)
+      penny_face(px, py)
 end
 
 function script:didclear_leave_come_back()
-   local ox = penny.x
-   penny:leave()
+   local ox = penny_x
+   penny_leave()
 
    -- :todo: a little bit between when she leaves and when
    --        she comes back?
    yield_frames(15)
 
-   penny:show(16, py+1, 2)
-   penny:run_to(px, penny.y)
-   penny:show(penny.x, penny.y, 0)
+   penny_show(16, py+1, 2)
+   penny_run_to(px, penny_y)
+   penny_show(penny_x, penny_y, 0)
 end
 
 function script:didclear_give_tools()
@@ -2540,14 +2540,14 @@ function script:didclear_give_tools()
 end
 
 function script:didclear_wantseed()
-   penny.want_seed=flower_seeds[1]
-   penny.want_count=3
+   penny_want_seed=flower_seeds[1]
+   penny_want_count=3
 end
 
 function script:start_ch5()
   chapter = 5
   tank_level = max_tank
-  penny:start_wander()
+  penny_start_wander()
 end
 
 
@@ -2583,8 +2583,8 @@ function script:nobattery_pre()
    fadeout_charge()
 
    -- Since it's always 8am let's just allow this?
-   -- function penny:visible()
-   -- local x,y=penny.x,penny.y
+   -- function penny_visible()
+   -- local x,y=penny_x,penny_y
    -- old_penny_visible = x ~= nil and y ~= nil and
    --    x >= 0 and x < 16 and
    --    y >= 0 and y < 16
@@ -2592,14 +2592,14 @@ function script:nobattery_pre()
 
    blank_screen=true
    cls(0)
-   penny:show(base_x, base_y+1, 0)
+   penny_show(base_x, base_y+1, 0)
    energy_level = max_energy*0.75
 end
 
 
 function script:nobattery_post()
    -- if not old_penny_visible then
-   --    penny:leave()
+   --    penny_leave()
    -- end
 end
 
@@ -2753,33 +2753,32 @@ end
 
 -- :todo: penny being all object-oriented wastes
 --        some tokens that we could reclaim
-penny = {
-   -- hidden=nil or false
-   x=nil, y=nil, d=0,
-   speed=0.09,
-   frame=0,
-   _thread=nil
-}
+penny_x=nil
+penny_y=nil
+penny_d=0
+penny_speed=0.09
+penny_frame=0
+penny__thread=nil
 
 function draw_penny()
-  if penny.hidden then return end
-  if penny.x ~= nil then
+  if penny_hidden then return end
+  if penny_x ~= nil then
     local f,sy,sh,sx,sw=false,32,16
-    if penny.d==0 or penny.d==2 then
+    if penny_d==0 or penny_d==2 then
       sx,sw=72,10
-      if penny.d==2 then
+      if penny_d==2 then
         sy+=sh
       end
-      if penny.frame>=1 then
+      if penny_frame>=1 then
         sx+=sw
       end
     else
-      if penny.frame<1 then
+      if penny_frame<1 then
         sx,sw=92,12
       else
         sx,sw=105,18
       end
-      if penny.d==-1 then
+      if penny_d==-1 then
         f=true
       end
     end
@@ -2788,23 +2787,23 @@ function draw_penny()
     palt(12, true)
     sspr(
        sx,sy,sw,sh,
-       (penny.x-map_left)*8, penny.y*8-8,
+       (penny_x-map_left)*8, penny_y*8-8,
        sw,sh,
        f)
     palt()
   end
 end
 
-function penny:update()
+function penny_update()
   daytime = hour >= 8 and hour <= 18
-  if self._thread and costatus(self._thread) ~= "dead" then
-    assert(coresume(self._thread))
+  if penny__thread and costatus(penny__thread) ~= "dead" then
+    assert(coresume(penny__thread))
   end
 end
 
-function penny:face(tx, ty)
-  local dx = tx - self.x
-  local dy = ty - self.y
+function penny_face(tx, ty)
+  local dx = tx - penny_x
+  local dy = ty - penny_y
 
   local direction
   if abs(dx) > abs(dy) then
@@ -2820,55 +2819,55 @@ function penny:face(tx, ty)
       direction = 0
     end
   end
-  self.d = direction
-  self.frame = 0
+  penny_d = direction
+  penny_frame = 0
 end
 
-function penny:run_to(tx, ty)
-  self:face(tx, ty)
-  local direction = self.d
+function penny_run_to(tx, ty)
+  penny_face(tx, ty)
+  local direction = penny_d
 
   local atime, t = 0, 0
-  while self.x != tx or self.y != ty do
-    t += self.speed
-    atime += self.speed
+  while penny_x != tx or penny_y != ty do
+    t += penny_speed
+    atime += penny_speed
     while atime >= 1 do
       atime -= 1
     end
 
-    local ox,oy=self.x,self.y
+    local ox,oy=penny_x,penny_y
     local dist = (sin(t) + 1) * 0.375
-    local dx,dy=tx-self.x,ty-self.y
+    local dx,dy=tx-penny_x,ty-penny_y
     local dlen=dist / sqrt(dx*dx+dy*dy)
     dx *= dlen dy *= dlen
-    self.x = mid(self.x, self.x+dx, tx)
-    self.y = mid(self.y, self.y+dy, ty)
+    penny_x = mid(penny_x, penny_x+dx, tx)
+    penny_y = mid(penny_y, penny_y+dy, ty)
 
-    self.frame = flr(atime * 2) * 2
+    penny_frame = flr(atime * 2) * 2
     yield()
   end
-  self.frame = 0
+  penny_frame = 0
 end
 
-function penny:leave()
-  if self.hidden then
-  elseif self.x<16 then
-    self:run_to(16, self.y)
+function penny_leave()
+  if penny_hidden then
+  elseif penny_x<16 then
+    penny_run_to(16, penny_y)
   else
-    self:run_to(22,8)
-    self:run_to(22,9)
+    penny_run_to(22,8)
+    penny_run_to(22,9)
   end
-  self.hidden=true
+  penny_hidden=true
 end
 
-function penny:is_close()
-  return abs(self.x-px)<=2 and abs(self.y-py)<=2
+function penny_is_close()
+  return abs(penny_x-px)<=2 and abs(penny_y-py)<=2
 end
 
-function penny:wander_around()
+function penny_wander_around()
   while daytime do
     local dst = rnd_int(14)+1
-    local tx, ty = self.x, self.y
+    local tx, ty = penny_x, penny_y
     if rnd() >= 0.5 then
       tx=dst
     else
@@ -2877,11 +2876,11 @@ function penny:wander_around()
     tx = mid(0,tx,15)
     ty = mid(0,ty,15)
 
-    self:run_to(tx, ty)
+    penny_run_to(tx, ty)
 
-    if chapter>=4 and not self.want_seed then
-      self.want_seed=rnd(flower_seeds)
-      self.want_count=rnd_int(7)+3
+    if chapter>=4 and not penny_want_seed then
+      penny_want_seed=rnd(flower_seeds)
+      penny_want_count=rnd_int(7)+3
       do_script([[
 p=py_mid_talk
 Robo?
@@ -2890,13 +2889,13 @@ Could you please get|me more flowers?
 Mom really liked the|last ones.
 $1 ^$2 flowers?
 Thanks!
-      ]], {self.want_count, self.want_seed.name})
+      ]], {penny_want_count, penny_want_seed.name})
     end
 
     local t=rnd(30)+45
     while daytime and t>0 do
-       if self:is_close() then
-          self:face(px,py)
+       if penny_is_close() then
+          penny_face(px,py)
           t-=0.1
        else
           t-=1
@@ -2906,52 +2905,52 @@ Thanks!
   end
 end
 
-function penny:start_wander()
-  self.DBG_thread_name = "start_wander"
-  self._thread = cocreate(function()
+function penny_start_wander()
+  penny_DBG_thread_name = "start_wander"
+  penny__thread = cocreate(function()
       while true do
         -- Wander around the field until...
-        self:wander_around()
+        penny_wander_around()
 
         -- oh no, it's late! Penny, run home!
-        local old_x = self.x
-        self:leave()
+        local old_x = penny_x
+        penny_leave()
 
         -- sleep until the morning.
         yield_until(8)
 
         -- come back to the field
-        self.hidden=false
-        self:run_to(old_x, self.y)
+        penny_hidden=false
+        penny_run_to(old_x, penny_y)
       end
   end)
 end
 
-function penny:start_leave_then_wander()
-  self.DBG_thread_name = "start_leave_then_wander"
-  self._thread = cocreate(function()
-      penny:leave()
+function penny_start_leave_then_wander()
+  penny_DBG_thread_name = "start_leave_then_wander"
+  penny__thread = cocreate(function()
+      penny_leave()
       yield_until(hour + 1)
-      penny:start_wander()
+      penny_start_wander()
   end)
 end
 
-function penny:start_leave()
-  self.DBG_thread_name = "start_leave"
-  self._thread = cocreate(function()
-      penny:leave()
+function penny_start_leave()
+  penny_DBG_thread_name = "start_leave"
+  penny__thread = cocreate(function()
+      penny_leave()
   end)
 end
 
-function penny:show(x,y,d)
-   self.hidden=false
-   self.x=x self.y=y self.d=d
-   self.frame = 0
+function penny_show(x,y,d)
+   penny_hidden=false
+   penny_x=x penny_y=y penny_d=d
+   penny_frame = 0
 end
 
-function penny:want_flowers(seed,count)
-  self.want_seed=seed
-  self.want_count=count
+function penny_want_flowers(seed,count)
+  penny_want_seed=seed
+  penny_want_count=count
 end
 
 -->8

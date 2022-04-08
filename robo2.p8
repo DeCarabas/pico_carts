@@ -1260,7 +1260,7 @@ function draw_game()
   local _px,_py=px*8-12,py*8-16
   clip(_px,_py,32,32)
 
-  trees_limit = py
+  enable_leaves=false
   draw_map()
   for dd in all(draws) do
     dd[1](dd[2])
@@ -1289,7 +1289,7 @@ function draw_game()
 
   enable_lighting()
 
-  trees_limit = 0x7FFF.FFFF
+  enable_leaves=true
   draw_map()
   for dd in all(draws) do
     dd[1](dd[2])
@@ -1723,10 +1723,11 @@ function update_plants()
 end
 
 function draw_tree(t)
-  if t.y>=trees_limit then return end
   local tpx,tpy=(t.x-map_left)*8, t.y*8
   spr_r(t.s, tpx-4,  tpy-8,  t.angle, 2, 2,  8, 16)
-  spr_r(202, tpx-12, tpy-24, t.angle, 4, 4, 16, 32)
+  if enable_leaves then
+    spr_r(202, tpx-12, tpy-24, t.angle, 4, 4, 16, 32)
+  end
 end
 
 function draw_flower(plant)

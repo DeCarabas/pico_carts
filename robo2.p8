@@ -1237,17 +1237,10 @@ end
 -- always on the screen at the
 -- same time.
 function draw_game()
-   -- map left always follows the player...
-   -- :todo: use camera() for this
-   if not title_screen then
-      map_left = flr(px/16)*16
-   end
-
-  -- we adjust the pals so that it looks like the right
-  -- time of day. (but if we get here and the palette is
-  -- already dark then just let it be.)
-  if pal==original_pal then
-    enable_sunshine(hour)
+  -- map left always follows the player...
+  -- :todo: use camera() for this
+  if not title_screen then
+    map_left = flr(px/16)*16
   end
 
   -- make sure we draw the world
@@ -1274,11 +1267,16 @@ function draw_game()
     add(ys, b.ty)
   end
   sort(ys,draws)
-  -- DBG_last_ys=ys
-  -- DBG_last_draws=draws
 
-  -- setup clip
-  -- :todo: should be robo, not penny_
+  -- ===========================
+  -- draw clip window
+  -- ===========================
+  -- This is the code that renders
+  -- the world behind the trees.
+  --
+  -- TODO: Use camera() to reduce
+  -- the amount of math that we do
+  -- here and save tokens
   local _px,_py=px*8-12,py*8-16
   clip(_px,_py,32,32)
 
@@ -1304,30 +1302,36 @@ function draw_game()
 
   memcpy(0x8000,0x6000,0x2000)
 
+  -- ===========================
+  -- world draw
+  -- ===========================
+  -- draw **everything**
+
+  enable_lighting()
+
   trees_limit = 0x7FFF.FFFF
   draw_map()
   for dd in all(draws) do
     dd[1](dd[2])
   end
 
+  -- ===========================
+  -- blit clip window
+  -- ===========================
+  -- draw what's behind the trees
   memcpy(0,0x8000,0x2000)
   palt(12,true) palt(0,false)
   sspr(_px,_py,32,32,_px,_py)
   palt()
   reload(0,0,0x2000)
 
-  -- END OVER
-
   -- now rain and stuff
   draw_weather()
 
-  -- now turn off the palettes so
-  -- that the menu and stuff
-  -- don't get affected by the
-  -- time of day.
-  disable_dark()
+  -- now draw the ui; it is not
+  -- affected by lighting
+  disable_lighting()
 
-  -- flower index is busted!
   if buzz_msg_time>0 and buzz_msg then
     printo(buzz_msg, 2, 104, 8)
   end
@@ -2127,18 +2131,14 @@ function init_fx()
   for i=20,24 do sunshine_map[i]=3    end
 end
 
-function enable_sunshine(t)
-  enable_dark(sunshine_map[flr(t)])
-end
-
-function enable_dark(d)
-  --assert(pal==original_pal)
-  dark_level=dark_levels[d]
+function enable_lighting()
+  local light_level = light_override or sunshine_map[flr(hour)]
+  dark_level=dark_levels[light_level]
   pal(dark_level)
   pal=fx_pal
 end
 
-function disable_dark()
+function disable_lighting()
   pal=original_pal
   pal()
 end
@@ -2157,25 +2157,20 @@ function fx_pal(s,t,p)
   end
 end
 
-function fade_loop(fade_lvl)
-   for _xi=1,5 do
-      enable_dark(fade_lvl)
-      yield()
-   end
-end
-
 function fade_out()
    for fade_lvl=sunshine_map[flr(hour)],5 do
-      fade_loop(fade_lvl)
+     light_override = fade_lvl
+     yield_frames(5)
    end
+   light_override = nil
 end
 
 function fade_in()
-   local fade_lvl=5
-   while fade_lvl>=sunshine_map[flr(hour)] do
-      fade_loop(fade_lvl)
-      fade_lvl-=1
-   end
+  for fade_lvl=5,sunshine_map[flr(hour)],-1 do
+    light_override = fade_lvl
+    yield_frames(5)
+  end
+  light_override = nil
 end
 
 -- Draw a sprite, rotated.

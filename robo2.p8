@@ -1881,38 +1881,31 @@ function init_items()
   item_sel=1
 end
 
-tl_grab={
-  icon=142,name="grab",
-  fn=i_grab,give=give_tool}
-tl_saw={
-   icon=140,name="saw",
-  fn=i_saw,give=[[
+
+function tool(icon,name,fn,give)
+  return {icon=icon,name=name,fn=fn,give=give}
+end
+
+tl_grab=tool(142,"grab",i_grab,give_tool)
+tl_saw=tool(140,"saw",i_saw,[[
 p=py_mid_talk
 Hey, careful with|that!
 That thing's sharp!
-  ]]
-}
-tl_water={
-  icon=143,name="water",
-  fn=i_water,give=[[
+]])
+tl_water=tool(143,"water",i_water,[[
 p=py_up_talk
 Don't get me wet!
 
 p=py_mid_wry
 Save that for the|plants.
-  ]]
-}
-tl_grass={
-  icon=147,name="grass",
-  fn=i_plant,plant=grass,
-  give=[[
+]])
+tl_grass=tool(147,"grass",i_plant,[[
 p=py_mid_talk
 Grass seeds!
 
 p=py_down_smile
 I love the feel of|grass under my feet.
-  ]]
-}
+]])
 
 function get_items()
   local items

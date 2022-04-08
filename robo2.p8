@@ -484,13 +484,8 @@ end
 function draw_tree(t)
   if t.y>=trees_limit then return end
   local tpx,tpy=(t.x-map_left)*8, t.y*8
-  if t.angle then
-    spr_r(t.s, tpx-4,  tpy-8,  t.angle, 2, 2,  8, 16)
-    spr_r(202, tpx-12, tpy-24, t.angle, 4, 4, 16, 32)
-  else
-    spr(t.s, tpx-4, tpy-8, 2,2)
-    spr(202, tpx-12,tpy-24,4,4)
-  end
+  spr_r(t.s, tpx-4,  tpy-8,  t.angle, 2, 2,  8, 16)
+  spr_r(202, tpx-12, tpy-24, t.angle, 4, 4, 16, 32)
 end
 
 flower_sy=88
@@ -2170,22 +2165,25 @@ function fade_in()
   light_override = nil
 end
 
--- Draw a sprite, rotated.
--- :todo: w,h should be pixels
+-- draw a sprite, rotated.
 -- soooo... much... tokens....
 function spr_r(s,x,y,a,w,h,x0,y0)
-  local sw,sh,sx,sy,sa,ca=w*8,h*8,(s%16)*8,flr(s/16)*8,sin(a),cos(a)
-  for ix=-sw,sw do
-    for iy=-sh,sh do
-      local dx,dy=ix-x0,iy-y0
-      local xx,yy=dx*ca-dy*sa+x0,dx*sa+dy*ca+y0
-      if xx>=0 and xx<sw and yy>=0 and yy<=sh then
-        local pval=sget(sx+xx,sy+yy)
-        if pval~=0 then
-          pset(x+ix,y+iy,pval)
+  if a then
+    local sw,sh,sx,sy,sa,ca=w*8,h*8,(s%16)*8,flr(s/16)*8,sin(a),cos(a)
+    for ix=-sw,sw do
+      for iy=-sh,sh do
+        local dx,dy=ix-x0,iy-y0
+        local xx,yy=dx*ca-dy*sa+x0,dx*sa+dy*ca+y0
+        if xx>=0 and xx<sw and yy>=0 and yy<=sh then
+          local pval=sget(sx+xx,sy+yy)
+          if pval~=0 then
+            pset(x+ix,y+iy,pval)
+          end
         end
       end
     end
+  else
+    spr(s,x,y,w,h)
   end
 end
 

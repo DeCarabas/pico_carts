@@ -1877,10 +1877,12 @@ function i_saw(item,tx,ty)
   )
 end
 
+function i_shovel(item,tx,ty)
+end
+
 function init_items()
   item_sel=1
 end
-
 
 function tool(icon,name,fn,give)
   return {icon=icon,name=name,fn=fn,give=give}
@@ -1891,6 +1893,10 @@ tl_saw=tool(140,"saw",i_saw,[[
 p=py_mid_talk
 Hey, careful with|that!
 That thing's sharp!
+]])
+tl_shovel=tool(131,"shovel",i_shovel,[[
+p=py_up_talk
+That's a shovel,|ya dig?
 ]])
 tl_water=tool(143,"water",i_water,[[
 p=py_up_talk
@@ -1910,10 +1916,10 @@ I love the feel of|grass under my feet.
 function get_items()
   local items
   if chapter < 4 then
-    items = {tl_grab,tl_saw}
+    items = {tl_grab,tl_saw,tl_shovel}
   else
     items = {
-      tl_grab,tl_saw,tl_water,
+      tl_grab,tl_saw,tl_shovel,tl_water,
       tl_grass}
 
     for fp in all(flower_pockets) do

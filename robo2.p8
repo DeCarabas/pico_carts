@@ -482,6 +482,7 @@ function all_colors(x)
 end
 
 function draw_tree(t)
+  if t.y>=trees_limit then return end
   local tpx,tpy=(t.x-map_left)*8, t.y*8
   if t.angle then
     spr_r(t.s, tpx-4,  tpy-8,  t.angle, 2, 2,  8, 16)
@@ -930,8 +931,6 @@ function draw_menu(items, selection)
     end
     print("sleep",lx+16,ly)
   end
-
-  clip()
 end
 
 --moon_phases={134,135,136,137,138,139,138,137,136,135}
@@ -1239,13 +1238,10 @@ end
 -- same time.
 function draw_game()
    -- map left always follows the player...
+   -- :todo: use camera() for this
    if not title_screen then
       map_left = flr(px/16)*16
    end
-
-   -- draw the mask for the tree shadows
-   for t in all(trees) do draw_tree(t) end
-   memcpy(0x8000,0X6000,0X2000)
 
   -- we adjust the pals so that it looks like the right
   -- time of day. (but if we get here and the palette is
@@ -1253,8 +1249,6 @@ function draw_game()
   if pal==original_pal then
     enable_sunshine(hour)
   end
-
-  draw_map()
 
   -- make sure we draw the world
   -- objects in the right order.
@@ -1282,9 +1276,47 @@ function draw_game()
   sort(ys,draws)
   -- DBG_last_ys=ys
   -- DBG_last_draws=draws
+
+  -- setup clip
+  -- :todo: should be robo, not penny.
+  local _px,_py=px*8-12,py*8-16
+  clip(_px,_py,32,32)
+
+  trees_limit = py
+  draw_map()
   for dd in all(draws) do
     dd[1](dd[2])
   end
+
+  for ppx=_px,_px+32 do
+    local cval=(ppx-_px-16)/16
+    cval=1-sqrt(1-cval*cval)
+
+    cval=cval*16+0.01
+
+    line(ppx,_py,ppx,_py+cval,12)
+    line(ppx,_py+32-cval,ppx,_py+32,12)
+  end
+  fillp(0b1010010110100101.1)
+  circfill(_px+16,_py+16,16,12)
+  fillp()
+  clip()
+
+  memcpy(0x8000,0x6000,0x2000)
+
+  trees_limit = 0x7FFF.FFFF
+  draw_map()
+  for dd in all(draws) do
+    dd[1](dd[2])
+  end
+
+  memcpy(0,0x8000,0x2000)
+  palt(12,true) palt(0,false)
+  sspr(_px,_py,32,32,_px,_py)
+  palt()
+  reload(0,0,0x2000)
+
+  -- END OVER
 
   -- now rain and stuff
   draw_weather()
@@ -1333,7 +1365,6 @@ function _draw()
   -- tw,th=draw_string(...
   if title_screen then
     spr(151, 32, 56, 8, 2)
-    --map(16,0,0,0,16,16)
 
     printo("new game",48,100,7)
     if (@0x5e00>0) printo("continue",48,108,7)
@@ -1721,7 +1752,6 @@ function find_flower(x,y)
     end
   end
 end
-
 
 function remove_plant(x,y)
   for p in all(plants) do
@@ -2731,25 +2761,25 @@ penny = {
    _thread=nil
 }
 
-function penny:draw()
-  if self.hidden then return end
-  if self.x ~= nil then
+function draw_penny()
+  if penny.hidden then return end
+  if penny.x ~= nil then
     local f,sy,sh,sx,sw=false,32,16
-    if self.d==0 or self.d==2 then
+    if penny.d==0 or penny.d==2 then
       sx,sw=72,10
-      if self.d==2 then
+      if penny.d==2 then
         sy+=sh
       end
-      if self.frame>=1 then
+      if penny.frame>=1 then
         sx+=sw
       end
     else
-      if self.frame<1 then
+      if penny.frame<1 then
         sx,sw=92,12
       else
         sx,sw=105,18
       end
-      if self.d==-1 then
+      if penny.d==-1 then
         f=true
       end
     end
@@ -2758,15 +2788,11 @@ function penny:draw()
     palt(12, true)
     sspr(
        sx,sy,sw,sh,
-       (self.x-map_left)*8, self.y*8-8,
+       (penny.x-map_left)*8, penny.y*8-8,
        sw,sh,
        f)
     palt()
   end
-end
-
-function draw_penny()
-  penny:draw()
 end
 
 function penny:update()

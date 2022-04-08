@@ -1274,9 +1274,6 @@ function draw_game()
   -- This is the code that renders
   -- the world behind the trees.
   --
-  -- TODO: Use camera() to reduce
-  -- the amount of math that we do
-  -- here and save tokens
   local _px,_py=px*8-12,py*8-16
   clip(_px,_py,32,32)
 

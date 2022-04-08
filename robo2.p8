@@ -415,8 +415,7 @@ function init_player()
   max_tank=100
   tank_level=max_tank
 
-  max_energy=100
-  energy_level=max_energy
+  energy_level=100
 
   walk_cost=0.1
   grab_cost=1
@@ -482,8 +481,8 @@ function _init()
   init_game()
 
   -- -- cheatz
-  -- menuitem(1,"+energy",function() energy_level=max_energy end)
-  -- menuitem(2,"-energy",function() energy_level=mid(max_energy,0,energy_level/2) end)
+  -- menuitem(1,"+energy",function() energy_level=100 end)
+  -- menuitem(2,"-energy",function() energy_level=mid(100,0,energy_level/2) end)
   -- menuitem(1,"rain",function() raining=not raining end)
   -- menuitem(2,"snow",function() day=2*28 raining=not raining end)
   -- menuitem(4,"load", function()
@@ -613,6 +612,7 @@ function sleep_until_morning()
          animate("45,15,13,15,1,15")
          yield()
 
+         energy_level=100
          is_sleeping=false
          update_fn=update_walk
    end)
@@ -988,7 +988,7 @@ function draw_meters()
 
   local nrg_ofs=0
   if chapter<4 then nrg_ofs=5 end
-  local nrg_frac=(max_energy-energy_level)/max_energy
+  local nrg_frac=(100-energy_level)/100
   local nrg_color
   if nrg_frac<0.5 then
     nrg_color=11
@@ -1315,7 +1315,7 @@ function draw_game()
     draw_time()
     draw_meters()
     draw_objective()
-  elseif (energy_level/max_energy)<0.25 then
+  elseif (energy_level/100)<0.25 then
     draw_meters()
   end
 
@@ -1759,33 +1759,21 @@ end
 function i_plant(item,tx,ty)
   if map_flag(tx,ty,1) then
     buzz("can't plant here")
-    return
-  end
-  if energy_level < plant_cost then
+  elseif energy_level < plant_cost then
     buzz("insufficient energy")
     return
-  end
-
-  if item==tl_grass then
+  elseif item==tl_grass then
     add(plants, {age=0,x=tx,y=ty})
     set_item(tx,ty,144)
+
+    energy_level-=plant_cost
+  elseif item.seed_count==0 then
+    buzz("no more seeds")
   else
-    if not map_flag(tx, ty, 4) then
-      buzz("ground not plowed")
-      return
-    end
-    if item.seed_count==0 then
-      buzz("no more seeds")
-      return
-    end
-
     item.seed_count-=1
-
-    local seed=item.seed
-    add_flower(seed, 0.25, tx, ty)
+    add_flower(item.seed, 0.25, tx, ty)
+    energy_level-=plant_cost
   end
-
-  energy_level-=plant_cost
 end
 
 
@@ -1877,10 +1865,35 @@ function i_saw(item,tx,ty)
   )
 end
 
-function i_shovel()
+function i_shovel(item,tx,ty)
+  if energy_level<saw_cost then
+    buzz("insufficient energy")
+  elseif not map_flag(tx,ty,4) then
+    buzz("cannot dig")
+  else
+    if get_item(tx,ty)==149 then
+      for t in all(trees) do
+        if t.x==tx and t.y==ty then
+          buzz("tree too big")
+          return
+        end
+      end
+    end
+
+    energy_level-=saw_cost
+    animate(
+      "33,5",
+      function()
+        -- :todo: holes in the ground
+        if get_item(tx,ty)==149 then
+          set_item(tx,ty,0) -- bye stump
+        end
+      end
+    )
+  end
 end
 
-function init_items(item,tx,ty)
+function init_items()
   item_sel=1
 end
 
@@ -2220,7 +2233,7 @@ function script:firstcharge_pre()
    fadeout_charge()
 
    penny_show(base_x,base_y+1,0)
-   energy_level=max_energy
+   energy_level=100
 
    -- ♪: set the chapter early
    --     so the base glows.
@@ -2472,7 +2485,7 @@ function script:nobattery_pre()
   fadeout_charge()
 
   penny_show(base_x, base_y+1, 0)
-  energy_level = max_energy*0.75
+  energy_level = 100*0.75
 end
 
 function script:nobattery_post()

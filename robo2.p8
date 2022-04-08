@@ -13,7 +13,6 @@ __lua__
 -- :todo: trees
 -- :todo: don't draw stuff offscreen(!)
 -- :todo: fix transition walking in
--- :todo: fix sleeping effect
 -- :todo: birds flying inside
 -- :todo: weather through the window
 -- :todo: weather sound indoors
@@ -476,17 +475,6 @@ function init_game()
   init_birds()
 end
 
--- garbage
-function all_colors(x)
-   for i=0,15 do pal(i,x) end
-end
-
-function draw_tree(t)
-  if t.y>=trees_limit then return end
-  local tpx,tpy=(t.x-map_left)*8, t.y*8
-  spr_r(t.s, tpx-4,  tpy-8,  t.angle, 2, 2,  8, 16)
-  spr_r(202, tpx-12, tpy-24, t.angle, 4, 4, 16, 32)
-end
 
 flower_sy=88
 
@@ -1726,12 +1714,19 @@ function update_plants()
 
   for t in all(trees) do
     if t.angle then
-      t.angle+=0.1
+      t.angle+=0.025
       if t.angle>=0.25 then
         del(trees,t)
       end
     end
   end
+end
+
+function draw_tree(t)
+  if t.y>=trees_limit then return end
+  local tpx,tpy=(t.x-map_left)*8, t.y*8
+  spr_r(t.s, tpx-4,  tpy-8,  t.angle, 2, 2,  8, 16)
+  spr_r(202, tpx-12, tpy-24, t.angle, 4, 4, 16, 32)
 end
 
 function draw_flower(plant)

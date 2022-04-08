@@ -183,7 +183,7 @@ end
 -- list all the sprite values that can be saved here.
 -- we store the index in this list (so it can fit in
 -- 5 bits!) rather than the raw sprite index itself.
-save_item_code={0, 160, 144, 145, 146, 147}
+save_item_code=split("0,160,144,145,146,147")
 
 function save_game()
   -- note: we work very hard to get in our 256 bytes here
@@ -208,15 +208,11 @@ function save_game()
   -- energy_level = 100
   w:write(grabbed_item)     -- 4
 
-  -- now pack up the seeds. we can have 16 flower seeds,
+  -- now pack up the seeds. we have 16 flower seeds,
   -- and each uses two bytes, so we use 32 bytes here.
-  --assert(#flower_seeds<=16)
-  for fi=1,16 do
-    local s=0
-    if fi<=#flower_seeds then
-      s = flower_seeds[fi].seed<<16
-    end
-    w:write2(s)
+  assert(#flower_seeds==16)
+  for fs in all(flower_seeds) do
+    w:write2(fs.seed<<16)
   end                      -- 36
 
   -- now pack up the items. each item gets 6 bits.
@@ -282,14 +278,11 @@ function save_game()
   -- write the flower pockets
   -- 16 flowers, 63 max=6 bits, 2 values=12 bits
   -- 16*12/8=24 bytes
-  for fi=1,16 do
+  for fs in all(flower_seeds) do
     local fc,sc=0,0
-    if fi<=#flower_seeds then
-      local seed=flower_seeds[fi]
-      for fp in all(flower_pockets) do
-        if fp.seed==seed then
-          fc,sc=fp.flower_count,fp.seed_count
-        end
+    for fp in all(flower_pockets) do
+      if fp.seed==fs then
+        fc,sc=fp.flower_count,fp.seed_count
       end
     end
     w:pack(6, fc, sc)
@@ -329,9 +322,7 @@ function load_game()
   flower_seeds={}
   for fi=1,16 do
      local seed = w:read2()
-     if seed ~= 0 then
-        add(flower_seeds, flower:new(flower_size, fi-1, seed>>16))
-     end
+     add(flower_seeds, flower:new(flower_size, fi-1, seed>>16))
   end                      -- 39
 
   -- unpack the items. each item gets 6 bits.
@@ -758,7 +749,7 @@ function update_walk()
   end
 
   if map_flag(px,py,6) then
-     -- fade out?
+     -- todo: transitions?
      if map_left>0 then
         py=1 px-=15
      else
@@ -917,6 +908,7 @@ function draw_menu(items, selection)
 end
 
 --moon_phases={134,135,136,137,138,139,138,137,136,135}
+season_names=split("summer,fall,winter,spring")
 
 function draw_time()
   -- daytime is 06:00-18:00
@@ -958,8 +950,7 @@ function draw_time()
   rect(16,2,110,11,fg)
   spr(sp,16+(87*frc),3,1,1,fl)
 
-  local seasons={"summer","fall","winter","spring"}
-  local sn,dos=seasons[season],tostr(day%28+1)
+  local sn,dos=season_names[season],tostr(day%28+1)
   local ld=sub(dos,#dos)
   if ld=="1" and dos~="11" then
      dos..="st"
@@ -1467,83 +1458,6 @@ end
 -->8
 -- actual flower stuff.
 
--- trees
-
--- I'm cutting this out because it's very close to the token limit and
--- I'll need *more* to make this good: cutouts for the player and penny and
--- then like a saw and then stumps? and then???
-
--- function rndc()
---    local x,y=-1,-1
---    while sqrt(x*x+y*y)>1 do
---       x,y = 1-rnd(2),1-rnd(2)
---    end
---    return {x,y}
--- end
-
--- tree={}
--- function tree:new(size, slot, seed)
---    local f={
---       leaves={},
---       flowers={},
---       slot=slot
---    }
-
---    for i=1,200 do
---       local pt=rndc()
---       pt.spr=rnd_int(2)+165
---       add(f.leaves,pt)
---    end
-
---    f.flower=flower:new(size, slot, seed, false)
---    f.name=f.flower.name
---    for i=1,40 do
---       add(f.flowers,rndc())
---    end
-
---    return setmetatable(f,{__index=self})
--- end
-
--- -- draw with x,y centered at
--- function tree:draw(x,y,age)
---    -- full width/height at 0.5
---    local af=mid(age/0.5, 0, 1)
-
---    local trunk_sz=flr(16*af)
---    sspr(
---       112,96,
---       16,16,
---       x-trunk_sz/2,y-trunk_sz,
---       trunk_sz,trunk_sz)
-
---    -- full width/height at 0.5
---    local sz=flr(24*af)
---    x-=sz/2 y-=sz -- upper-left?
-
-
---    function aged_count(start_age,span,count)
---       return flr(mid(count*(age-start_age)/span,0,count))-1
---    end
-
---    -- leaves from 0.2 to 0.6
---    af*=4
---    for i=1,aged_count(0.2,0.4,#self.leaves) do
---       local pt=self.leaves[i]
---       local lx=af+x+pt[1]*sz
---       local ly=y-af+pt[2]*sz/2
-
---       spr(pt.spr,lx,ly)
---    end
-
---    -- flowers from 0.4 to 1.0
---    for i=1,aged_count(0.4,0.6,#self.flowers) do
---       local pt=self.flowers[i]
---       local lx=x+(sz/4)+pt[1]*sz*0.75
---       local ly=y-pt[2]*sz/2
---       self.flower:draw(lx,ly,1)
---    end
--- end
-
 flower={}
 function flower:init(sy)
    flower.sy=sy
@@ -1667,10 +1581,7 @@ end
 -->8
 -- plants and items
 
---grass_rate =
-
 flower_seeds={}
-
 flowers={}
 flower_size=6
 
@@ -1707,7 +1618,6 @@ function update_plants()
 
   for f in all(flowers) do
     if map_flag(f.x, f.y, 5) then
-      -- :todo: cutscene for dry flower?
       f.age=min(f.age+flower_rate, 1)
     end
   end
@@ -1828,10 +1738,9 @@ end
 
 function get_flower(seed, flower_count, seed_count)
   local fp=nil
-  for i=1,#flower_pockets do
-    if flower_pockets[i].seed == seed then
-      fp=flower_pockets[i]
-      break
+  for fi in all(flower_pockets) do
+    if fi.seed==seed then
+      fp=fi break
     end
   end
 
@@ -2299,15 +2208,18 @@ function script:intro_post()
 end
 
 function fadeout_charge()
-   fade_out()
+  fade_out()
+
    px=base_x py=base_y d=2
    tx=px ty=py walking=false
    day+=1 hour=8
+
+   blank_screen=true
 end
 
 function script:firstcharge_pre()
    fadeout_charge()
-   blank_screen=true
+
    penny_show(base_x,base_y+1,0)
    energy_level=max_energy
 
@@ -2483,8 +2395,6 @@ p=blank
 PENNY!
 YOU LEFT THE DOOR|OPEN AGAIN!
 
-call=didclear_wantseed
-
 p=py_down_wry
 Whoops...
 She sounds mad.
@@ -2495,15 +2405,12 @@ call=start_ch4
 ]]
 
 function script:didclear_look_at()
-      penny_face(px, py)
+  penny_face(px, py)
 end
 
 function script:didclear_leave_come_back()
-   local ox = penny_x
    penny_leave()
 
-   -- :todo: a little bit between when she leaves and when
-   --        she comes back?
    yield_frames(15)
 
    penny_show(16, py+1, 2)
@@ -2523,9 +2430,6 @@ function script:didclear_give_tools()
    -- this isn't in start_ch4 because we don't want to do this on
    -- load_game.
    get_flower(flower_seeds[1], 0, 3)
-end
-
-function script:didclear_wantseed()
    penny_want_seed=flower_seeds[1]
    penny_want_count=3
 end
@@ -2566,27 +2470,14 @@ call=nobattery_post
 -- local old_penny_visible
 
 function script:nobattery_pre()
-   fadeout_charge()
+  fadeout_charge()
 
-   -- Since it's always 8am let's just allow this?
-   -- function penny_visible()
-   -- local x,y=penny_x,penny_y
-   -- old_penny_visible = x ~= nil and y ~= nil and
-   --    x >= 0 and x < 16 and
-   --    y >= 0 and y < 16
-   -- end
-
-   blank_screen=true
-   cls(0)
-   penny_show(base_x, base_y+1, 0)
-   energy_level = max_energy*0.75
+  penny_show(base_x, base_y+1, 0)
+  energy_level = max_energy*0.75
 end
 
-
 function script:nobattery_post()
-   -- if not old_penny_visible then
-   --    penny_leave()
-   -- end
+  penny_leave()
 end
 
 --
@@ -2616,25 +2507,22 @@ function strip(txt)
    return sub(txt,s,e)
 end
 
-function join(parts, sep)
-   local ret=parts[1]
-   for i=2,#parts do
-      ret..=sep..parts[i]
-   end
-   return ret
-end
-
 function doctor(line, args)
-   local ret,i="",1
-   while i<=#line do
+  local ret=""
+  local line_parts=split(line,"|")
+  for line in all(line_parts) do
+    local i=1
+    while i<=#line do
       if sub(line,i,i) == "$" then
-         i+=1 ret..=args[tonum(sub(line,i,i))]
+        i+=1 ret..=args[tonum(sub(line,i,i))]
       else
-         ret..=sub(line,i,i)
+        ret..=sub(line,i,i)
       end
       i+=1
-   end
-   return ret
+    end
+    ret..="\n"
+  end
+  return ret
 end
 
 portraits={
@@ -2669,7 +2557,7 @@ function do_script(script_text, args)
             elseif sub(line,1,5)=="call=" then
                script[sub(line,6)]()
             else
-               line=doctor(join(split(line,"|"),"\n"), args)
+               line=doctor(line, args)
                show_text(line, p.top, p.bot)
             end
          end
@@ -2737,8 +2625,12 @@ function draw_text()
   end
 end
 
--- :todo: penny being all object-oriented wastes
---        some tokens that we could reclaim
+-- =============================
+-- p e n n y
+-- =============================
+-- she used to be all objectish
+-- but i needed to take the tokens
+-- back
 penny_x=nil
 penny_y=nil
 penny_d=0

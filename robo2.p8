@@ -11,9 +11,7 @@ __lua__
 -- :todo: what is 6x6?
 -- :todo: victory tune when cleared (a ping?)
 -- :todo: trees
--- :todo: don't draw stuff offscreen(!)
 -- :todo: fix transition walking in
--- :todo: birds flying inside
 -- :todo: weather through the window
 -- :todo: weather sound indoors
 -- :todo: birds singing at night?
@@ -183,7 +181,7 @@ end
 -- list all the sprite values that can be saved here.
 -- we store the index in this list (so it can fit in
 -- 5 bits!) rather than the raw sprite index itself.
-save_item_code=split("0,160,144,145,146,147")
+save_item_code=split"0,160,144,145,146,147"
 
 function save_game()
   -- note: we work very hard to get in our 256 bytes here
@@ -908,7 +906,7 @@ function draw_menu(items, selection)
 end
 
 --moon_phases={134,135,136,137,138,139,138,137,136,135}
-season_names=split("summer,fall,winter,spring")
+season_names=split"summer,fall,winter,spring"
 
 function draw_time()
   -- daytime is 06:00-18:00
@@ -1221,24 +1219,23 @@ function draw_game()
   -- objects in the right order.
   local draws={
     {draw_player,"robo"},
-    {draw_base,"base"}
+    {draw_base,"base"},
+    {draw_penny,"pny"},
   }
-  local ys={py, base_y}
-  if penny_y then
-    add(draws, {draw_penny,"pny"})
-    add(ys, penny_y+0.1)
-  end
-  for t in all(trees) do
-     add(draws, {draw_tree, t})
-     add(ys, t.y)
-  end
-  for f in all(flowers) do
-    add(draws, {draw_flower,f})
-    add(ys, f.y-0.1)
-  end
-  for b in all(birds) do
-    add(draws, {draw_bird,b})
-    add(ys, b.ty)
+  local ys={py, base_y, penny_y+0.1}
+  if map_left==0 then
+    for t in all(trees) do
+      add(draws, {draw_tree, t})
+      add(ys, t.y)
+    end
+    for f in all(flowers) do
+      add(draws, {draw_flower,f})
+      add(ys, f.y-0.1)
+    end
+    for b in all(birds) do
+      add(draws, {draw_bird,b})
+      add(ys, b.ty)
+    end
   end
   sort(ys,draws)
 
@@ -1641,7 +1638,7 @@ function draw_tree(t)
 end
 
 function draw_flower(plant)
-   -- OK we have an x and a y which are tile coords
+   -- ok we have an x and a y which are tile coords
    -- and a seed which is a flower{} object
    -- flower:draw() takes the bottom center location
    plant.seed:draw(4+(plant.x-map_left)*8, 8+plant.y*8, plant.age)
@@ -1950,7 +1947,7 @@ function init_weather()
   rain={}
   max_rain=2000
   weather_elapsed=6
-  season_rain = {10,4,2,3} -- 1 is summer
+  season_rain = split"10,4,2,3" -- 1 is summer
 end
 
 function update_weather()
@@ -2085,6 +2082,8 @@ end
 -- draw a sprite, rotated.
 -- soooo... much... tokens....
 function spr_r(s,x,y,a,w,h,x0,y0)
+  -- :todo: consider using tline http://dotyl.ink/l/fnq3r3fgem
+  --        could be faster and prettier
   if a then
     local sw,sh,sx,sy,sa,ca=w*8,h*8,(s%16)*8,flr(s/16)*8,sin(a),cos(a)
     for ix=-sw,sw do
@@ -3034,33 +3033,33 @@ cc53350000000000cc53350076500000980000000000000000555500005555000055550000555500
 06600060006060060006000006606600666000606066606600666060600600666066000060000600606000600066600600666066606060660006000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 06666666006666666666600066666666666000666666666666666666666666666666600066666666666000666666666666666666666666666666000000000000
-0000000000000ff00ff0000000000ff0000000000000000000000000000000000000000000000000000000000000000000000000000000004444455510144510
-000000000000fef00fef00000000fef0000000000000000000000000000000000000000000000000000000000111111111001111000000001444445551445510
-00000000000feeeffeeef000000feeef000000000000000000000000000000000000000000000000000011101bbb1bbb1b111bbb110000001444444554445510
-000ffff000feeeeffeeeef0000feeeef000ffff000fff000000000000000000000000000000000000001bbb11bbb1bbbb11b1bbbb11110001444444444445510
-00ffffff00feeeeffeeeef0000feeeef00ffffff00fffff000000000000000000000000000000000001bbbb1b1b313bbb11b13bbb1b111000144444444455510
-0fffffff00feeeeffeeeef0000feeeef0fffffff00fffff000000000000000000000000000000000001bbb311111b133b11b3133b1b1b1100001444444455510
-0fffffff00feeeeffeeeef0000feeeef0fffffff00fffff000000000000000000000000000000000001b1111bbb131111331111113b1b1100001444444455100
-ffffffef0feeeeeffeeeeef00feeeeefffffffef0fffffff000000000000000000000000000000000001bbb1bbbb1bbb111113b11113b1100014444444555100
-fffffeef0feeeeeffeeeeef00feeeeeffffffeef0fefffff00000000000000000000000000000000001bbbb13bbb1bbb133b111bbb1111000014444444555100
-fffffeef0feeeef00feeeeef0feeeef0fffffeef0feeffff00000000000000000000000000000000001bbb31133b1bb31111bbb11bb100000014444444551000
-ffffeeef0feeeef00feeeeef0feeeef0ffffeeef0feeffff00000000000000000000000000000000001b331b1111b331b111bbbb11b100000014444445551000
-ffffeeef0feeef0000feeeef0feeef00ffffeeef0feeefff00000000000000000000000000000000000111111bbb111b1bb13bbb1b1110000144444445551000
-ffffeeef0feeef0000feeeef0feeef00ffffeeef0feeefff00000000000000000000000000000000000111bbb1b31b111bbb133b11bbb1000144444445551000
-ff0feeef0feeef0000feeeef0feeef00ff0feeef0feeeff0000000000000000000000000000000000001b1bbbb11111bb1bbb11111111b100144444455551000
-f00feeef0feef000000feeef0feef000f00feeef0feef00000000000000000000000000000000000001bb13bbb1b1bb1b111111bb1bbb1101444444555551000
-000feeef0feef000000feeef0feef000000feeef0feef00000000000000000000000000000000000001bbb133b1b1bb11bbb1bb11111b1101444444555555100
-000feffffffef000000feffffffef000000feffffffef000000feffffffef000000feffffffef0000011111111b31b311bbbb1bb1bbb11000000001445100000
-000ffffffffff000000ffffffffff000000ffffffffff000000ffffffffff000000ffffffffff000001bb1bbb131331113bb111b1bbbb1000000001445100000
-00ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff0001bb1bbbb11111000131bbb113bbb1000000001445100000
-00fffeffffefff0000ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff0001bb1bbb310000000011bbbb1133b1000000001445100000
-0ffeeffffffeeff00fffeeffffeefff00ffeeffffffeeff00ffeeffffffeeff00fffeeffffeefff001b31b331000000000013bbb101110000000001445100000
-0feffffffffffef00ffeffffffffeff00ffffeffffeffff00ffffeffffeffff00ffeffffffffeff000111111000000000000133b100000000000014455100000
-0fff77ffff77fff00fff77ffff77fff00ffffffffffffff00fff77ffff77fff00ffffffffffffff0000000000000000000000111000000000000014451000000
+0000000000000ff00ff0000000000ff0000000000000000000000000000000000000000000000000000000000000000000000000000000000154415151014541
+000000000000fef00fef00000000fef0000000000000000000000000000000000000000000000000000000000003baaaaa000000000000000155455155014451
+00000000000feeeffeeef000000feeef0000000000000000000000000000000000000000000000000000000003bbbbbaaaaaaaaaa00000000154441015544510
+000ffff000feeeeffeeeef0000feeeef000ffff000fff0000000000000000000000000000000000000000003bbbb3bbbbbbbbbaaaaa000000154541001445100
+00ffffff00feeeeffeeeef0000feeeef00ffffff00fffff0000000000000000000000000000000000000003bbb333bbbbbbbbbbbbbbb00000154444114451000
+0fffffff00feeeeffeeeef0000feeeef0fffffff00fffff000000000000000000000000000000000000000bbb3bbbbbbb3bbbbbbbbbbb0000155444554410000
+0fffffff00feeeeffeeeef0000feeeef0fffffff00fffff000000000000000000000000000000000000003b3baaaaab3baa3baaaaabbbb000015454445410000
+ffffffef0feeeeeffeeeeef00feeeeefffffffef0fffffff00000000000000000000000000000000000003bbbbbaa3bbb3bbbbbaaaaa3bb00015445454441000
+fffffeef0feeeeeffeeeeef00feeeeeffffffeef0fefffff000000000000000000000000000000000003bbbb3bb3bbb3bbbb3bbbbbbbb3000015544454541000
+fffffeef0feeeef00feeeeef0feeeef0fffffeef0feeffff00000000000000000000000000000000003bbb333b3bbb33bb333bbbbbbbbb000001554445441000
+ffffeeef0feeeef00feeeeef0feeeef0ffffeeef0feeffff0000000000000000000000000000000000bbb33bbbbb33bb33bbbbbbb3bbbbb00001555445441000
+ffffeeef0feeef0000feeeef0feeef00ffffeeef0feeefff0000000000000000000000000000000003b33bbb3baaaaa333bbbbbbbbb3b3bb0001545444444100
+ffffeeef0feeef0000feeeef0feeef00ffffeeef0feeefff000000000000000000000000000000000333b333bbbbaaaa3333b3bbbb3333300001545444544100
+ff0feeef0feeef0000feeeef0feeef00ff0feeef0feeeff0000000000000000000000000000000000b333bbbb3bbbbbbbb3333bbb33333000001554444554100
+f00feeef0feef000000feeef0feef000f00feeef0feef000000000000000000000000000000000000333bbb333bbbbbbbbb333333333b0000001554454454100
+000feeef0feef000000feeef0feef000000feeef0feef00000000000000000000000000000000000033bbb3bbbbbbb3bbbbbbbbb33b3bb000015544444444410
+000feffffffef000000feffffffef000000feffffffef000000feffffffef000000feffffffef000003b33bbbbbbbbb33b3bb33bb33330000000001445141000
+000ffffffffff000000ffffffffff000000ffffffffff000000ffffffffff000000ffffffffff00000333b3b3b3333b333333333333300000000001545451000
+00ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff00000333333333333333333333330000000000001454510000
+00fffeffffefff0000ffffffffffff0000ffffffffffff0000ffffffffffff0000ffffffffffff00000003333333333330000000000000000000001545100000
+0ffeeffffffeeff00fffeeffffeefff00ffeeffffffeeff00ffeeffffffeeff00fffeeffffeefff0000000000000000000000000000000000000001445100000
+0feffffffffffef00ffeffffffffeff00ffffeffffeffff00ffffeffffeffff00ffeffffffffeff0000000000000000000000000000000000000014455100000
+0fff77ffff77fff00fff77ffff77fff00ffffffffffffff00fff77ffff77fff00ffffffffffffff0000000000000000000000000000000000000014451000000
 fff7ddffffdd7ffffff7ddffffdd7ffffffeffffffffeffffff7ddffffdd7ffffffeffffffffefff000000000000000000000000000000000000014451000000
-fff7ddffffdd7ffffff7ddffffdd7fffffffeeffffeefffffff7ddffffdd7fffffffeeffffeeffff000000000000000000000000000000000000014451000000
-fffffffffffffffffffffffeeffffffffffffffeeffffffffffffffeeffffffffffffffeefffffff000000000000000000000000000000000000014451000000
-ffffffeeeeffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffff000000000000000000000000000000000000014451000000
+fff7ddffffdd7ffffff7ddffffdd7fffffffeeffffeefffffff7ddffffdd7fffffffeeffffeeffff000000000000000000000000000000000000015451000000
+fffffffffffffffffffffffeeffffffffffffffeeffffffffffffffeeffffffffffffffeefffffff000000000000000000000000000000000000015451000000
+ffffffeeeeffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffff000000000000000000000000000000000000014551000000
 fffffffeefffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff000000000000000000000000000000000000014451000000
 fffffeffffffffffffffffe77effffffffffffffffffffffffffffeeeefffffffffffeffffffffff000000000000000000000000000000000000014451000000
 ffffffeeffffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffffffffffeeeeffffff000000000000000000000000000000000000014451000000

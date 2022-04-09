@@ -590,7 +590,7 @@ function buzz(msg)
   buzz_time=3
   buzz_msg=msg
   buzz_msg_time=9
-  sfx(0, 3) -- buzz
+  sfx(0) -- buzz
 end
 
 is_sleeping = false
@@ -781,7 +781,7 @@ function update_menu()
            menu_mode=false
            return
         else
-           sfx(0, 3) -- buzz
+           sfx(0) -- buzz
         end
      else
         item_sel=menu_sel
@@ -1440,7 +1440,7 @@ function update_birds()
   end
 
   if #birds>0 and rnd_int(150)==0 and not raining then
-    sfx(2,3)
+    sfx(2) -- chirp!
   end
 end
 
@@ -1623,7 +1623,7 @@ function update_plants()
     if t.angle then
       t.angle+=0.025
       if t.angle>=0.25 then
-        sfx(5,3) -- crash!
+        sfx(5) -- crash!
         del(trees,t)
       end
     end
@@ -1851,7 +1851,7 @@ function i_saw(item,tx,ty)
   end
 
   energy_level-=saw_cost
-  sfx(4, 3) -- saw
+  sfx(4) -- saw
   animate(
      "33,16",
      function()
@@ -2434,7 +2434,7 @@ end
 function script:didclear_give_tools()
    d=2 -- look down (face penny)
    for i=1,2 do
-      sfx(1, 3) -- tool sound
+      sfx(1) -- tool sound
       repeat until stat(49)>0 yield()
       repeat until stat(49)<0 yield()
    end

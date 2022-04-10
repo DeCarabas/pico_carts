@@ -17,6 +17,7 @@ __lua__
 -- :todo: birds singing at night?
 -- :todo: call penny to you
 -- :todo: treasure
+-- :todo: logs
 
 -- the base object for the cutscene system
 script={}
@@ -2892,11 +2893,6 @@ function penny_show(x,y,d)
    penny_hidden=false
    penny_x=x penny_y=y penny_d=d
    penny_frame = 0
-end
-
-function penny_want_flowers(seed,count)
-  penny_want_seed=seed
-  penny_want_count=count
 end
 
 -->8

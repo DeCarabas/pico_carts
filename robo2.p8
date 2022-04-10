@@ -685,7 +685,7 @@ function tick_midnight()
         end
 
         if item==250 then -- tree sprout
-          if rnd_int(14)==0 then -- random chance for growth
+          if rnd_int(1)==0 then -- :testtest: 14 random chance for growth
             -- sprout -> sapling
             set_item(x,y,149) -- stump!
             add(trees,{x=x,y=y,s=150})
@@ -1067,39 +1067,25 @@ function draw_player()
   elseif d==0 then idx+=4 fl=true
   end
 
-  local sc_x, sc_y = (px-map_left)*8+4,py*8+4
-
-  local dx=0 local dy=-14
-  if grabbed_item then
-    if     d==0 then dx=-14
-    elseif d==1 then dx=6
-    elseif d==2 then dx=-4
-    elseif d==3 then dx=-4
-    end
-
-    if d==3 then
-      spr(
-        grabbed_item,
-        sc_x+dx,
-        sc_y+dy,
-        1,1)
-    end
-  end
+  local sc_x, sc_y = (px-map_left)*8-4,py*8-8
 
   -- draw robo.
   palt(0, false)
   palt(12, true)
-  spr(idx,sc_x-8,sc_y-12,2,2,fl)
+  spr(idx,sc_x,sc_y,2,2,fl)
   palt()
+end
 
-  if grabbed_item and
-    d~=3 then
-    spr(
-      grabbed_item,
-      sc_x+dx,
-      sc_y+dy,
-      1,1)
+function draw_grabbed_item()
+  local sw,dx=1
+  if grabbed_item==150 then
+    dx=({-14,0,-8,-8})[d+1] sw=2
+  else
+    dx=({-14,6,-4,-4})[d+1]
   end
+
+  local sc_x,sc_y=(px-map_left)*8+4+dx,py*8-10
+  spr(grabbed_item,sc_x,sc_y,sw,sw)
 end
 
 function draw_base()
@@ -1271,6 +1257,10 @@ function draw_game()
     {draw_penny,"pny"},
   }
   local ys={py, base_y, penny_y+0.1}
+  if grabbed_item then
+    add(draws, {draw_grabbed_item})
+    if d==3 then add(ys, py-0.1) else add(ys, py) end
+  end
   if map_left==0 then
     for t in all(trees) do
       add(draws, {draw_tree, t})
@@ -1452,8 +1442,8 @@ function add_bird()
           -- if (not is_sleeping) sfx_yield(2, 3)
           yield_frames(15)
         end
-        if (title_screen or chapter>=4) and not map_flag(tx,ty,1) then
-          if rnd_int(1)==0 then -- :testtest: should be 17
+        if (title_screen or chapter>=0) and not map_flag(tx,ty,1) then
+          if rnd_int(1)==0 then -- :testtest: should be 17, ch4
             set_item(tx,ty,250) -- tree sprout
           else
             add_flower(rnd(flower_seeds), 0.25, tx, ty)
@@ -1830,10 +1820,17 @@ function i_grab(item,tx,ty)
     if fget(tgt,0) or
       tx < 0 or ty < 0 or
       tx > 15 or ty > 15 then
-      -- nopers
-      buzz("can't drop here")
+      if grabbed_item==150 and tgt==132 then
+        set_item(tx,ty,149)
+        add(trees,{x=tx,y=ty,s=150})
+        grabbed_item=nil
+      else
+        -- nopers
+        buzz("can't drop here")
+      end
+    elseif grabbed_item==150 then
+      buzz("no hole")
     else
-      mset(tx,ty,64) -- unplowed
       set_item(tx,ty,grabbed_item)
       remove_plant(tx,ty)
       grabbed_item=nil
@@ -1848,10 +1845,20 @@ function i_grab(item,tx,ty)
           get_flower(flower.seed, 0, 1)
         end
         remove_plant(tx,ty)
+      elseif tgt==149 then
+        local tree=find_tree(tx, ty)
+        if tree.s==150 then
+          grabbed_item=150
+          del(trees, tree)
+          set_item(tx,ty,132) -- hole
+        else
+          buzz("too big")
+          return
+        end
       else
         grabbed_item=tgt
+        set_item(tx,ty,0)
       end
-      set_item(tx,ty,0)
       energy_level-=grab_cost
     else
       buzz("insufficient energy")
@@ -3244,7 +3251,7 @@ __label__
 
 __gff__
 0800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000001213101000000000000000000013000052131010000000000000000000000300000000000000000000000000000203000000000000000000000000
-000000000300000000000000000000000a0a0a0a0e0b00000000000000000000170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000300000000000000000000000a0a0a0a0e0f00000000000000000000170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 4040404040565655555656404040404000005252525252525252525200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 4040404040404040404040404040404000005246464748464646465200000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -3304,4 +3311,3 @@ __music__
 04 22424344
 04 20424344
 04 23424344
-

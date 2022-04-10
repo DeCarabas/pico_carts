@@ -98,7 +98,7 @@ function new_game()
 
   all_map(function(x,y,sp)
       if sp==149 then
-        add(trees,{x=x,y=y,s=rnd{206,238}})
+        add_tree(x,y,rnd{206,238})
       end
   end)
 end
@@ -361,11 +361,11 @@ function load_game()
       elseif encoded & 0b010000 ~= 0 then
         set_item(x,y,149)
         if encoded==0b011100 then
-          add(trees,{x=x,y=y,s=150})
+          add_tree(x,y,150)
         elseif encoded==0b011000 then
-          add(trees,{x=x,y=y,s=206})
+          add_tree(x,y,206)
         elseif encoded==0b011001 then
-          add(trees,{x=x,y=y,s=238})
+          add_tree(x,y,238)
         end
       else
         set_item(x,y,save_item_code[encoded])
@@ -687,8 +687,7 @@ function tick_midnight()
         if item==250 then -- tree sprout
           if rnd_int(1)==0 then -- :testtest: 14 random chance for growth
             -- sprout -> sapling
-            set_item(x,y,149) -- stump!
-            add(trees,{x=x,y=y,s=150})
+            add_tree(x,y,150)
           end
         end
     end)
@@ -1676,6 +1675,11 @@ function find_tree(x,y)
   end
 end
 
+function add_tree(x,y,s)
+  set_item(x,y,149)
+  add(trees,{x=x,y=y,s=rnd{206,238}})
+end
+
 function draw_flower(plant)
    -- ok we have an x and a y which are tile coords
    -- and a seed which is a flower{} object
@@ -1821,8 +1825,7 @@ function i_grab(item,tx,ty)
       tx < 0 or ty < 0 or
       tx > 15 or ty > 15 then
       if grabbed_item==150 and tgt==132 then
-        set_item(tx,ty,149)
-        add(trees,{x=tx,y=ty,s=150})
+        add_tree(tx,ty,150)
         grabbed_item=nil
       else
         -- nopers

@@ -51,6 +51,12 @@ function place_rand(count, sp)
   end
 end
 
+function all_map(fn)
+  for y=0,15 do for x=0,15 do
+      fn(x,y,get_item(x,y))
+  end end
+end
+
 -- game progress
 --  chapter 0: pre-intro
 --  chapter 1: walking/no charge
@@ -88,11 +94,11 @@ function new_game()
     add(flower_seeds, flower:new(flower_size,fi))
   end
 
-  for y=0,15 do for x=0,15 do
-    if get_item(x,y)==149 then
-      add(trees,{x=x,y=y,s=rnd{206,238}})
-    end
-  end end
+  all_map(function(x,y,sp)
+      if sp==149 then
+        add(trees,{x=x,y=y,s=rnd{206,238}})
+      end
+  end)
 end
 
 stream={}
@@ -229,10 +235,9 @@ function save_game()
   --                        (0=half grown, 1=full grown)
   --
   -- 16*16*6/8 = 192 bytes
-  for y=0,15 do
-    for x=0,15 do
+  all_map(
+    function(x,y,item)
       local encoded=nil
-      local item = get_item(x, y)
       if item==148 then
         -- placeholder for a flower.
         -- first we need to find the flower...
@@ -278,7 +283,7 @@ function save_game()
       end
       w:pack(6, encoded)
     end
-  end                            -- 228
+  ) -- 228
   -- assert(w.write_bits==8 and w.buffer==0)
 
   -- write the flower pockets
@@ -340,8 +345,8 @@ function load_game()
   --
   -- 16*16*6/8 = 192 bytes
   flowers={} trees={}
-  for y=0,15 do
-    for x=0,15 do
+  all_map(
+    function(x,y)
       local encoded = w:unpack(6)
       if encoded & 0b100000 ~= 0 then -- flower
         local age, si = 0.5, (encoded & 0b001111)+1
@@ -364,7 +369,7 @@ function load_game()
         set_item(x,y,save_item_code[encoded])
       end
     end
-  end
+  )
 
   -- unpack the flower pockets
   flower_pockets={}
@@ -462,7 +467,9 @@ end
 function init_game()
   blank_screen=false
 
-  init_items()
+  -- init items
+  item_sel=1
+
   init_plants()
   init_menu()
   init_time()
@@ -671,15 +678,13 @@ function tick_midnight()
       end
     end
 
-    for y=0,31 do
-      for x=0,31 do
+    all_map(function(x,y,item)
         local wet=mget(x,y)
         local dry=dry_map[wet]
         if dry then
           mset(x,y,dry)
         end
 
-        local item=get_item(x,y)
         if item==250 then -- tree sprout
           if rnd_int(14)==0 then -- random chance for growth
             -- sprout -> sapling
@@ -687,8 +692,7 @@ function tick_midnight()
             add(trees,{x=x,y=y,s=150})
           end
         end
-      end
-    end
+    end)
   end
 end
 
@@ -1637,14 +1641,11 @@ function init_plants()
   -- these days, but also baby
   -- trees.
   plants={}
-  for y=0,15 do
-    for x=0,15 do
-       local sp,age=get_item(x,y),1
-       if sp>=144 and sp<147 then
-         add(plants,{age=rnd(),x=x,y=y})
-       end
-    end
-  end
+  all_map(function(x,y,sp)
+      if sp>=144 and sp<147 then
+        add(plants,{age=rnd(),x=x,y=y})
+      end
+  end)
 end
 
 function update_plants()
@@ -1922,11 +1923,8 @@ function i_shovel(item,tx,ty)
   elseif not map_flag(tx,ty,4) then
     buzz("cannot dig")
   else
-    if get_item(tx,ty)==149 then
-      if find_tree(tx,ty) then
-        buzz("tree too big")
-        return
-      end
+    if get_item(tx,ty)==149 and find_tree(tx,ty) then
+      buzz("tree too big")
     end
 
     energy_level-=saw_cost
@@ -1941,10 +1939,6 @@ function i_shovel(item,tx,ty)
       end
     )
   end
-end
-
-function init_items()
-  item_sel=1
 end
 
 function tool(icon,name,fn,give)
@@ -3285,4 +3279,3 @@ __music__
 04 09424344
 04 07424344
 04 0a424344
-

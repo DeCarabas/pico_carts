@@ -394,7 +394,8 @@ function load_game()
   if penny_wait_hours == 0 then penny_wait_hours = nil end
 
   -- deal with the chapters.
-  script["start_ch"..chapter]()
+  local start=script["start_ch"..chapter]
+  if start then start() end
 end
 
 -- function dump_hex()
@@ -1718,9 +1719,9 @@ end
 
 function script:penny_gets_what_she_wants()
   if chapter==3 then
-    script:start_ch4()
+    chapter=4 -- tick!
   elseif chapter==5 then
-    script:start_ch6()
+    chapter=6
   end
   penny_start_leave_then_wander()
 end
@@ -2418,11 +2419,6 @@ function script:start_ch3()
   penny_start_wander()
 end
 
-function script:start_ch4()
-  -- called from penny getting those logs...
-  chapter = 4
-end
-
 cs_give_tools=[[
 p=py_up_talk
 Hey, Robo!
@@ -2518,10 +2514,6 @@ function has_wanted_flowers()
     end
   end
   return false
-end
-
-function script:start_ch6()
-  chapter = 6
 end
 
 --

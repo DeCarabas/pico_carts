@@ -299,10 +299,10 @@ function save_game()
   end                            -- 249
   -- assert(w.write_bits==8 and w.buffer==0)
 
-  local want_seed,want_count=0, 0
+  local want_seed,want_count=0,penny_want_count
   for fi=1,#flower_seeds do
      if flower_seeds[fi]==penny_want_seed then
-        want_seed,want_count=fi-1,penny_want_count
+        want_seed=fi-1
      end
   end
   w:pack(4, want_seed, want_count)-- 250
@@ -313,10 +313,6 @@ end
 function load_game()
   -- see save_game for details
   local w = stream:new(0x5e00,256)
-
-  if w:read() ~= 0x03 then
-    return false
-  end
 
   px = base_x
   py = base_y
@@ -381,7 +377,7 @@ function load_game()
   end
 
   fi,penny_want_count = w:unpack(4, 2)
-  if penny_want_count>0 then
+  if penny_want_count>0 and fi~=15 then
     penny_want_seed=flower_seeds[fi+1]
   else
     penny_want_seed=nil
@@ -1158,13 +1154,21 @@ function draw_objective()
   end
 
   local obj=objective
-  if not obj and penny_want_seed then
-     -- do wee have enough?
-     if has_wanted_flowers() then
-        obj="give "..penny_want_seed.name.." to penny"
-     else
-        obj="get "..penny_want_count.." "..penny_want_seed.name.." flowers"
-     end
+  if not obj then
+      if penny_want_seed then
+        -- do we have enough?
+        if has_wanted_flowers() then
+          obj="give "..penny_want_seed.name.." to penny"
+        else
+          obj="get "..penny_want_count.." "..penny_want_seed.name.." flowers"
+        end
+      elseif penny_want_count then
+        if log_count >= penny_want_count then
+          obj="give logs to penny"
+        else
+          obj="get "..penny_want_count.." logs"
+        end
+      end
   end
   if obj then
     add(lines, "goal: "..obj)
@@ -2383,37 +2387,9 @@ call=start_ch3
 ]]
 
 function script:start_ch3()
-  chapter=3
+  chapter = 3
   penny_start_wander()
-  objective="clear a 6x6 field"
-  objective_fn=check_bigspace
-end
-
-function _check_clear(x,y)
-  for iy=0,5 do
-    for ix=0,5 do
-      if map_flag(x+ix,y+iy,0) then
-        --DBG_clear_fail_pt={x+ix,y+iy}
-        return false
-      end
-    end
-  end
-
-  --DBG_clear_fail_pt=nil
-  return true
-end
-
-
-function check_bigspace()
-  for y=1,9 do
-    for x=1,9 do
-      if _check_clear(x,y) then
-        objective="talk to penny"
-        objective_fn=nil
-        return
-      end
-    end
-  end
+  penny_want_count = 4 -- nil seed means logs
 end
 
 function script:start_ch4()

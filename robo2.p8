@@ -18,6 +18,8 @@ __lua__
 -- :todo: call penny to you
 -- :todo: treasure
 
+-- tests: wait outside for penny through midnight
+
 -- the base object for the cutscene system
 script={}
 
@@ -309,7 +311,7 @@ function save_game()
   end
   w:pack(4, want_seed, want_count) -- 250
 
-  w:write(penny_gone_days or 0)    -- 251
+  w:write(penny_wait_hours or 0)    -- 251
 
   -- 5 bytes to spare! tree seeds maybe! :)
 end
@@ -388,8 +390,8 @@ function load_game()
     if penny_want_count == 0 then penny_want_count=nil end
   end
 
-  penny_gone_days = w:read()
-  if penny_gone_days == 0 then penny_gone_days = nil end
+  penny_wait_hours = w:read()
+  if penny_wait_hours == 0 then penny_wait_hours = nil end
 
   -- deal with the chapters.
   script["start_ch"..chapter]()
@@ -622,6 +624,7 @@ function sleep_until_morning()
 
        tick_midnight()
        hour=8
+       penny_wait_hours = nil -- always here
        save_game()
 
        fade_in()
@@ -679,8 +682,8 @@ function tick_midnight()
     end
 
     all_map(function(x,y,item)
-        if mget(x,y)==64 then
-          mset(x,y,65)
+        if mget(x,y)==65 then
+          mset(x,y,64)
         end
 
         if item==250 then -- tree sprout
@@ -690,11 +693,6 @@ function tick_midnight()
           end
         end
     end)
-  end
-
-  if penny_gone_days then
-    penny_gone_days -= 1
-    if penny_gone_days <= 0 then penny_gone_days = nil end
   end
 end
 
@@ -710,6 +708,11 @@ function update_time()
 
   season = flr(day/28)+1
   winter = season==3
+
+  if penny_wait_hours then
+    penny_wait_hours -= hour_inc
+    if penny_wait_hours <= 0 then penny_wait_hours = nil end
+  end
 end
 
 function update_bgm()
@@ -1349,6 +1352,11 @@ function draw_game()
   end
 
   -- draw_debug()
+  cursor(0,0,7)
+  print("chapter "..chapter)
+  if penny_wait_hours then
+    print("PENNY RETURNS IN "..penny_wait_hours)
+  end
 end
 
 function _draw()
@@ -1713,9 +1721,8 @@ function script:penny_gets_what_she_wants()
     script:start_ch4()
   elseif chapter==5 then
     script:start_ch6()
-  else
-    penny_start_leave_then_wander()
   end
+  penny_start_leave_then_wander()
 end
 
 function give_flower(item)
@@ -1977,7 +1984,7 @@ function give_logs()
       do_script([[
 p=py_up_talk
 It's the logs I|was looking for!
-I'll take these to mom!
+I'll take these to|mom!
 
 call=penny_gets_what_she_wants
 ]])
@@ -2006,7 +2013,7 @@ end
 
 function get_items()
   local items={tl_grab,tl_saw,tl_shovel}
-  if chapter >= 4 then
+  if chapter >= 5 then
     add(items,tl_water)
     add(items,tl_grass)
   end
@@ -2375,6 +2382,8 @@ end
 
 function check_outside()
   if px<16 and not penny_hidden then
+    objective=nil
+    objective_fn=nil
     penny_face(px, py)
     do_script(cs_ch_3_intro)
   end
@@ -2412,13 +2421,12 @@ end
 function script:start_ch4()
   -- called from penny getting those logs...
   chapter = 4
-  penny_start_leave_then_wander()
 end
 
 cs_give_tools=[[
 p=py_up_talk
 Hey, Robo!
-I have something for you!
+I have something|for you!
 Wait right there!
 
 call=give_tools_leave_come_back
@@ -2434,7 +2442,6 @@ Done!
 
 p=py_mid_talk
 Ok, check it out.|New tools!
-I've given you some|useful stuff.
 A seed pouch and a|watering can!
 
 p=py_mid_wry
@@ -2491,8 +2498,8 @@ function check_wanted_flowers()
       penny_face(px, py)
       do_script([[
 p=py_up_talk
-Did you get the|flowers?
-Great!|Bring them over here!
+Did you get the|stuff?
+Great!|Bring it over here!
       ]])
    end
 end
@@ -2515,7 +2522,6 @@ end
 
 function script:start_ch6()
   chapter = 6
-  penny_start_leave_then_wander()
 end
 
 --
@@ -2654,6 +2660,7 @@ function show_text(t, top, bot)
   text_sprite_top = top
   text_sprite_bot = bot
 
+  yield() -- extra frame to clear button
   while not btnp(🅾️) do
     text_time = min(text_limit, text_time + 2)
     yield()
@@ -2890,8 +2897,10 @@ function penny_start_leave_then_wander()
   penny_DBG_thread_name = "start_leave_then_wander"
   penny__thread = cocreate(function()
       penny_leave()
-      if not penny_gone_days then penny_gone_days = 1 end
-      while penny_gone_days do yield() end
+      if not penny_wait_hours then
+        penny_wait_hours = 32-hour -- wait until midnight then 8am
+      end
+      while penny_wait_hours do yield() end
       yield_until(8) -- wait until morning
       penny_start_wander()
   end)

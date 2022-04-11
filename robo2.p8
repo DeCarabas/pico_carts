@@ -1783,6 +1783,7 @@ function get_flower(seed, flower_count, seed_count)
   end
 
   if not fp then
+    -- note: flower pockets are also tools in the tl_ sense
     fp = {sx=seed.slot*flower_size,sy=flower_sy,
           name=seed.name,fn=i_plant,give=give_flower,
           seed=seed,flower_count=0,

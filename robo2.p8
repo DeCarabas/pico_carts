@@ -94,7 +94,7 @@ function new_game()
     end
   end
 
-  for fi=0,15 do
+  for fi=0,14 do
     add(flower_seeds, flower:new(flower_size,fi))
   end
 
@@ -210,26 +210,21 @@ function save_game()
   -- compare with load_game
   local w = stream:new(0x5e00,256)
 
-  -- write a version byte first so that we know if there's
-  -- a savegame or not. We should probably find something
-  -- to pack in here but....
-  w:write(0x03)               -- 1
-
-  w:pack(4,log_count,chapter) -- 2
+  w:pack(4,log_count,chapter) -- 1
 
   -- all these have more than 4 bits of value, kinda.
-  w:write(day%112)            -- 3
+  w:write(day%112)            -- 2
   -- hour = 8
   -- tank_level = 100
   -- energy_level = 100
-  w:write(grabbed_item)       -- 4
+  w:write(grabbed_item)       -- 3
 
   -- now pack up the seeds. we have 16 flower seeds,
   -- and each uses two bytes, so we use 32 bytes here.
-  assert(#flower_seeds==16)
+  assert(#flower_seeds==15)
   for fs in all(flower_seeds) do
     w:write2(fs.seed<<16)
-  end                         -- 36
+  end                         -- 33
 
   -- now pack up the items. each item gets 6 bits.
   -- the high bits are the signal bits:
@@ -288,7 +283,7 @@ function save_game()
       end
       w:pack(6, encoded)
     end
-  ) -- 228
+  ) -- 225
   -- assert(w.write_bits==8 and w.buffer==0)
 
   -- write the flower pockets
@@ -302,7 +297,7 @@ function save_game()
       end
     end
     w:pack(6, fc, sc)
-  end                            -- 252
+  end                            -- 249
   -- assert(w.write_bits==8 and w.buffer==0)
 
   local want_seed,want_count=0, 0
@@ -311,9 +306,9 @@ function save_game()
         want_seed,want_count=fi-1,penny_want_count
      end
   end
-  w:pack(4, want_seed, want_count)-- 253
+  w:pack(4, want_seed, want_count)-- 250
 
-  -- 3 bytes to spare! tree seeds maybe! :)
+  -- 6 bytes to spare! tree seeds maybe! :)
 end
 
 function load_game()
@@ -336,10 +331,10 @@ function load_game()
   end
 
   flower_seeds={}
-  for fi=1,16 do
+  for fi=0,14 do
      local seed = w:read2()
-     add(flower_seeds, flower:new(flower_size, fi-1, seed>>16))
-  end                      -- 39
+     add(flower_seeds, flower:new(flower_size, fi, seed>>16))
+  end
 
   -- unpack the items. each item gets 6 bits.
   -- the high bits are the signal bits:
@@ -489,7 +484,7 @@ function _init()
   --poke(0x5f36,0x40) -- disable print scroll
   flower:init(flower_sy)
 
-  cartdata("doty_robo_2_p8")
+  cartdata("doty_robo_2_p8_v2")
 
   load_font()
   init_fx()
@@ -1610,7 +1605,6 @@ end
 -->8
 -- plants and items
 
-flower_seeds={}
 flowers={}
 flower_size=6
 
@@ -1675,7 +1669,7 @@ end
 
 function add_tree(x,y,s)
   set_item(x,y,149)
-  add(trees,{x=x,y=y,s=rnd{206,238}})
+  add(trees,{x=x,y=y,s=s})
 end
 
 function draw_flower(plant)

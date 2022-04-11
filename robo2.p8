@@ -73,6 +73,7 @@ function new_game()
   px=base_x
   py=base_y
   grabbed_item=nil
+  log_count=0
 
   trees={}
   flower_pockets={}
@@ -123,31 +124,33 @@ function stream:read2()
   self.address+=2
   return %(self.address-2)
 end
-function stream:unpack(width)
-  local buffer = self.buffer
-  local bits = self.read_bits
+function stream:unpack(width, count)
+  local buffer,bits,ret,result,lw = self.buffer,self.read_bits,{}
 
-  local result = 0
-  while width > 0 do
-    if bits == 0 then
-       --assert(self.limit > 0)
-       self.limit -= 1
-       buffer = @self.address
-       self.address += 1
-       bits = 8
+  for ii=1,count do
+    result = 0 lw = width
+    while lw > 0 do
+      if bits == 0 then
+        --assert(self.limit > 0)
+        self.limit -= 1
+        buffer = @self.address
+        self.address += 1
+        bits = 8
+      end
+
+      local consume = min(bits, lw)
+      result = (result << consume) | (buffer >> (bits - consume))
+      result &= 0xFF -- the remaining bits must not go into the fraction
+      bits -= consume
+      buffer &= ((1<<bits) - 1)
+      lw -= consume
     end
-
-    local consume = min(bits, width)
-    result = (result << consume) | (buffer >> (bits - consume))
-    result &= 0xFF -- the remaining bits must not go into the fraction
-    bits -= consume
-    buffer &= ((1<<bits) - 1)
-    width -= consume
+    add(ret,result)
   end
 
   self.buffer = buffer
   self.read_bits = bits
-  return result
+  return unpack(ret)
 end
 function stream:write(v)
   if (v==nil) v=0
@@ -210,24 +213,23 @@ function save_game()
   -- write a version byte first so that we know if there's
   -- a savegame or not. We should probably find something
   -- to pack in here but....
-  w:write(0x03)             -- 1
+  w:write(0x03)               -- 1
 
-  -- all these have more than 4 bits of value. (chapter
-  -- probably doesn't more than 4 but ... it's not worth
-  -- packing it up more)
-  w:write(chapter)          -- 2
-  w:write(day%112)          -- 3
+  w:pack(4,log_count,chapter) -- 2
+
+  -- all these have more than 4 bits of value, kinda.
+  w:write(day%112)            -- 3
   -- hour = 8
   -- tank_level = 100
   -- energy_level = 100
-  w:write(grabbed_item)     -- 4
+  w:write(grabbed_item)       -- 4
 
   -- now pack up the seeds. we have 16 flower seeds,
   -- and each uses two bytes, so we use 32 bytes here.
   assert(#flower_seeds==16)
   for fs in all(flower_seeds) do
     w:write2(fs.seed<<16)
-  end                      -- 36
+  end                         -- 36
 
   -- now pack up the items. each item gets 6 bits.
   -- the high bits are the signal bits:
@@ -325,7 +327,7 @@ function load_game()
   px = base_x
   py = base_y
 
-  chapter = w:read()
+  log_count,chapter = w:unpack(4, 2)
   day = w:read()
   hour = 8
   grabbed_item = w:read()
@@ -350,7 +352,7 @@ function load_game()
   flowers={} trees={}
   all_map(
     function(x,y)
-      local encoded = w:unpack(6)
+      local encoded = w:unpack(6, 1)
       if encoded & 0b100000 ~= 0 then -- flower
         local age, si = 0.5, (encoded & 0b001111)+1
         if encoded & 0b010000 ~= 0 then
@@ -377,15 +379,14 @@ function load_game()
   -- unpack the flower pockets
   flower_pockets={}
   for fi=1,16 do
-    local fc,sc=w:unpack(6),w:unpack(6)
+    local fc,sc=w:unpack(6, 2)
     if fc>0 or sc>0 then
       --assert(fi<=#flower_seeds,tostr(fi))
       get_flower(flower_seeds[fi], fc, sc)
     end
   end
 
-  fi = w:unpack(4)
-  penny_want_count = w:unpack(4)
+  fi,penny_want_count = w:unpack(4, 2)
   if penny_want_count>0 then
     penny_want_seed=flower_seeds[fi+1]
   else
@@ -518,7 +519,20 @@ end
 function open_item_menu()
   menu_mode=true
   menu_sel=item_sel
+
   menu_items=get_items()
+  for it in all(menu_items) do
+    it.on_select=function(idx) item_sel=idx end
+  end
+  if chapter>1 then
+    add(menu_items,{
+          icon=165,
+          name="sleep",
+          disabled=px~=base_x or py~=base_y,
+          on_select=function() sleep_until_morning() end
+    })
+  end
+
   menu_top=1
   update_fn=update_menu
 end
@@ -804,22 +818,21 @@ end
 function update_menu()
   if btnp(⬇️) then menu_sel+=1 end
   if btnp(⬆️) then menu_sel-=1 end
-  menu_sel=mid(1,menu_sel,#menu_items+1)
+  menu_sel=mid(1,menu_sel,#menu_items)
 
-  if btnp(❎) then menu_mode=false end
+  if btnp(❎) then
+    menu_mode=false
+    update_fn=update_walk
+  end
   if btnp(🅾️) then
-     if menu_sel==#menu_items+1 then
-        if px==base_x and py==base_y then
-           sleep_until_morning()
-           menu_mode=false
-           return
-        else
-           sfx(0,3) -- buzz
-        end
-     else
-        item_sel=menu_sel
-        menu_mode=false
-     end
+    local it=menu_items[menu_sel]
+    if it.disabled then
+      sfx(0,3) -- buzz
+    else
+      menu_mode=false
+      update_fn=update_walk
+      it.on_select(menu_sel)
+    end
   end
 
   -- scroll?
@@ -827,10 +840,6 @@ function update_menu()
      menu_top=menu_sel
   elseif menu_sel>menu_top+7 then
      menu_top=menu_sel-7
-  end
-
-  if not menu_mode then
-    update_fn=update_walk
   end
 end
 
@@ -916,6 +925,7 @@ function draw_menu(items, selection)
         -- lx+6+4-...,ly-1+4-...
         lx+10-flower_size/2,ly+3-flower_size/2)
     end
+    if it.disabled then color(5) else color(7) end
     print(it.name,lx+16,ly)
     if it.flower_count then
       print(
@@ -923,18 +933,6 @@ function draw_menu(items, selection)
         lx+40, ly)
     end
     ly += 10
-  end
-
-  if chapter>1 then
-    if selection==#items+1 then
-      print(">",lx,ly)
-    end
-    spr(165,lx+6,ly-1)
-
-    if px~=base_x or py~=base_y then
-       color(5)
-    end
-    print("sleep",lx+16,ly)
   end
 end
 
@@ -1306,6 +1304,7 @@ function draw_game()
   fillp()
   clip()
 
+  -- Back up screen (at 0x6000) to user memory (at 0x8000)
   memcpy(0x8000,0x6000,0x2000)
 
   -- ===========================
@@ -1325,11 +1324,12 @@ function draw_game()
   -- blit clip window
   -- ===========================
   -- draw what's behind the trees
-  memcpy(0,0x8000,0x2000)
+  memcpy(0xA000,0x0000,0x2000) -- back up sprites to user memory (:todo: once on init?)
+  memcpy(0x0000,0x8000,0x2000) -- copy saved background to sprites
   palt(12,true) palt(0,false)
   sspr(_px,_py,32,32,_px,_py)
   palt()
-  reload(0,0,0x2000)
+  memcpy(0x0000,0xA000,0x2000) -- restore sprites (reload bad!)
 
   -- now rain and stuff
   draw_weather()
@@ -1916,6 +1916,7 @@ function i_saw(item,tx,ty)
      function()
        local t=find_tree(tx,ty)
        if t then t.angle=0 end
+       log_count=min(log_count+1,8)
      end
   )
 end
@@ -1981,18 +1982,22 @@ p=py_down_smile
 I love the feel of|grass under my feet.
 ]])
 
-function get_items()
-  local items
-  if chapter < 4 then
-    items = {tl_grab,tl_saw,tl_shovel}
-  else
-    items = {
-      tl_grab,tl_saw,tl_shovel,tl_water,
-      tl_grass}
+function give_logs()
+end
 
-    for fp in all(flower_pockets) do
-      add(items, fp)
-    end
+tl_logs=tool(120,"logs",i_logs,give_logs)
+
+function get_items()
+  local items={tl_grab,tl_saw,tl_shovel}
+  if chapter >= 4 then
+    add(items,tl_water)
+    add(items,tl_grass)
+  end
+  if log_count>0 then
+    add(items,tl_logs) -- todo: custom label
+  end
+  for fp in all(flower_pockets) do
+    add(items, fp)
   end
 
   return items
@@ -3047,12 +3052,12 @@ d55110dddd5110000000000000001aa1c0bb00bb0ccccccccccccccccccccccc000000001fef11fe
 ee82101eee8822100000000000111661c03b0c0b0ccccccccccccccccccccccc00000000c1ff11ff1cc1ffffff1ccccccccccccccccccccccccccccccccccccc
 f94210f7fff9421000000000001aaaa1cc0bb0c0cccccccccccccccccccccccc00000000c1ffffff1c1ffffffff1cccccccccccccccccccccccccccccccccccc
 01011010001010006666666600116661c003b0cccccccccccccccccccccccccc000000001ff7ff7ff11feffffef1cccccccccccccccccccccccccccccccccccc
-1717717101717110666666660001aaa10bb0bb0ccccccccccccc00c00ccccccc000000001f7dffd7f11feffffef1cccccccccccccccccccccccccccccccccccc
-017117100111717166566566011166613bbbbb0cccccccccccc0bb03b0c00ccc000000001fffeefff11feffffef1cccccccccccccccccccccccccccccccccccc
-17177171177771106656656601aaaaa103330b0cccccccccccc033bbb00bb0cc00000000c11ffff11cc1f7ff7f1ccccccccccccccccccccccccccccccccccccc
-17177171011777716656656601166661c00003b0cccccccccccc003bb0b330cc00000000c1ffffff1c1f7dffd7f1cccccccccccccccccccccccccccccccccccc
-017117101717111066566566001aaaa1ccccc03b0ccccccccccccc03bb300ccc000000001ffeffeff11f1feef1f1cccccccccccccccccccccccccccccccccccc
-17177171011717106656656611166661cccccc03b0cccccccccccc03b00ccccc000000001ffeffeff11f1ffff1f1cccccccccccccccccccccccccccccccccccc
+1717717101717110666666660001aaa10bb0bb0ccccccccccccc00c00ccccccc001445441f7dffd7f11feffffef1cccccccccccccccccccccccccccccccccccc
+017117100111717166566566011166613bbbbb0cccccccccccc0bb03b0c00ccc005994551fffeefff11feffffef1cccccccccccccccccccccccccccccccccccc
+17177171177771106656656601aaaaa103330b0cccccccccccc033bbb00bb0cc15599444c11ffff11cc1f7ff7f1ccccccccccccccccccccccccccccccccccccc
+17177171011777716656656601166661c00003b0cccccccccccc003bb0b330cc59945994c1ffffff1c1f7dffd7f1cccccccccccccccccccccccccccccccccccc
+017117101717111066566566001aaaa1ccccc03b0ccccccccccccc03bb300ccc599459941ffeffeff11f1feef1f1cccccccccccccccccccccccccccccccccccc
+17177171011717106656656611166661cccccc03b0cccccccccccc03b00ccccc144554451ffeffeff11f1ffff1f1cccccccccccccccccccccccccccccccccccc
 0101101000010100666666661aaaaaa1cccccc03b0cccccccccccc03b0cccccc00000000c11111111c1f111111f1cccccccccccccccccccccccccccccccccccc
 cccccccccccccccccc53350000000500000000000000000000555500005555000055550000555500000000000055550066555500665555000006666000076000
 cccccccccccccccccc53350000000050000000000990909005777750057777500577755005777550057755500555555056677750566777500067777607666660

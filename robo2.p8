@@ -10,14 +10,13 @@ __lua__
 --
 -- :todo: what is 6x6?
 -- :todo: victory tune when cleared (a ping?)
--- :todo: trees
 -- :todo: fix transition walking in
 -- :todo: weather through the window
 -- :todo: weather sound indoors
+-- :todo: snow on the trees
 -- :todo: birds singing at night?
 -- :todo: call penny to you
 -- :todo: treasure
--- :todo: logs
 
 -- the base object for the cutscene system
 script={}
@@ -1234,7 +1233,6 @@ end
 -- same time.
 function draw_game()
   -- map left always follows the player...
-  -- :todo: use camera() for this
   if not title_screen then
     map_left = flr(px/16)*16
   end
@@ -2244,7 +2242,7 @@ It works!
 
 p=blank
 PENNY?
-WHERE ARE|YOU??
+WHERE ARE|YOU?
 
 call=intro_penny_turn
 p=py_up_intense
@@ -2318,28 +2316,34 @@ Ha! I knew it!
 I AM THE BEST!
 
 p=py_mid_talk
-Well, I've fixed your|charging stand.
-If you sleep there,|you'll recharge.
+Let's see here...
+Manipulators|operational...
+Rotary saw|nominal...
+Pneumatic shovel|online...
+
+p=py_up_talk
+Yep!|You're good to go!
+
+p=py_mid_talk
+This is your|charging stand.
+If you sleep here,|you'll recharge.
 
 p=py_mid_wry
 Try not to run out|of power, ok?
 
 p=blank
 PENNY!
-THAT FIELD CLEAR|YET?
+WHERE DID YOU GO?
+I COULD USE YOUR|HELP HERE!
 
-p=py_mid_wry
+p=py_down_wry
 Oh, uh...
-I could use some|help.
 Will you come|outside with me?
+I have a favor|to ask.
 
-call=firstcharge_ch2_transition
+call=penny_leave
 call=start_ch2
 ]]
-
-function script:firstcharge_ch2_transition()
-  penny_leave()
-end
 
 function script:start_ch2()
   penny_show(7,1,0)
@@ -2357,18 +2361,23 @@ end
 
 cs_move_rocks=[[
 p=py_up_talk
-Hey, there you are!
+There you are!
 
 p=py_mid_talk
-Mom wants a big|clear space...
+Mom's doing some|work on the house.
+And we need a bit|more lumber.
 
 p=py_down_wry
-...but these rocks|are so heavy.
+And I thought...|well....
 
 p=py_up_talk
-Now I've got you,|though!
-This will be easy|for you!
-Help me move these,|OK?
+You could get it|for us!
+You've got that saw!
+Felling some trees|should be easy!
+
+p=py_mid_talk
+Can you cut some|logs for me?
+Four should do it.
 
 call=start_ch3
 ]]
@@ -2536,7 +2545,7 @@ p=py_mid_wry
 Don't worry.
 I'll always be there|to help.
 
-call=nobattery_post
+call=penny_leave
 ]]
 
 -- local old_penny_visible
@@ -2546,10 +2555,6 @@ function script:nobattery_pre()
 
   penny_show(base_x, base_y+1, 0)
   energy_level = 100*0.75
-end
-
-function script:nobattery_post()
-  penny_leave()
 end
 
 --
@@ -2614,7 +2619,7 @@ portraits={
    py_up_closed={top=194,bot=228},
    py_up_intense={top=194,bot=230},
    py_down_wry={top=196,bot=224},
-   py_down_smile={top=196,bot=232},
+   py_down_smile={top=196,bot=232}
 }
 
 function do_script(script_text, args)
@@ -2807,6 +2812,7 @@ function penny_leave()
   end
   penny_hidden=true
 end
+script.penny_leave = penny_leave
 
 function penny_wander_around()
   while daytime do

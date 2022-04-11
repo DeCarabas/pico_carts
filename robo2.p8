@@ -62,9 +62,11 @@ end
 -- game progress
 --  chapter 0: pre-intro
 --  chapter 1: walking/no charge
---  chapter 2: walk outside
---  chapter 3: clear field
---  chapter 4: till and plant
+--  chapter 2: walk outside [[FIRST SAVE]]
+--  chapter 3: get logs for mom
+--  chapter 4: waiting for penny
+--  chapter 5: get flowers for mom
+--  chapter 6: profit
 function new_game()
   chapter=0
   day=0
@@ -296,18 +298,20 @@ function save_game()
       end
     end
     w:pack(6, fc, sc)
-  end                            -- 249
+  end                              -- 249
   -- assert(w.write_bits==8 and w.buffer==0)
 
-  local want_seed,want_count=0,penny_want_count
+  local want_seed,want_count=0,penny_want_count or 0
   for fi=1,#flower_seeds do
      if flower_seeds[fi]==penny_want_seed then
         want_seed=fi-1
      end
   end
-  w:pack(4, want_seed, want_count)-- 250
+  w:pack(4, want_seed, want_count) -- 250
 
-  -- 6 bytes to spare! tree seeds maybe! :)
+  w:write(penny_gone_days or 0)    -- 251
+
+  -- 5 bytes to spare! tree seeds maybe! :)
 end
 
 function load_game()
@@ -381,23 +385,14 @@ function load_game()
     penny_want_seed=flower_seeds[fi+1]
   else
     penny_want_seed=nil
+    if penny_want_count == 0 then penny_want_count=nil end
   end
 
+  penny_gone_days = w:read()
+  if penny_gone_days == 0 then penny_gone_days = nil end
 
   -- deal with the chapters.
-  if chapter==2 then
-    script:start_ch2()
-  elseif chapter==3 then
-     script:start_ch3()
-  elseif chapter==4 then
-     script:start_ch4()
-  elseif chapter==5 then
-     script:start_ch5()
-  else
-    penny_leave()
-  end
-
-  return true
+  script["start_ch"..chapter]()
 end
 
 -- function dump_hex()
@@ -695,6 +690,11 @@ function tick_midnight()
           end
         end
     end)
+  end
+
+  if penny_gone_days then
+    penny_gone_days -= 1
+    if penny_gone_days <= 0 then penny_gone_days = nil end
   end
 end
 
@@ -997,13 +997,13 @@ end
 
 function draw_meters()
   draw_box(104,50,1,5)
-  if chapter>=4 then
+  if chapter>=5 then
     local tank_frac=(max_tank-tank_level)/max_tank
     rectfill(111,57+41*tank_frac,115,98,12)
   end
 
   local nrg_ofs=0
-  if chapter<4 then nrg_ofs=5 end
+  if chapter<5 then nrg_ofs=5 end
   local nrg_frac=(100-energy_level)/100
   local nrg_color
   if nrg_frac<0.5 then
@@ -1163,7 +1163,7 @@ function draw_objective()
           obj="get "..penny_want_count.." "..penny_want_seed.name.." flowers"
         end
       elseif penny_want_count then
-        if log_count >= penny_want_count then
+        if has_wanted_flowers() then
           obj="give logs to penny"
         else
           obj="get "..penny_want_count.." logs"
@@ -1708,11 +1708,14 @@ function add_flower(seed, age, tx, ty)
   set_item(tx,ty,148) -- add placeholder
 end
 
-function script:give_flower_post()
-   if chapter==4 then
-      chapter=5
-   end
-   penny_start_leave_then_wander()
+function script:penny_gets_what_she_wants()
+  if chapter==3 then
+    script:start_ch4()
+  elseif chapter==5 then
+    script:start_ch6()
+  else
+    penny_start_leave_then_wander()
+  end
 end
 
 function give_flower(item)
@@ -1727,10 +1730,10 @@ p=py_mid_talk
 I'll take them to|mom.
 I'm sure she'll love|them!
 
-call=give_flower_post
-]], {item.name})
+call=penny_gets_what_she_wants
+]], item.name)
         item.flower_count-=penny_want_count
-        penny_want_count=0
+        penny_want_count=nil
         penny_want_seed=nil
       else
         local more = penny_want_count-item.flower_count
@@ -1740,7 +1743,7 @@ That's the|flower I want!
 
 p=py_mid_talk
 Can you collect $1|more?
-        ]],{more})
+        ]], more)
       end
     elseif penny_want_seed then
        do_script([[
@@ -1752,21 +1755,21 @@ I am looking for a|$2, though.
 
 p=py_mid_talk
 Can you grow me|some?
-      ]], {item.name, penny_want_seed.name})
+      ]], item.name, penny_want_seed.name)
     else
       do_script([[
 p=py_mid_talk
 What a pretty ^$1!
-      ]], {item.name})
+      ]], item.name)
     end
   else
     do_script([[
 p=py_mid_talk
 That looks like a|^$1 seed.
-Till the ground, then|plant it.
+You should plant it.
 So long as the|ground stays wet,
 it will grow.
-        ]], {item.name})
+        ]], item.name)
   end
 end
 
@@ -1868,18 +1871,7 @@ function i_grab(item,tx,ty)
 end
 
 function give_tool(item)
-  if chapter==3 then
-    if objective == "talk to penny" then
-      objective=nil
-      do_script(cs_didclear)
-    else
-      do_script([[
-p=py_mid_talk
-Help me move these|rocks, ok?
-We need a big clear|space.
-      ]])
-    end
-  elseif grabbed_item then
+  if grabbed_item then
     do_script([[
 p=py_down_wry
 Hey, careful where|you put that.
@@ -1888,8 +1880,8 @@ Hey, careful where|you put that.
      do_script([[
 p=py_mid_wry
 Hey there Robo!
-Did you have|flowers for me?
-Pick them from the|menu and show me.
+Did you have|something for me?
+Pick it from the|menu and show me.
      ]])
   else
     do_script([[
@@ -1980,6 +1972,31 @@ I love the feel of|grass under my feet.
 ]])
 
 function give_logs()
+  if penny_want_count and not penny_want_seed then
+    if log_count>=penny_want_count then
+      do_script([[
+p=py_up_talk
+It's the logs I|was looking for!
+I'll take these to mom!
+
+call=penny_gets_what_she_wants
+]])
+      log_count -= penny_want_count
+      penny_want_count = nil
+    else
+      local remaining=penny_want_count-log_count
+      do_script([[
+p=py_up_talk
+Logs! Great!
+Just need $1 more...
+]], remaining)
+    end
+  else
+    do_script([[
+p=py_mid_wry
+Been chopping some wood?
+]])
+  end
 end
 
 tl_logs=tool(120,"logs",i_logs,give_logs)
@@ -2359,11 +2376,11 @@ end
 function check_outside()
   if px<16 and not penny_hidden then
     penny_face(px, py)
-    do_script(cs_move_rocks)
+    do_script(cs_ch_3_intro)
   end
 end
 
-cs_move_rocks=[[
+cs_ch_3_intro=[[
 p=py_up_talk
 There you are!
 
@@ -2388,63 +2405,37 @@ call=start_ch3
 
 function script:start_ch3()
   chapter = 3
-  penny_start_wander()
   penny_want_count = 4 -- nil seed means logs
+  penny_start_wander()
 end
 
 function script:start_ch4()
+  -- called from penny getting those logs...
   chapter = 4
-  tank_level = max_tank
-  objective_fn=check_wanted_flowers
-  penny_start_wander()
+  penny_start_leave_then_wander()
 end
 
-function check_wanted_flowers()
-   if has_wanted_flowers() then
-      objective_fn=nil
-      penny_face(px, py)
-      do_script([[
+cs_give_tools=[[
 p=py_up_talk
-Did you get the|flowers?
-Great!|Bring them here.
-      ]])
-   end
-end
+Hey, Robo!
+I have something for you!
+Wait right there!
 
-function has_wanted_flowers()
-   for fp in all(flower_pockets) do
-      if fp.seed == penny_want_seed and
-         fp.flower_count >= penny_want_count then
-         return true
-      end
-   end
-   return false
-end
-
-cs_didclear=[[
-call=didclear_look_at
-p=py_up_talk
-Hey!|You did it!
-Looks great!
-
-p=py_mid_talk
-Wait a bit, I'll be|back!
-
-call=didclear_leave_come_back
+call=give_tools_leave_come_back
 
 p=py_mid_wry
 Now, don't move, OK?
 Just gonna open you|up...
 
-call=didclear_give_tools
+call=give_tools_give_tools
+
+p=py_up_talk
+Done!
 
 p=py_mid_talk
-Done!
-Ok, check it out.|Tools!
+Ok, check it out.|New tools!
 I've given you some|useful stuff.
-You've got a|watering can...
-...and this neat|little plow...
-...and then this seed|pouch!
+A seed pouch and a|watering can!
 
 p=py_mid_wry
 Press 🅾️ to open the|menu to see.
@@ -2459,14 +2450,10 @@ She sounds mad.
 Maybe some flowers|will cheer her up...
 Can you get me 3|flowers?
 
-call=start_ch4
+call=start_ch5
 ]]
 
-function script:didclear_look_at()
-  penny_face(px, py)
-end
-
-function script:didclear_leave_come_back()
+function script:give_tools_leave_come_back()
    penny_leave()
 
    yield_frames(15)
@@ -2476,7 +2463,7 @@ function script:didclear_leave_come_back()
    penny_show(penny_x, penny_y, 0)
 end
 
-function script:didclear_give_tools()
+function script:give_tools_give_tools()
    d=2 -- look down (face penny)
    for i=1,2 do
      sfx(1,3) -- tool sound
@@ -2484,19 +2471,52 @@ function script:didclear_give_tools()
    end
 
    -- grant the new flower seed.
-   -- this isn't in start_ch4 because we don't want to do this on
+   -- this isn't in start_ch5 because we don't want to do this on
    -- load_game.
    get_flower(flower_seeds[1], 0, 3)
-   penny_want_seed=flower_seeds[1]
-   penny_want_count=3
+   penny_want_seed = flower_seeds[1]
+   penny_want_count = 3
 end
 
 function script:start_ch5()
   chapter = 5
   tank_level = max_tank
   penny_start_wander()
+  objective_fn = check_wanted_flowers
 end
 
+function check_wanted_flowers()
+   if has_wanted_flowers() then
+      objective_fn=nil
+      penny_face(px, py)
+      do_script([[
+p=py_up_talk
+Did you get the|flowers?
+Great!|Bring them over here!
+      ]])
+   end
+end
+
+function has_wanted_flowers()
+  if penny_want_count then
+    if penny_want_seed then
+      for fp in all(flower_pockets) do
+        if fp.seed == penny_want_seed and
+          fp.flower_count >= penny_want_count then
+          return true
+        end
+      end
+    elseif log_count >= penny_want_count then
+      return true
+    end
+  end
+  return false
+end
+
+function script:start_ch6()
+  chapter = 6
+  penny_start_leave_then_wander()
+end
 
 --
 
@@ -2598,26 +2618,27 @@ portraits={
    py_down_smile={top=196,bot=232}
 }
 
-function do_script(script_text, args)
-   script_coro = cocreate(function()
-         local p = portraits.blank
-         for line in all(split(script_text,"\n")) do
-            line=strip(line)
-            if #line==0 then
-               -- nothing
-            elseif sub(line,1,2)=="p=" then
-               p=portraits[sub(line,3)]
-            elseif sub(line,1,5)=="call=" then
-               script[sub(line,6)]()
-            else
-               line=doctor(line, args)
-               show_text(line, p.top, p.bot)
-            end
-         end
-         update_fn=update_walk
-   end)
-   update_fn=update_script
-   assert(coresume(script_coro)) -- one step
+function do_script(script_text, ...)
+  local args={...}
+  script_coro = cocreate(function()
+      local p = portraits.blank
+      for line in all(split(script_text,"\n")) do
+        line=strip(line)
+        if #line==0 then
+          -- nothing
+        elseif sub(line,1,2)=="p=" then
+          p=portraits[sub(line,3)]
+        elseif sub(line,1,5)=="call=" then
+          script[sub(line,6)]()
+        else
+          line=doctor(line, args)
+          show_text(line, p.top, p.bot)
+        end
+      end
+      update_fn=update_walk
+  end)
+  update_fn=update_script
+  assert(coresume(script_coro)) -- one step
 end
 
 local text
@@ -2790,6 +2811,16 @@ function penny_leave()
 end
 script.penny_leave = penny_leave
 
+cs_request_flowers=[[
+p=py_mid_talk
+Robo?
+I was wondering...
+Could you please get|me more flowers?
+Mom really liked the|last ones.
+$1 ^$2 flowers?
+Thanks!
+]]
+
 function penny_wander_around()
   while daytime do
     local dst = rnd_int(14)+1
@@ -2804,18 +2835,15 @@ function penny_wander_around()
 
     penny_run_to(tx, ty)
 
-    if chapter>=4 and not penny_want_seed then
-      penny_want_seed=rnd(flower_seeds)
-      penny_want_count=rnd_int(7)+3
-      do_script([[
-p=py_mid_talk
-Robo?
-I was wondering...
-Could you please get|me more flowers?
-Mom really liked the|last ones.
-$1 ^$2 flowers?
-Thanks!
-      ]], {penny_want_count, penny_want_seed.name})
+    -- advance the plot if we're waiting on penny
+    if px<16 then
+      if chapter==4 then
+        do_script(cs_give_tools)
+      elseif chapter>=6 and not penny_want_count then
+        penny_want_seed=rnd(flower_seeds)
+        penny_want_count=rnd_int(7)+3
+        do_script(cs_request_flowers, penny_want_count, penny_want_seed.name)
+      end
     end
 
     local t=rnd(30)+45
@@ -2835,6 +2863,11 @@ end
 function penny_start_wander()
   penny_DBG_thread_name = "start_wander"
   penny__thread = cocreate(function()
+      if penny_x >= 16 then
+        -- If you're inside then please go outside
+        penny_leave()
+        penny_show(7,3,2) -- shrug
+      end
       while true do
         -- Wander around the field until...
         penny_wander_around()
@@ -2857,7 +2890,9 @@ function penny_start_leave_then_wander()
   penny_DBG_thread_name = "start_leave_then_wander"
   penny__thread = cocreate(function()
       penny_leave()
-      yield_until(hour + 1)
+      if not penny_gone_days then penny_gone_days = 1 end
+      while penny_gone_days do yield() end
+      yield_until(8) -- wait until morning
       penny_start_wander()
   end)
 end

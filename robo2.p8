@@ -471,8 +471,7 @@ end
 function init_game()
   blank_screen=false
 
-  -- init items
-  item_sel=1
+  item_sel=tl_grab
 
   init_plants()
   init_menu()
@@ -518,11 +517,12 @@ end
 
 function open_item_menu()
   menu_mode=true
-  menu_sel=item_sel
+  menu_sel=1
 
   menu_items=get_items()
-  for it in all(menu_items) do
-    it.on_select=function(idx) item_sel=idx end
+  for mi,it in pairs(menu_items) do
+    if it==item_sel then menu_sel=mi end
+    it.on_select=function(item) item_sel=item end
   end
   if chapter>1 then
     add(menu_items,{
@@ -564,17 +564,16 @@ function map_flag_all(x,y,f)
 end
 
 function use_thing()
-  local item=get_items()[item_sel]
   local tx,ty=looking_at()
-  local give=item.give
+  local give=item_sel.give
   if tx==penny_x and ty==penny_y and give then
     if type(give)=="function" then
-      give(item)
+      give(item_sel)
     else
       do_script(give)
     end
-  elseif item.fn != nil then
-    item.fn(item, tx, ty)
+  elseif item_sel.fn != nil then
+    item_sel.fn(item_sel, tx, ty)
   end
 end
 
@@ -831,7 +830,7 @@ function update_menu()
     else
       menu_mode=false
       update_fn=update_walk
-      it.on_select(menu_sel)
+      it.on_select(it)
     end
   end
 
@@ -926,12 +925,11 @@ function draw_menu(items, selection)
         lx+10-flower_size/2,ly+3-flower_size/2)
     end
     if it.disabled then color(5) else color(7) end
-    print(it.name,lx+16,ly)
-    if it.flower_count then
-      print(
-        it.flower_count.."/"..it.seed_count,
-        lx+40, ly)
-    end
+
+    local name=it.name
+    if it.name_fn then name=it:name_fn() end
+    print(name,lx+16,ly)
+
     ly += 10
   end
 end
@@ -997,12 +995,11 @@ end
 function draw_item()
   draw_box(96,104,2,1)
   print("🅾️",103,114,7)
-  local items=get_items()
-  if items[item_sel].icon then
-    spr(items[item_sel].icon,112,112)
+  if item_sel.icon then
+    spr(item_sel.icon,112,112)
   else
     sspr(
-      items[item_sel].sx,items[item_sel].sy,
+      item_sel.sx,item_sel.sy,
       flower_size,flower_size,
       116-flower_size/2,116-flower_size/2)
   end
@@ -1790,6 +1787,9 @@ function get_flower(seed, flower_count, seed_count)
           name=seed.name,fn=i_plant,give=give_flower,
           seed=seed,flower_count=0,
           seed_count=0}
+    function fp:name_fn()
+      return self.name.."  "..self.flower_count.."/"..self.seed_count
+    end
     add(flower_pockets,fp)
   end
 
@@ -1986,6 +1986,9 @@ function give_logs()
 end
 
 tl_logs=tool(120,"logs",i_logs,give_logs)
+function tl_logs:name_fn()
+  return "logs  "..log_count
+end
 
 function get_items()
   local items={tl_grab,tl_saw,tl_shovel}
@@ -1994,7 +1997,7 @@ function get_items()
     add(items,tl_grass)
   end
   if log_count>0 then
-    add(items,tl_logs) -- todo: custom label
+    add(items,tl_logs)
   end
   for fp in all(flower_pockets) do
     add(items, fp)

@@ -2682,9 +2682,7 @@ function draw_text()
   if sub(ss,-1,-1)=="^" then
     ss=sub(ss,1,-2)
   end
-  draw_string(
-    ss,
-    28,114-11,7)
+  draw_string(ss,28,103,7)
 
   color(7)
   if text_time==text_limit and
@@ -2968,7 +2966,7 @@ end
 -- if c is provided, the current
 -- color will be set to that
 -- color first.
-function draw_string(str,x,y,c,m)
+function draw_string(str,x,y,c)
   if (c) color(c)
   local lx,ly=x,y
   local i,font=1,_jd_font
@@ -2988,11 +2986,10 @@ function draw_string(str,x,y,c,m)
 
       local glyph=font[c]
       --assert(glyph, "char "..chr(c).." not in font")
-      if (not m) draw_font_glyph(glyph,lx,ly)
+      draw_font_glyph(glyph,lx,ly)
       lx+=glyph.w+1
     end
   end
-  return lx,ly
 end
 __gfx__
 0000000000cccccccccccc0000cccccccccccc00ccc0ccccccccccccccc0cccccccccccc00cccccccccccc0000cccccccccccc0000cccccccccccc0000000000

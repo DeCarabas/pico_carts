@@ -2810,10 +2810,6 @@ function penny_leave()
   penny_hidden=true
 end
 
-function penny_is_close()
-  return abs(penny_x-px)<=2 and abs(penny_y-py)<=2
-end
-
 function penny_wander_around()
   while daytime do
     local dst = rnd_int(14)+1
@@ -2844,13 +2840,14 @@ Thanks!
 
     local t=rnd(30)+45
     while daytime and t>0 do
-       if penny_is_close() then
-          penny_face(px,py)
-          t-=0.1
-       else
-          t-=1
-       end
-       yield()
+      if abs(penny_x-px)<=2 and abs(penny_y-py)<=2 then
+        --penny is close
+        penny_face(px,py)
+        t-=0.1
+      else
+        t-=1
+      end
+      yield()
     end
   end
 end

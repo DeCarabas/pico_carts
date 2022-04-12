@@ -17,6 +17,7 @@ __lua__
 -- :todo: birds singing at night?
 -- :todo: call penny to you
 -- :todo: treasure
+-- :todo: rain not clearing
 
 -- tests: wait outside for penny through midnight
 
@@ -311,8 +312,6 @@ function save_game()
   end
   w:pack(4, want_seed, want_count) -- 250
 
-  w:write(penny_wait_hours or 0)    -- 251
-
   -- 5 bytes to spare! tree seeds maybe! :)
 end
 
@@ -390,8 +389,7 @@ function load_game()
     if penny_want_count == 0 then penny_want_count=nil end
   end
 
-  penny_wait_hours = w:read()
-  if penny_wait_hours == 0 then penny_wait_hours = nil end
+  penny_start_wander()
 
   -- deal with the chapters.
   local start=script["start_ch"..chapter]
@@ -625,7 +623,6 @@ function sleep_until_morning()
 
        tick_midnight()
        hour=8
-       penny_wait_hours = nil -- always here
        save_game()
 
        fade_in()
@@ -645,15 +642,12 @@ function update_sleep()
 end
 
 function yield_until(until_hour)
-  while until_hour >= 24 do
-    until_hour-=24
+  while until_hour >= 24 do until_hour-=24 end
+  if until_hour < hour then
+    local today=day
+    while day==today do yield() end
   end
-  while until_hour < hour do
-    yield()
-  end
-  while hour < until_hour do
-    yield()
-  end
+  while hour < until_hour do yield() end
 end
 
 function yield_frames(f)
@@ -709,11 +703,6 @@ function update_time()
 
   season = flr(day/28)+1
   winter = season==3
-
-  if penny_wait_hours then
-    penny_wait_hours -= hour_inc
-    if penny_wait_hours <= 0 then penny_wait_hours = nil end
-  end
 end
 
 function update_bgm()
@@ -1355,9 +1344,6 @@ function draw_game()
   -- draw_debug()
   cursor(0,0,7)
   print("chapter "..chapter)
-  if penny_wait_hours then
-    print("PENNY RETURNS IN "..penny_wait_hours)
-  end
 end
 
 function _draw()
@@ -2470,7 +2456,7 @@ function script:give_tools_give_tools()
    d=2 -- look down (face penny)
    for i=1,2 do
      sfx(1,3) -- tool sound
-     yield_frames(20)
+     yield_frames(20) -- :todo: wrong!
    end
 
    -- grant the new flower seed.
@@ -2702,8 +2688,6 @@ end
 -- she used to be all objectish
 -- but i needed to take the tokens
 -- back
-penny_x=nil
-penny_y=nil
 penny_d=0
 penny_speed=0.09
 penny_frame=0
@@ -2711,36 +2695,35 @@ penny__thread=nil
 
 function draw_penny()
   if penny_hidden then return end
-  if penny_x ~= nil then
-    local f,sy,sh,sx,sw=false,32,16
-    if penny_d==0 or penny_d==2 then
-      sx,sw=72,10
-      if penny_d==2 then
-        sy+=sh
-      end
-      if penny_frame>=1 then
-        sx+=sw
-      end
-    else
-      if penny_frame<1 then
-        sx,sw=92,12
-      else
-        sx,sw=105,18
-      end
-      if penny_d==-1 then
-        f=true
-      end
-    end
 
-    palt(0, false)
-    palt(12, true)
-    sspr(
-       sx,sy,sw,sh,
-       (penny_x-map_left)*8, penny_y*8-8,
-       sw,sh,
-       f)
-    palt()
+  local f,sy,sh,sx,sw=false,32,16
+  if penny_d==0 or penny_d==2 then
+    sx,sw=72,10
+    if penny_d==2 then
+      sy+=sh
+    end
+    if penny_frame>=1 then
+      sx+=sw
+    end
+  else
+    if penny_frame<1 then
+      sx,sw=92,12
+    else
+      sx,sw=105,18
+    end
+    if penny_d==-1 then
+      f=true
+    end
   end
+
+  palt(0, false)
+  palt(12, true)
+  sspr(
+    sx,sy,sw,sh,
+    (penny_x-map_left)*8, penny_y*8-8,
+    sw,sh,
+    f)
+  palt()
 end
 
 function penny_update()
@@ -2773,6 +2756,7 @@ function penny_face(tx, ty)
 end
 
 function penny_run_to(tx, ty)
+  penny_hidden=false
   penny_face(tx, ty)
   local direction = penny_d
 
@@ -2862,11 +2846,6 @@ end
 function penny_start_wander()
   penny_DBG_thread_name = "start_wander"
   penny__thread = cocreate(function()
-      if penny_x >= 16 then
-        -- If you're inside then please go outside
-        penny_leave()
-        penny_show(7,3,2) -- shrug
-      end
       while true do
         -- Wander around the field until...
         penny_wander_around()
@@ -2879,7 +2858,6 @@ function penny_start_wander()
         yield_until(8)
 
         -- come back to the field
-        penny_hidden=false
         penny_run_to(old_x, penny_y)
       end
   end)
@@ -2889,11 +2867,7 @@ function penny_start_leave_then_wander()
   penny_DBG_thread_name = "start_leave_then_wander"
   penny__thread = cocreate(function()
       penny_leave()
-      if not penny_wait_hours then
-        penny_wait_hours = 32-hour -- wait until midnight then 8am
-      end
-      while penny_wait_hours do yield() end
-      yield_until(8) -- wait until morning
+      yield_until(8)
       penny_start_wander()
   end)
 end

@@ -8,18 +8,15 @@ __lua__
 --
 -- $ cat robo.p8 | sed 's/--.*//g' | sed '/^[ ]*$/d' > robo_release.p8
 --
--- :todo: what is 6x6?
--- :todo: victory tune when cleared (a ping?)
 -- :todo: fix transition walking in
 -- :todo: weather through the window
 -- :todo: weather sound indoors
 -- :todo: snow on the trees
--- :todo: birds singing at night?
 -- :todo: call penny to you
 -- :todo: treasure
 -- :todo: rain not clearing
-
--- tests: wait outside for penny through midnight
+-- :todo: re-work item dialog for more better.
+-- :todo: grass spreads??????
 
 -- the base object for the cutscene system
 script={}
@@ -613,16 +610,24 @@ end
 
 is_sleeping = false
 
+function dedicate_thread(fn)
+  local thread=cocreate(fn)
+  update_fn=function() assert(coresume(thread)) end
+  update_fn() -- one tick to get started
+end
+
 function sleep_until_morning()
-   sleep_thread=cocreate(function()
+  dedicate_thread(function()
        animate("1,15,13,15,45,15")
        yield()
 
        is_sleeping=true
        fade_out()
 
-       tick_midnight()
-       hour=8
+       -- OK this could actually take a long time?
+       -- Do we.... care?
+       local today=day
+       while day==today or hour<8 do update_core() end
        save_game()
 
        fade_in()
@@ -633,16 +638,9 @@ function sleep_until_morning()
        is_sleeping=false
        update_fn=update_walk
    end)
-   update_fn=update_sleep
-   assert(coresume(sleep_thread))
-end
-
-function update_sleep()
-   assert(coresume(sleep_thread))
 end
 
 function yield_until(until_hour)
-  while until_hour >= 24 do until_hour-=24 end
   if until_hour < hour then
     local today=day
     while day==today do yield() end
@@ -736,7 +734,10 @@ end
 
 function update_walk()
   update_core()
-  check_objective()
+
+  if objective_fn then
+    objective_fn()
+  end
 
   if px==tx and py==ty then
     if btnp(⬅️) then
@@ -2389,7 +2390,7 @@ And I thought...|well....
 
 p=py_up_talk
 You could get it|for us!
-You've got that saw!
+You've got that|saw!
 Felling some trees|should be easy!
 
 p=py_mid_talk
@@ -2504,7 +2505,6 @@ end
 
 --
 
-
 cs_nobattery=[[
 call=nobattery_pre
 
@@ -2538,19 +2538,6 @@ function script:nobattery_pre()
 end
 
 --
-
-function check_objective()
-  if objective_fn then
-    objective_fn()
-  end
-end
-
-local script_coro = nil
-
-function update_script()
-  idle_time = 0
-  assert(coresume(script_coro))
-end
 
 function strip(txt)
    local s = 1
@@ -2603,8 +2590,9 @@ portraits={
 }
 
 function do_script(script_text, ...)
+  idle_time = 0 -- hide the hud for scripts
   local args={...}
-  script_coro = cocreate(function()
+  dedicate_thread(function()
       local p = portraits.blank
       for line in all(split(script_text,"\n")) do
         line=strip(line)
@@ -2621,8 +2609,6 @@ function do_script(script_text, ...)
       end
       update_fn=update_walk
   end)
-  update_fn=update_script
-  assert(coresume(script_coro)) -- one step
 end
 
 local text
@@ -2694,7 +2680,8 @@ penny_frame=0
 penny__thread=nil
 
 function draw_penny()
-  if penny_hidden then return end
+  -- If penny is hidden *or* the player and penny are on different screens
+  if penny_hidden or (px>16 and penny_x<=16) then return end
 
   local f,sy,sh,sx,sw=false,32,16
   if penny_d==0 or penny_d==2 then
@@ -2756,7 +2743,7 @@ function penny_face(tx, ty)
 end
 
 function penny_run_to(tx, ty)
-  penny_hidden=false
+  penny_hidden = false
   penny_face(tx, ty)
   local direction = penny_d
 

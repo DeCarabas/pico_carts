@@ -682,7 +682,7 @@ function tick_midnight()
         end
 
         if item==250 then -- tree sprout
-          if rnd_int(1)==0 then -- :testtest: 14 random chance for growth
+          if rnd_int(14)==0 then
             -- sprout -> sapling
             add_tree(x,y,150)
           end
@@ -1431,8 +1431,8 @@ function add_bird()
           -- if (not is_sleeping) sfx_yield(2, 3)
           yield_frames(15)
         end
-        if (title_screen or chapter>=0) and not map_flag(tx,ty,1) then
-          if rnd_int(1)==0 then -- :testtest: should be 17, ch4
+        if (title_screen or chapter>=5) and not map_flag(tx,ty,1) then
+          if rnd_int(17)==0 then
             set_item(tx,ty,250) -- tree sprout
           else
             add_flower(rnd(flower_seeds), 0.25, tx, ty)
@@ -2257,7 +2257,7 @@ It works!
 
 p=blank
 PENNY?
-WHERE ARE|YOU?
+WHERE ARE YOU?
 
 call=intro_penny_turn
 p=py_up_intense
@@ -2286,7 +2286,7 @@ function script:intro_penny_turn_back()
 end
 
 function script:intro_post()
-  penny_leave()
+  penny_start_leave()
   energy_level = walk_cost * 28
   tank_level = 0
   chapter = 1
@@ -2394,7 +2394,7 @@ Felling some trees|should be easy!
 
 p=py_mid_talk
 Can you cut some|logs for me?
-Four should do it.
+4 logs should be|enough.
 
 call=start_ch3
 ]]

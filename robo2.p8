@@ -95,7 +95,15 @@ function new_game()
     end
   end
 
-  for fi=0,14 do
+  -- 14 distinct flowers. This isn't a power of 2.
+  -- We need to keep it under 16 so that we can
+  -- encode the seed index in 4 bits (for savegame
+  -- reasons), but we also want a spare bit pattern
+  -- so we can encode "want some logs" in the save
+  -- as well. Look at the math in save_game to
+  -- understand why we need to choose an even number
+  -- of flowers.
+  for fi=0,13 do
     add(flower_seeds, flower:new(flower_size,fi))
   end
 
@@ -220,12 +228,12 @@ function save_game()
   -- energy_level = 100
   w:write(grabbed_item)       -- 3
 
-  -- now pack up the seeds. we have 16 flower seeds,
-  -- and each uses two bytes, so we use 32 bytes here.
-  assert(#flower_seeds==15)
+  -- now pack up the seeds. we have 14 flower seeds,
+  -- and each uses two bytes, so we use 28 bytes here.
+  assert(#flower_seeds==14)
   for fs in all(flower_seeds) do
     w:write2(fs.seed<<16)
-  end                         -- 33
+  end                         -- 31
 
   -- now pack up the items. each item gets 6 bits.
   -- the high bits are the signal bits:
@@ -284,12 +292,11 @@ function save_game()
       end
       w:pack(6, encoded)
     end
-  ) -- 225
+  )                                -- 223
   -- assert(w.write_bits==8 and w.buffer==0)
 
-  -- write the flower pockets
-  -- 16 flowers, 63 max=6 bits, 2 values=12 bits
-  -- 16*12/8=24 bytes
+  -- 14 flowers. 6 bits per count, two counts.
+  -- 2 * 7 * 2 * 3 * 2 = 21 bytes
   for fs in all(flower_seeds) do
     local fc,sc=0,0
     for fp in all(flower_pockets) do
@@ -298,18 +305,19 @@ function save_game()
       end
     end
     w:pack(6, fc, sc)
-  end                              -- 249
+  end                              -- 244
   -- assert(w.write_bits==8 and w.buffer==0)
 
+  -- What does penny want?
   local want_seed,want_count=0,penny_want_count or 0
   for fi=1,#flower_seeds do
      if flower_seeds[fi]==penny_want_seed then
-        want_seed=fi-1
+        want_seed=fi -- values [1,14]
      end
   end
-  w:pack(4, want_seed, want_count) -- 250
+  w:pack(4, want_seed, want_count) -- 245
 
-  -- 5 bytes to spare! tree seeds maybe! :)
+  -- 11 bytes to spare! tree seeds maybe! :)
 end
 
 function load_game()
@@ -328,7 +336,7 @@ function load_game()
   end
 
   flower_seeds={}
-  for fi=0,14 do
+  for fi=0,13 do
      local seed = w:read2()
      add(flower_seeds, flower:new(flower_size, fi, seed>>16))
   end
@@ -370,7 +378,7 @@ function load_game()
 
   -- unpack the flower pockets
   flower_pockets={}
-  for fi=1,16 do
+  for fi=1,#flower_seeds do
     local fc,sc=w:unpack(6, 2)
     if fc>0 or sc>0 then
       --assert(fi<=#flower_seeds,tostr(fi))
@@ -378,17 +386,15 @@ function load_game()
     end
   end
 
+  -- penny want values
+  penny_want_seed=nil
   fi,penny_want_count = w:unpack(4, 2)
-  if penny_want_count>0 and fi~=15 then
-    penny_want_seed=flower_seeds[fi+1]
-  else
-    penny_want_seed=nil
-    if penny_want_count == 0 then penny_want_count=nil end
-  end
+  if fi>0 then penny_want_seed=flower_seeds[fi] end
+  if penny_want_count==0 then penny_want_count=nil end
 
   penny_start_wander()
 
-  -- deal with the chapters.
+  -- run chapter-specific init, if we have one
   local start=script["start_ch"..chapter]
   if start then start() end
 end
@@ -617,6 +623,7 @@ function dedicate_thread(fn)
 end
 
 function sleep_until_morning()
+  idle_time=0
   dedicate_thread(function()
        animate("1,15,13,15,45,15")
        yield()

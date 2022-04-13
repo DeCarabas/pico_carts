@@ -15,8 +15,8 @@ __lua__
 -- :todo: call penny to you
 -- :todo: treasure
 -- :todo: rain not clearing
--- :todo: re-work item dialog for more better.
 -- :todo: grass spreads??????
+-- :todo: sound for text characters?
 
 -- the base object for the cutscene system
 script={}
@@ -399,50 +399,6 @@ function load_game()
   if start then start() end
 end
 
---[[
-function test_save_load()
-  cls() color(7)
-  new_game() init_game()
-  log_count=5
-  print("setup...")
-  for i=1,#flower_seeds do
-    get_flower(flower_seeds[i], i, i*2)
-  end
-  assert(#flower_seeds==14,"wrong number of seeds")
-  assert(#flower_seeds==#flower_pockets)
-  penny_want_seed=flower_seeds[3]
-  penny_want_count=3
-
-  local old_seeds=flower_seeds
-
-  print("save...")
-  save_game()
-
-  log_count=0 flower_seeds={} flower_pockets={}
-  penny_want_count=nil
-
-  print("load...")
-  load_game()
-
-  print("checking...")
---  assert(#old_seeds==#flower_seeds,"roundtrip flowers")
---  for i=1,#old_seeds do
---    assert(old_seeds[i].seed==flower_seeds[i].seed,"seed "..i.." seed mismatch")
---  end
-
-  assert(log_count==5,"wrong logs")
-  assert(#flower_pockets==14,"wrong number of seeds")
-  for i=1,#flower_pockets do
-    assert(flower_pockets[i].seed==flower_seeds[i], "seed "..i.." mismatch")
-    assert(flower_pockets[i].flower_count==i,  "seed "..i.." flower mismatch")
-    assert(flower_pockets[i].seed_count==i*2,  "seed "..i.." seed mismatch")
-  end
-  assert(penny_want_seed==flower_seeds[3],"wrong want seed")
-  assert(penny_want_count==3,"wrong want count")
-  print("ok")
-end
-]]
-
 -- function dump_hex()
 --   local w = stream:new_read(0x5e00,256)
 --   for i=1,256 do
@@ -454,11 +410,42 @@ end
 -- end
 
 -- in v1 these were random but now, no.
-base_x=24
-base_y=4
+base_x=24 base_y=4
 
--- player state
-function init_player()
+-- init_game sets up the in-game lua state.
+-- called after new_game or load_game.
+function init_game()
+  -- blank_screen=false
+
+  -- ===========================
+  -- init items
+  -- ===========================
+  item_sel=tl_grab
+
+  -- ===========================
+  -- init menu
+  -- ===========================
+  menu_mode=false
+  menu_sel=1
+  menu_top=1
+  menu_items={}
+
+  -- ===========================
+  -- init time
+  -- ===========================
+  -- days are 24 hrs long
+  -- this is how much of an hr we
+  -- tick every frame. (tweak for
+  -- fun!)
+  hour_inc=0.0036 --*10
+
+  recharge_rate=100*hour_inc/4
+  water_rate=100*hour_inc/2
+  flower_rate=1*hour_inc/24
+
+  -- ===========================
+  -- init player
+  -- ===========================
   d=2 spd=0.125 walking=false
   idle_time=0
 
@@ -479,40 +466,33 @@ function init_player()
   anim_index=nil
   anim_duration=nil
   anim_done=nil
-end
 
--- menu state
-function init_menu()
-  menu_mode=false
-  menu_sel=1
-  menu_top=1
-  menu_items={}
-end
+  -- ===========================
+  -- init "plants"
+  -- ===========================
+  -- these are all the live
+  -- plants, really just grass
+  -- these days.
+  plants={}
+  all_map(function(x,y,sp)
+      if sp>=144 and sp<147 then
+        add(plants,{age=rnd(),x=x,y=y})
+      end
+  end)
 
--- days are 24 hrs long
--- this is how much of an hr we
--- tick every frame. (tweak for
--- fun!)
-function init_time()
-  hour_inc=0.0036 --*10
+  -- ===========================
+  -- init weather
+  -- ===========================
+  raining=false
+  rain={}
+  max_rain=2000
+  weather_elapsed=6
+  season_rain = split"10,4,2,3" -- 1 is summer
 
-  recharge_rate=100*hour_inc/4
-  water_rate=100*hour_inc/2
-  flower_rate=1*hour_inc/24
-end
-
-function init_game()
-  blank_screen=false
-
-  item_sel=tl_grab
-
-  init_plants()
-  init_menu()
-  init_time()
-  init_player()
-  init_weather()
-  init_text()
-  init_birds()
+  -- ===========================
+  -- init birds
+  -- ===========================
+  birds={}
 end
 
 
@@ -525,7 +505,6 @@ function _init()
   cartdata("doty_robo_2_p8_v2")
 
   load_font()
-  init_fx()
 
   new_game()
   init_game()
@@ -1456,10 +1435,6 @@ function i_water(item,tx,ty)
   )
 end
 
-function init_birds()
-  birds={}
-end
-
 function add_bird()
   local tx,ty=rnd_int(10)+3,rnd_int(10)+3
   local b
@@ -1654,19 +1629,6 @@ end
 
 flowers={}
 flower_size=6
-
-function init_plants()
-  -- these are all the live
-  -- plants, really just grass
-  -- these days, but also baby
-  -- trees.
-  plants={}
-  all_map(function(x,y,sp)
-      if sp>=144 and sp<147 then
-        add(plants,{age=rnd(),x=x,y=y})
-      end
-  end)
-end
 
 function update_plants()
   for p in all(plants) do
@@ -2074,14 +2036,6 @@ end
 -->8
 -- weather
 --
-function init_weather()
-  raining=false
-  rain={}
-  max_rain=2000
-  weather_elapsed=6
-  season_rain = split"10,4,2,3" -- 1 is summer
-end
-
 function update_weather()
   weather_elapsed += hour_inc
   if weather_elapsed>=6 then
@@ -2148,26 +2102,27 @@ function draw_weather()
 end
 -->8
 -- fx
-function init_fx()
-  dark_levels={}
-  for x=0,5 do
-    local ramp={}
-    for y=0,15 do
-      ramp[y]=sget(x,y+40)
-    end
-    dark_levels[x]=ramp
+-- =============================
+-- init_fx
+dark_levels={}
+for x=0,5 do
+  local ramp={}
+  for y=0,15 do
+    ramp[y]=sget(x,y+40)
   end
-  original_pal=pal
-
-  -- dark levels by hour.
-  -- :todo: should also factor in phase of moon?
-  sunshine_map={}
-  for i=0,4   do sunshine_map[i]=3    end
-  for i=5,8   do sunshine_map[i]=8-i  end
-  for i=9,16  do sunshine_map[i]=0    end
-  for i=17,19 do sunshine_map[i]=i-16 end
-  for i=20,24 do sunshine_map[i]=3    end
+  dark_levels[x]=ramp
 end
+original_pal=pal
+
+-- dark levels by hour.
+-- :todo: should also factor in phase of moon?
+sunshine_map={}
+for i=0,4   do sunshine_map[i]=3    end
+for i=5,8   do sunshine_map[i]=8-i  end
+for i=9,16  do sunshine_map[i]=0    end
+for i=17,19 do sunshine_map[i]=i-16 end
+for i=20,24 do sunshine_map[i]=3    end
+-- =============================
 
 function enable_lighting()
   local light_level = light_override or sunshine_map[flr(hour)]
@@ -2667,12 +2622,6 @@ function do_script(script_text, ...)
       end
       update_fn=update_walk
   end)
-end
-
-local text
-
-function init_text()
-  text = nil
 end
 
 function show_text(t, top, bot)
@@ -3358,4 +3307,3 @@ __music__
 04 22424344
 04 20424344
 04 23424344
-

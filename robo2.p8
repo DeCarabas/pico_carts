@@ -9,11 +9,7 @@ __lua__
 -- $ cat robo.p8 | sed 's/--.*//g' | sed '/^[ ]*$/d' > robo_release.p8
 --
 -- :todo: fix transition walking in
--- :todo: weather through the window
--- :todo: weather sound indoors
--- :todo: snow on the trees
 -- :todo: treasure
--- :todo: rain not clearing
 -- :todo: grass spreads??????
 -- :todo: sound for text characters?
 

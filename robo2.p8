@@ -2829,7 +2829,7 @@ function penny_wander_around()
         do_script(cs_give_tools)
       elseif chapter>=6 and not penny_want_count then
         penny_want_count=rnd_int(7)
-        if 0==0 then -- rnd_int(5)
+        if rnd_int(5)==0 then
           do_script([[
 p=py_mid_talk
 Hey Robo...

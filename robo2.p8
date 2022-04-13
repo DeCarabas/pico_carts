@@ -512,7 +512,7 @@ function _init()
   -- menuitem(1,"+energy",function() energy_level=100 end)
   -- menuitem(2,"-energy",function() energy_level=mid(100,0,energy_level/2) end)
   -- menuitem(1,"rain",function() raining=not raining end)
-  -- menuitem(2,"snow",function() day=2*28 raining=not raining end)
+  -- menuitem(1,"snow",function() day=2*28 raining=not raining end)
   -- menuitem(4,"load", function()
   --            if load_game() then
   --              init_game()
@@ -1047,12 +1047,12 @@ function draw_map()
    if buzz_time>0 then
       ofy+=cos(buzz_time)
    end
-   if winter then
-      pal(5,6) pal(1,7)
-   end
+   if winter then pal(5,6) pal(1,7) end
    map(map_left, 0,ofx,ofy,16,16) -- base
    pal()
+   if winter then pal(3,6) pal(11,7) end
    map(map_left,16,ofx,ofy,16,16) -- item
+   pal()
 end
 
 function draw_player()
@@ -1662,7 +1662,9 @@ function draw_tree(t)
   local tpx,tpy=t.x*8, t.y*8
   spr_r(t.s, tpx-4, tpy-8, t.angle, 2, 2, 8, 16)
   if enable_leaves and t.s~=150 then
+    if winter then pal(10,7) pal(11,6) end
     spr_r(202, tpx-12, tpy-24, t.angle, 4, 3, 16, 32)
+    pal()
   end
 end
 

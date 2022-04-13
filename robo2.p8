@@ -2813,24 +2813,6 @@ function penny_leave()
 end
 script.penny_leave = penny_leave
 
-cs_request_flowers=[[
-p=py_mid_talk
-Robo?
-I was wondering...
-Could you please get|me more flowers?
-Mom really liked the|last ones.
-$1 ^$2 flowers?
-Thanks!
-]]
-
-cs_request_logs=[[
-p=py_mid_talk
-Hey Robo...
-Mom's running low on|lumber again.
-Can you get us|$1 more logs?
-Thank you!
-]]
-
 function penny_wander_around()
   while daytime do
     local dst = rnd_int(14)+1
@@ -2852,11 +2834,25 @@ function penny_wander_around()
       elseif chapter>=6 and not penny_want_count then
         penny_want_count=rnd_int(7)
         if 0==0 then -- rnd_int(5)
-          do_script(cs_request_logs, penny_want_count)
+          do_script([[
+p=py_mid_talk
+Hey Robo...
+Mom's running low on|lumber again.
+Can you get us|$1 more logs?
+Thank you!
+]], penny_want_count)
         else
           penny_want_seed=rnd(flower_seeds)
           penny_want_count+=3
-          do_script(cs_request_flowers, penny_want_count, penny_want_seed.name)
+          do_script([[
+p=py_mid_talk
+Robo?
+I was wondering...
+Could you please get|me more flowers?
+Mom really liked the|last ones.
+$1 ^$2 flowers?
+Thanks!
+]], penny_want_count, penny_want_seed.name)
         end
         objective_fn = check_wanted_flowers
       end

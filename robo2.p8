@@ -62,19 +62,11 @@ end
 --  chapter 4: waiting for penny
 --  chapter 5: get flowers for mom
 --  chapter 6: profit
+--  chapter 7: end...ish
+--  chapter 8: ever after
 function new_game()
-  chapter=0
-  day=0
-  hour=8
-  px=base_x
-  py=base_y
-  grabbed_item=nil
-  log_count=0
-
-  trees={}
-  flower_pockets={}
-  flowers={}
-  flower_seeds={}
+  chapter,day,hour,px,py,log_count,trees,flower_pockets,flowers,flower_seeds,treasure_x,treasure_y=
+    0,0,8,base_x,base_y,0,{},{},{},{},rnd_int(16),rnd_int(8)+8
 
   -- init the item sprite layer
   place_rand(20,144) --grass
@@ -311,8 +303,14 @@ function save_game()
      end
   end
   w:pack(4, want_seed, want_count) -- 245
+  w:pack(4, treasure_x, treasure_y)-- 246
+  if has_treasure then
+    w:write(1)
+  else
+    w:write(0)
+  end                              -- 247
 
-  -- 11 bytes to spare! tree seeds maybe! :)
+  -- 9 bytes to spare! tree seeds maybe! :)
 end
 
 function load_game()
@@ -386,6 +384,9 @@ function load_game()
   fi,penny_want_count = w:unpack(4, 2)
   if fi>0 then penny_want_seed=flower_seeds[fi] end
   if penny_want_count==0 then penny_want_count=nil end
+
+  treasure_x,treasure_y=w:unpack(4, 2)
+  has_treasure=w:read()==1
 
   penny_start_wander()
 
@@ -689,8 +690,8 @@ function time_near(t)
 end
 
 function update_time()
-  buzz_time = max(buzz_time - 0.75, 0)
-  buzz_msg_time = max(buzz_msg_time - 0.75, 0)
+  buzz_time,buzz_msg_time =
+    max(buzz_time - 0.75, 0),max(buzz_msg_time - 0.75, 0)
 
   hour += hour_inc
   if hour>=24 then
@@ -731,18 +732,6 @@ function update_time()
   winter = season==3
 end
 
-function update_bgm()
-  if not stat(57) then
-     if time_near(10) then
-        music(2)
-     elseif time_near(14) then
-        music(0)
-     elseif time_near(20) then
-        music(3)
-     end
-  end
-end
-
 function update_core()
   -- this is the core update fn
   -- of the game: what runs while
@@ -755,9 +744,42 @@ function update_core()
   update_time()
   update_weather()
   update_plants()
-  penny_update()
-  update_birds()
-  update_bgm()
+
+  -- ===========================
+  -- update penny
+  -- ===========================
+  daytime = hour >= 8 and hour <= 18
+  if penny__thread and costatus(penny__thread) ~= "dead" then
+    assert(coresume(penny__thread))
+  end
+
+  -- ===========================
+  -- update birds
+  -- ===========================
+  if not raining and #birds<1 and hour>4 and hour<16 then
+    add_bird()
+  end
+
+  for b in all(birds) do
+    assert(coresume(b.thread))
+  end
+
+  if #birds>0 and rnd_int(150)==0 and not raining then
+    sfx(2,3) -- chirp!
+  end
+
+  -- ===========================
+  -- update bgm
+  -- ===========================
+  if not stat(57) then
+     if time_near(10) then
+        music(2)
+     elseif time_near(14) then
+        music(0)
+     elseif time_near(20) then
+        music(3)
+     end
+  end
 end
 
 function update_walk()
@@ -789,7 +811,7 @@ function update_walk()
   if px < tx then px += spd end
   if py > ty then py -= spd end
   if py < ty then py += spd end
-  walking=not (tx == px and ty == py)
+  walking = tx ~= px or ty ~= py
   if walking then
     energy_level-=walk_cost
     idle_time=0
@@ -818,6 +840,43 @@ function update_walk()
      -- uh oh, trouble.
      if chapter < 2 then
         do_script(cs_firstcharge)
+     elseif chapter == 7 then
+       dedicate_thread(function()
+           animate("1,15,13,15,45,15")
+           yield()
+           chapter,idle_time,is_sleeping,hour_inc=8,1,true,0.36
+           for i=1,450 do -- 15s
+             for j=1,500 do update_core() end
+             yield()
+           end
+           fade_out()
+           do_script([[
+call=nobattery_pre
+
+p=blank
+...
+Robo?
+Oh gosh.
+Robo...
+...oof...
+
+call=show_screen
+p=py_down_smile
+Oh, thank goodness.
+Robo, it's been...
+
+p=py_mid_talk
+I'm sorry.|Remember..
+No matter what...
+I'll always be there|to help.
+
+p=py_mid_smile
+Come on.
+There's still flowers!
+
+call=penny_leave
+]])
+       end)
      else
         do_script(cs_nobattery)
      end
@@ -1198,56 +1257,6 @@ function draw_objective()
   end
 end
 
--- function draw_debug()
---   cursor(0,0,7)
---   if px!=nil and py!=nil then
---     print("x "..px.." y "..py.." t "..hour)
---     local tx,ty=looking_at()
---     print("tx "..tx.." ty "..ty)
---   end
---   if chapter != nil then
---     print("chapter: "..chapter)
---   end
---   if penny_x!=nil then
---     print("penny x "..penny_x.." y "..penny_y.." s "..penny_speed)
---     print("      f "..penny_frame.." d "..penny_d)
---     if penny__thread and costatus(penny__thread) ~= "dead" then
---       if penny_DBG_thread_name then
---         print("      act: "..penny_DBG_thread_name)
---       else
---         print("      act: ????")
---       end
---     end
---     local gx,gy=penny_x*8,penny_y*8
---     rect(gx,gy,gx+8,gy+8,4)
---   end
---   -- for fi=1,#flowers do
---   --    local f=flowers[fi]
---   --    print(fi.." "..f.seed.name.." "..f.x.." "..f.y)
---   -- end
---   -- if DBG_last_ys then
---   --    for yi=1,#DBG_last_ys do
---   --       local ly=DBG_last_ys[yi]
---   --       local la=DBG_last_draws[yi][2]
---   --       if type(la)=="table" then
---   --          la=la.seed.name
---   --       end
---   --       print(ly.." "..la)
---   --    end
---   -- end
-
---   -- check the dumb clearing
---   -- rect(px*8,py*8,(px+6)*8,(py+6)*8,10)
---   -- if not _check_clear(px,py) then
---   --    rect(
---   --       DBG_clear_fail_pt[1]*8,
---   --       DBG_clear_fail_pt[2]*8,
---   --       DBG_clear_fail_pt[1]*8+8,
---   --       DBG_clear_fail_pt[2]*8+8,
---   --       7)
---   -- end
--- end
-
 -- the main rendering function
 -- since almost everything is
 -- always on the screen at the
@@ -1474,19 +1483,8 @@ function add_bird()
   add(birds, b)
 end
 
-function update_birds()
-  if not raining and #birds<1 and hour>4 and hour<16 then
-    add_bird()
-  end
-
-  for b in all(birds) do
-    assert(coresume(b.thread))
-  end
-
-  if #birds>0 and rnd_int(150)==0 and not raining then
-    sfx(2,3) -- chirp!
-  end
-end
+--function update_birds()
+--end
 
 function draw_bird(bird)
   for b in all(birds) do
@@ -1874,7 +1872,23 @@ function i_grab(item,tx,ty)
 end
 
 function give_tool(item)
-  if grabbed_item then
+  if grabbed_item==190 then
+    do_script([[
+p=py_mid_talk
+Hey Robo, what's that?
+Is that...
+
+p=py_up_talk
+HOLY MOLY!
+Robo, look at that thing!
+With that we...
+we can finally...
+
+p=py_up_intense
+MOM!!
+call=start_ch7
+]])
+  elseif grabbed_item then
     do_script([[
 p=py_down_wry
 Hey, careful where|you put that.
@@ -1955,6 +1969,12 @@ function i_shovel(item,tx,ty)
           set_item(tx,ty,0)
         else
           set_item(tx,ty,132)
+          if chapter>=6 and not has_treasure and tx==treasure_x and ty==treasure_y then
+            sfx(9,3)
+            has_treasure=true
+            item_sel=tl_grab
+            grabbed_item=190
+          end
         end
       end
     )
@@ -2321,20 +2341,18 @@ end
 
 function script:intro_post()
   penny_start_leave()
-  energy_level = walk_cost * 28
-  tank_level = 0
-  chapter = 1
+  energy_level,tank_level,chapter =
+    walk_cost * 28,0,1
 end
 
 function fadeout_charge()
   fade_out()
 
-   px=base_x py=base_y d=2
-   tx=px ty=py walking=false
+  px,py,d=base_x,base_y,2
+  tx,ty=px,py
 
-   update_until_tomorrow()
-
-   blank_screen=true
+  update_until_tomorrow()
+  blank_screen=true
 end
 
 function script:firstcharge_pre()
@@ -2397,14 +2415,12 @@ call=start_ch2
 function script:start_ch2()
   penny_show(7,1,0)
   penny_start_wander()
-  objective="go outside"
-  objective_fn=check_outside
+  objective,objective_fn="go outside",check_outside
 end
 
 function check_outside()
   if px<16 and not penny_hidden then
-    objective=nil
-    objective_fn=nil
+    objective,objective_fn=nil
     penny_face(px, py)
     do_script(cs_ch_3_intro)
   end
@@ -2436,8 +2452,8 @@ call=start_ch3
 ]]
 
 function script:start_ch3()
-  chapter = 3
-  penny_want_count = 4 -- nil seed means logs
+  chapter,penny_want_count = 3,4
+  -- nil seed means logs
   penny_start_wander()
 end
 
@@ -2499,15 +2515,12 @@ function script:give_tools_give_tools()
    -- this isn't in start_ch5 because we don't want to do this on
    -- load_game.
    get_flower(flower_seeds[1], 0, 3)
-   penny_want_seed = flower_seeds[1]
-   penny_want_count = 3
+   penny_want_seed,penny_want_count = flower_seeds[1],3
 end
 
 function script:start_ch5()
-  chapter = 5
-  tank_level = max_tank
+  chapter,tank_level,objective_fn = 5,max_tank,check_wanted_flowers
   penny_start_wander()
-  objective_fn = check_wanted_flowers
 end
 
 function check_wanted_flowers()
@@ -2537,6 +2550,11 @@ function has_wanted_flowers()
     end
   end
   return false
+end
+
+function script:start_ch7()
+  chapter,grabbed_item=7
+  penny_start_leave()
 end
 
 --
@@ -2648,11 +2666,8 @@ function do_script(script_text, ...)
 end
 
 function show_text(t, top, bot)
-  text = t
-  text_time = 0
-  text_limit = #text + 5
-  text_sprite_top = top
-  text_sprite_bot = bot
+  text,text_time,text_limit,text_sprite_top,text_sprite_bot =
+     t, 0, #t+5, top, bot
 
   yield() -- extra frame to clear button
   while not btnp(🅾️) do
@@ -2671,9 +2686,7 @@ function show_text(t, top, bot)
 end
 
 function draw_text()
-  if (text==nil) then
-    return
-  end
+  if not text then return end
 
   -- outline box
   draw_box(0,96,14,2)
@@ -2704,10 +2717,8 @@ end
 -- she used to be all objectish
 -- but i needed to take the tokens
 -- back
-penny_d=0
-penny_speed=0.09
-penny_frame=0
-penny__thread=nil
+penny_d,penny_speed,penny_frame,penny__thread=
+  0,0.09,0
 
 function draw_penny()
   -- If penny is hidden *or* the player and penny are on different screens
@@ -2743,18 +2754,12 @@ function draw_penny()
   palt()
 end
 
-function penny_update()
-  daytime = hour >= 8 and hour <= 18
-  if penny__thread and costatus(penny__thread) ~= "dead" then
-    assert(coresume(penny__thread))
-  end
-end
+--function penny_update()
+--end
 
 function penny_face(tx, ty)
-  local dx = tx - penny_x
-  local dy = ty - penny_y
+  local dx,dy,direction = tx - penny_x, ty - penny_y
 
-  local direction
   if abs(dx) > abs(dy) then
     if dx > 0 then
       direction = 1
@@ -2768,8 +2773,7 @@ function penny_face(tx, ty)
       direction = 0
     end
   end
-  penny_d = direction
-  penny_frame = 0
+  penny_d,penny_frame = direction,0
 end
 
 function penny_run_to(tx, ty)
@@ -2813,15 +2817,9 @@ script.penny_leave = penny_leave
 
 function penny_wander_around()
   while daytime do
-    local dst = rnd_int(14)+1
-    local tx, ty = penny_x, penny_y
-    if rnd() >= 0.5 then
-      tx=dst
-    else
-      ty=dst
-    end
-    tx = mid(0,tx,15)
-    ty = mid(0,ty,15)
+    local dst, tx, ty = rnd_int(14)+1, penny_x, penny_y
+    if flip_coin() then tx=dst else ty=dst end
+    tx,ty = mid(0,tx,15),mid(0,ty,15)
 
     penny_run_to(tx, ty)
 
@@ -2871,7 +2869,6 @@ Thanks!
 end
 
 function penny_start_wander()
-  penny_DBG_thread_name = "start_wander"
   penny__thread = cocreate(function()
       while true do
         -- Wander around the field until...
@@ -2891,7 +2888,6 @@ function penny_start_wander()
 end
 
 function penny_start_leave_then_wander()
-  penny_DBG_thread_name = "start_leave_then_wander"
   penny__thread = cocreate(function()
       penny_leave()
       yield_until(8)
@@ -2900,16 +2896,14 @@ function penny_start_leave_then_wander()
 end
 
 function penny_start_leave()
-  penny_DBG_thread_name = "start_leave"
   penny__thread = cocreate(function()
       penny_leave()
   end)
 end
 
 function penny_show(x,y,d)
-   penny_hidden=false
-   penny_x=x penny_y=y penny_d=d
-   penny_frame = 0
+  penny_hidden,penny_x,penny_y,penny_d,penny_frame=
+    false,x,y,d,0
 end
 
 -->8
@@ -3094,14 +3088,14 @@ cc53350000000000cc53350076500000002222000000000000555500005555000055550000555500
 66656565004114000004440000044444000444007007700000000144510000000000000000000000000000000000000000000000000000000000000000000000
 06556650444444000044400000444444004440007700000000000154510000000000000000000000000000000000000000000000000000000000000000000000
 00555500000aa0000440000004400044044000000000000000000144510000000000000000000000000000000000000000000000000000000000000000000000
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0660006000660006006660006060066066600066006660066066606600606066606600006660060066000066606000060060606660660006600600000cc00000
-0606060600606060600600006060600060000060606000600060006060606060006060006000606060600060006000606060606000606060000600060c0000bb
-060606060060606060060000606066606600006600660066606600660060606600606000660060606600006600600060606060660066006660060066cc0aa0b0
-060606060060606060060000606000606000006060600000606000606060606000606000600060606060006000600060606660600060600060000660cc0a0bb0
-06600060006060060006000006606600666000606066606600666060600600666066000060000600606000600066600600666066606060660006000000aa0bb0
-00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000aa0000
-06666666006666666666600066666666666000666666666666666666666666666666600066666666666000666666666666666666666666666666000000000000
+00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009acaaaca00000000
+06600060006600060066600060600660666000660066600660666066006060666066000066600600660000666060000600606066606600069cccaccc0cc00000
+06060606006060606006000060606000600000606060006000600060606060600060600060006060606000600060006060606060006060609acaaac90c0000bb
+060606060060606060060000606066606600006600660066606600660060606600606000660060606600006600600060606060660066006609aaaa90cc0aa0b0
+0606060600606060600600006060006060000060606000006060006060606060006060006000606060600060006000606066606000606000009aa900cc0a0bb0
+0660006000606006000600000660660066600060606660660066606060060066606600006000060060600060006660060066606660606066000aa00000aa0bb0
+0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000009aa90000aa0000
+066666660066666666666000666666666660006666666666666666666666666666666000666666666660006666666666666666666666666609aaaa9000000000
 0000000000000ff00ff0000000000ff0000000000000000000000000000000000000000000000000000000000000000000000000000000000154415151014541
 000000000000fef00fef00000000fef0000000000000000000000000000000000000000000000000000000000003baaaaa000000000000000155455155014451
 00000000000feeeffeeef000000feeef0000000000000000000000000000000000000000000000000000000003bbbbbaaaaaaaaaa00000000154441015544510
@@ -3266,7 +3260,7 @@ b4b3b3415544445541b3b34b44445444444454444444544444445444444454444444544466656565
 
 __gff__
 0800000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000200000001213101000000000000000000013000052131010000000000000000000000300000000000000000000000000000203000000000000000000000000
-000000000300000000000000000000000a0a0a0a0e0f00000000000000000000170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000300000000000000000000000a0a0a0a0e0f00000000000000000000170000000000000000000000000000000000000000000000000000000000170000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 __map__
 4040404040565655555656404040404052525252525252525252525252525252000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 4040404040404040404040404040404052525252464647484646464652005252000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
@@ -3293,9 +3287,9 @@ __sfx__
 010200002e6622d6622d6522d6522c6422b6422b64229642286422664223632216321e6221a622176221662213622116220d63209632056120060201602006020660204602080020400201002000020f0020c002
 010400120c500105000e50011500185001c5001a5001d5000c500105000c533105430e55311553185331c5431a5531d5530e50018500000000000000000000000000000000000000000000000000000000000000
 0004000c115530e553105530c553115530e553105530c5530c500105000e500185000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0020050028530245302653034530345302150023500235001f5001f5001f5001f5001f5001f5001f5001f5001c5001f5002150023500235002350023500005000050026500265002650024500235002150023500
-01200000235001f5001f5001f5001f5001f5001f5001f5001f5002450023500215001f5001f5001f5001f5001f5001f5000000000000000000000000000000000000000000000000000000000000000000000000
-013e00001850013500135001550017500135001350013500175001350013500155001750017500175000000018500135001350015500175001350013500135001350013500175001550013500135001350000000
+0120050028530245302653030530305302150023500235001f5001f5001f5001f5001f5001f5001f5001f5001c5001f5002150023500235002350023500005000050026500265002650024500235002150023500
+00100c000c0521005213052180521c0521f05224052280522b0523005230052300520000200002000020000200002000020000200002000020000200002000020000200002000020000200002000020000200002
+01100000180501c0501f0501a0501d050210501c0501f050230501d050210502405026000290002d000280002b0002f0001350015500175001350013500135001350013500175001550013500135001350000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 001000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

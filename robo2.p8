@@ -411,8 +411,6 @@ base_x=25 base_y=4
 -- init_game sets up the in-game lua state.
 -- called after new_game or load_game.
 function init_game()
-  -- blank_screen=false
-
   -- ===========================
   -- init items
   -- ===========================
@@ -421,10 +419,8 @@ function init_game()
   -- ===========================
   -- init menu
   -- ===========================
-  menu_mode=false
-  menu_sel=1
-  menu_top=1
-  menu_items={}
+  menu_mode,menu_sel,menu_top,menu_items=
+    false,1,1,{}
 
   -- ===========================
   -- init time
@@ -435,33 +431,21 @@ function init_game()
   -- fun!)
   hour_inc=0.0036 --*10
 
-  recharge_rate=100*hour_inc/4
-  water_rate=100*hour_inc/2
-  flower_rate=1*hour_inc/24
+  flower_rate=hour_inc/24
 
   -- ===========================
   -- init player
   -- ===========================
-  d=2 spd=0.125 walking=false
-  idle_time=0
+  d,spd,idle_time,walking=2,0.125,0
 
-  max_tank=100
-  tank_level=max_tank
+  tank_level,energy_level=100,100
 
-  energy_level=100
+  walk_cost,grab_cost,saw_cost,water_cost,plant_cost=
+    0.1, 1, 3, 0.2, 0.2
 
-  walk_cost=0.1
-  grab_cost=1
-  saw_cost=3
-  water_cost=0.2
-  plant_cost=0.2
+  tx,ty=px,py
 
-  tx=px ty=py
-
-  animation=nil
-  anim_index=nil
-  anim_duration=nil
-  anim_done=nil
+  animation,anim_index,anim_duration,anim_done=nil
 
   -- ===========================
   -- init "plants"
@@ -479,11 +463,8 @@ function init_game()
   -- ===========================
   -- init weather
   -- ===========================
-  raining=false
-  rain={}
-  max_rain=2000
-  weather_elapsed=6
-  season_rain = split"10,4,2,3" -- 1 is summer
+  rain,max_rain,weather_elapsed,season_rain,raining=
+    {},2000,6,split"10,4,2,3" -- 1 is summer
 
   -- ===========================
   -- init birds
@@ -633,8 +614,6 @@ function buzz(msg)
   sfx(0,3) -- buzz
 end
 
-is_sleeping = false
-
 function dedicate_thread(fn)
   local thread=cocreate(fn)
   update_fn=function() assert(coresume(thread)) end
@@ -645,29 +624,30 @@ function update_until_tomorrow()
   -- ok this could actually take a long time?
   -- do we.... care?
   local today=day
-  while day==today or hour<8 do update_core() end
-  save_game()
+  while day==today or hour<8 do update_core(true) end
 end
 
 function sleep_until_morning()
   idle_time=0
   dedicate_thread(function()
-       animate("1,15,13,15,45,15")
-       yield()
+      d=2
+      animate("1,15,13,15,45,15")
+      yield()
 
-       is_sleeping=true
-       fade_out()
+      is_sleeping=true
+      fade_out()
 
-       update_until_tomorrow()
+      update_until_tomorrow()
+      save_game()
 
-       fade_in()
-       animate("45,15,13,15,1,15")
-       yield()
+      fade_in()
+      animate("45,15,13,15,1,15")
+      yield()
 
-       energy_level=100
-       tank_level=100
-       is_sleeping=false
-       update_fn=update_walk
+      energy_level=100
+      tank_level=100
+      is_sleeping=false
+      update_fn=update_walk
    end)
 end
 
@@ -689,11 +669,24 @@ function time_near(t)
    return abs(hour-t) <= hour_inc * 2
 end
 
-function update_time()
+function update_core(no_song, t_inc)
+  -- this is the core update fn
+  -- of the game: what runs while
+  -- you're "playing" the game.
+  --
+  -- most of the subsystems only
+  -- update while you're playing,
+  -- and are paused any other
+  -- time (cutscenes, etc.)
+
+  -- ===========================
+  -- update time
+  -- ===========================
   buzz_time,buzz_msg_time =
     max(buzz_time - 0.75, 0),max(buzz_msg_time - 0.75, 0)
 
-  hour += hour_inc
+  t_inc = t_inc or hour_inc
+  hour += t_inc
   if hour>=24 then
     hour-=24
 
@@ -730,20 +723,53 @@ function update_time()
 
   season = flr(day/28)+1
   winter = season==3
-end
 
-function update_core()
-  -- this is the core update fn
-  -- of the game: what runs while
-  -- you're "playing" the game.
-  --
-  -- most of the subsystems only
-  -- update while you're playing,
-  -- and are paused any other
-  -- time (cutscenes, etc.)
-  update_time()
-  update_weather()
-  update_plants()
+  -- ===========================
+  -- update weather
+  -- ===========================
+  weather_elapsed += t_inc
+  if weather_elapsed >= 6 then
+    weather_elapsed -= 6
+    local chance=season_rain[season]
+    --assert(chance > 1, tostr(chance).." ??")
+    if rnd_int(chance) == 0 then
+      raining=true
+      sfx(3,2)
+    else
+      raining=false
+      sfx(3,-2)
+    end
+  end
+
+  -- ===========================
+  -- update plants
+  -- ===========================
+  for p in all(plants) do
+    local sp = get_item(p.x, p.y)
+    if sp<147 then
+      p.age += 0.0006 --grass_rate
+      if p.age>=1 then
+        p.age-=1
+        set_item(p.x, p.y, sp+1)
+      end
+    end
+  end
+
+  for f in all(flowers) do
+    if map_flag(f.x, f.y, 5) then
+      f.age=min(f.age+flower_rate, 1)
+    end
+  end
+
+  for t in all(trees) do
+    if t.angle then
+      t.angle+=0.025
+      if t.angle>=0.25 then
+        sfx(5,3) -- crash!
+        del(trees,t)
+      end
+    end
+  end
 
   -- ===========================
   -- update penny
@@ -764,7 +790,7 @@ function update_core()
     assert(coresume(b.thread))
   end
 
-  if #birds>0 and rnd_int(150)==0 and not raining then
+  if #birds>0 and rnd_int(150)==0 and not raining and not no_song then
     sfx(2,3) -- chirp!
   end
 
@@ -840,16 +866,31 @@ function update_walk()
      -- uh oh, trouble.
      if chapter < 2 then
         do_script(cs_firstcharge)
-     elseif chapter == 7 then
+     elseif chapter==7 then
        dedicate_thread(function()
+           -- sleep
+           d=2
            animate("1,15,13,15,45,15")
            yield()
-           chapter,idle_time,is_sleeping,hour_inc=8,1,true,0.36
-           for i=1,450 do -- 15s
-             for j=1,500 do update_core() end
-             yield()
+
+           -- time passes quickly...
+           chapter,idle_time,is_sleeping=8,2,true
+           function sleep_chunk(m)
+             for i=1,200 do
+               for j=1,125 do
+                 update_core(true, hour_inc * m)
+               end
+               yield()
+             end
            end
+           sleep_chunk(1)
+           sleep_chunk(10)
+           sleep_chunk(50)
            fade_out()
+
+           blank_screen = true
+           yield_frames(300) -- 10s
+
            do_script([[
 call=nobattery_pre
 
@@ -866,7 +907,10 @@ Oh, thank goodness.
 Robo, it's been...
 
 p=py_mid_talk
-I'm sorry.|Remember..
+I'm sorry.
+...
+I'm really sorry.
+But I mean it...
 No matter what...
 I'll always be there|to help.
 
@@ -1079,7 +1123,7 @@ end
 function draw_meters()
   draw_box(104,50,1,5)
   if chapter>=5 then
-    local tank_frac=(max_tank-tank_level)/max_tank
+    local tank_frac=(100-tank_level)/100
     rectfill(111,57+41*tank_frac,115,98,12)
   end
 
@@ -1483,9 +1527,6 @@ function add_bird()
   add(birds, b)
 end
 
---function update_birds()
---end
-
 function draw_bird(bird)
   for b in all(birds) do
     pal(4,b.c)
@@ -1622,35 +1663,6 @@ end
 
 flowers={}
 flower_size=6
-
-function update_plants()
-  for p in all(plants) do
-    local sp = get_item(p.x, p.y)
-    if sp<147 then
-      p.age += 0.0006 --grass_rate
-      if p.age>=1 then
-        p.age-=1
-        set_item(p.x, p.y, sp+1)
-      end
-    end
-  end
-
-  for f in all(flowers) do
-    if map_flag(f.x, f.y, 5) then
-      f.age=min(f.age+flower_rate, 1)
-    end
-  end
-
-  for t in all(trees) do
-    if t.angle then
-      t.angle+=0.025
-      if t.angle>=0.25 then
-        sfx(5,3) -- crash!
-        del(trees,t)
-      end
-    end
-  end
-end
 
 function draw_tree(t)
   local tpx,tpy=t.x*8, t.y*8
@@ -1875,17 +1887,22 @@ function give_tool(item)
   if grabbed_item==190 then
     do_script([[
 p=py_mid_talk
-Hey Robo, what's that?
+Hey Robo, what's|that?
 Is that...
 
 p=py_up_talk
 HOLY MOLY!
-Robo, look at that thing!
+Robo, look at that|thing!
 With that we...
-we can finally...
+Mom can finally...
 
 p=py_up_intense
 MOM!!
+
+p=py_down_wry
+Sorry, Robo, I...
+I gotta go.
+
 call=start_ch7
 ]])
   elseif grabbed_item then
@@ -1986,7 +2003,7 @@ function tool(icon,name,fn,give)
 end
 
 tl_grab=tool(142,"grab",i_grab,give_tool)
-tl_whistle=tool(191,"whistle",i_whistle,[[
+tl_whistle=tool(191,"chime",i_whistle,[[
 p=py_mid_talk
 That's a pretty tune.
 p=py_mid_wry
@@ -2076,22 +2093,6 @@ function get_items()
 end
 -->8
 -- weather
---
-function update_weather()
-  weather_elapsed += hour_inc
-  if weather_elapsed>=6 then
-    weather_elapsed-=6
-    local chance=season_rain[season]
-    --assert(chance > 1, tostr(chance).." ??")
-    if rnd_int(chance) == 0 then
-      raining=true
-      sfx(3,2)
-    else
-      raining=false
-      sfx(3,-2)
-    end
-  end
-end
 
 function update_particles()
   if raining and #rain<max_rain then
@@ -2351,8 +2352,8 @@ function fadeout_charge()
   px,py,d=base_x,base_y,2
   tx,ty=px,py
 
-  update_until_tomorrow()
   blank_screen=true
+  update_until_tomorrow()
 end
 
 function script:firstcharge_pre()
@@ -2433,7 +2434,11 @@ There you are!
 p=py_mid_talk
 Mom's doing some|work on the house.
 A house is like a...|um....
+
+p=py_down_wry
 Never mind.
+
+p=py_mid_talk
 Anyway we need a|bit more wood.
 
 p=py_down_wry
@@ -2497,7 +2502,7 @@ call=start_ch5
 function script:give_tools_leave_come_back()
    penny_leave()
 
-   yield_frames(15)
+   yield_frames(30)
 
    penny_show(16, py+1, 2)
    penny_run_to(px, penny_y)
@@ -2508,7 +2513,7 @@ function script:give_tools_give_tools()
    d=2 -- look down (face penny)
    for i=1,2 do
      sfx(1,3) -- tool sound
-     yield_frames(20) -- :todo: wrong!
+     yield_frames(30) -- :todo: wrong!
    end
 
    -- grant the new flower seed.
@@ -2519,7 +2524,7 @@ function script:give_tools_give_tools()
 end
 
 function script:start_ch5()
-  chapter,tank_level,objective_fn = 5,max_tank,check_wanted_flowers
+  chapter,tank_level,objective_fn = 5,100,check_wanted_flowers
   penny_start_wander()
 end
 
@@ -2636,6 +2641,7 @@ portraits={
    py_mid_wry={top=192,bot=224},
    py_mid_talk={top=192,bot=226},
    py_mid_closed={top=192,bot=228},
+   py_mid_smile={top=192,bot=232},
    py_up_talk={top=194,bot=226},
    py_up_closed={top=194,bot=228},
    py_up_intense={top=194,bot=230},

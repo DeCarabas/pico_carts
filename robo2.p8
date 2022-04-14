@@ -1526,11 +1526,9 @@ function add_bird()
 end
 
 function draw_bird(bird)
-  for b in all(birds) do
-    pal(4,b.c)
-    spr(flr(161+b.frame),(b.x-map_left)*8,b.y*8)
-    pal()
-  end
+  pal(4,bird.c)
+  spr(flr(161+bird.frame),(bird.x-map_left)*8,bird.y*8)
+  pal()
 end
 
 -->8

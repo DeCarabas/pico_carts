@@ -1503,9 +1503,9 @@ function add_bird()
           yield_frames(15)
         end
         if (title_screen or chapter>=5) and not map_flag(tx,ty,1) then
-          if rnd_int(17)==0 then
+          if rnd_int(17)==0 and #trees<30 then
             set_item(tx,ty,250) -- tree sprout
-          else
+          elseif #flowers<30 then -- more than 30 flowers and we lag hard
             add_flower(rnd(flower_seeds), 0.25, tx, ty)
           end
         end

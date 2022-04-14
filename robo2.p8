@@ -487,7 +487,7 @@ function _init()
 
   -- -- cheatz
   -- menuitem(1,"+energy",function() energy_level=100 end)
-  -- menuitem(2,"-energy",function() energy_level=mid(100,0,energy_level/2) end)
+  -- menuitem(1,"-energy",function() energy_level=10 end)
   -- menuitem(1,"rain",function() raining=not raining end)
   -- menuitem(1,"snow",function() day=2*28 raining=not raining end)
   -- menuitem(4,"load", function()
@@ -497,17 +497,15 @@ function _init()
   -- end)
 
   -- title screen
-  title_screen=true
-  map_left=0
+  title_screen,map_left=true,0
   penny_show(2,2,0)
   penny_start_wander()
 end
 
 function open_item_menu()
-  menu_mode=true
-  menu_sel=1
+  menu_mode,menu_sel,menu_items,menu_top,update_fn=
+    true,1,get_items(),1,update_menu
 
-  menu_items=get_items()
   for mi,it in pairs(menu_items) do
     if it==item_sel then menu_sel=mi end
     it.on_select=function(item) item_sel=item end
@@ -520,9 +518,6 @@ function open_item_menu()
           on_select=function() sleep_until_morning() end
     })
   end
-
-  menu_top=1
-  update_fn=update_menu
 end
 
 function looking_at()
@@ -668,7 +663,7 @@ function time_near(t)
    return abs(hour-t) <= hour_inc * 2
 end
 
-function update_core(no_song, t_inc)
+function update_core(no_chirp, t_inc)
   -- this is the core update fn
   -- of the game: what runs while
   -- you're "playing" the game.
@@ -789,14 +784,14 @@ function update_core(no_song, t_inc)
     assert(coresume(b.thread))
   end
 
-  if #birds>0 and rnd_int(150)==0 and not raining and not no_song then
+  if #birds>0 and rnd_int(150)==0 and not raining and not no_chirp then
     sfx(2,3) -- chirp!
   end
 
   -- ===========================
   -- update bgm
   -- ===========================
-  if not stat(57) then
+  if not stat(57) and chapter~=8 then
      if time_near(10) then
         music(2)
      elseif time_near(14) then
@@ -829,7 +824,7 @@ function update_walk()
     if ty<0  then buzz() ty=0  end
     if ty>15 then buzz() ty=15 end
     if collide(px,py,tx,ty) then
-      tx=flr(px) ty=flr(py)
+      tx,ty=flr(px),flr(py)
     end
   end
   if px > tx then px -= spd end
@@ -873,7 +868,7 @@ function update_walk()
            yield()
 
            -- time passes quickly...
-           chapter,idle_time,is_sleeping=8,2,true
+           idle_time,is_sleeping,chapter=2,true,8
            function sleep_chunk(m)
              for i=1,200 do
                for j=1,125 do
@@ -885,10 +880,12 @@ function update_walk()
            sleep_chunk(1)
            sleep_chunk(10)
            sleep_chunk(50)
-           fade_out()
+           fade_out(30)
 
-           blank_screen = true
+           chapter,blank_screen,is_sleeping = 9,true
            yield_frames(300) -- 10s
+           music(2)
+           penny_start_wander()
 
            do_script([[
 call=nobattery_pre
@@ -933,16 +930,14 @@ function update_menu()
   menu_sel=mid(1,menu_sel,#menu_items)
 
   if btnp(❎) then
-    menu_mode=false
-    update_fn=update_walk
+    menu_mode,update_fn=false,update_walk
   end
   if btnp(🅾️) then
     local it=menu_items[menu_sel]
     if it.disabled then
       sfx(0,3) -- buzz
     else
-      menu_mode=false
-      update_fn=update_walk
+      update_fn,menu_mode=update_walk
       it.on_select(it)
     end
   end
@@ -1019,8 +1014,7 @@ function draw_menu(items, selection)
   local yofs=10*(menu_top-1)
 
   color(7)
-  local lx=63
-  local ly=9-yofs
+  local lx,ly=63,9-yofs
   for i=1,#items do
     local it=items[i]
     if selection == i then
@@ -2183,10 +2177,10 @@ function fx_pal(s,t,p)
   end
 end
 
-function fade_out()
+function fade_out(frames)
    for fade_lvl=sunshine_map[flr(hour)],5 do
      light_override = fade_lvl
-     yield_frames(5)
+     yield_frames(frames or 5)
    end
    light_override = nil
 end

@@ -6,10 +6,9 @@ __lua__
 --
 -- To Release:
 --
--- $ cat robo.p8 | sed 's/--.*//g' | sed '/^[ ]*$/d' > robo_release.p8
+-- $ cat robo2.p8 | sed 's/--.*//g' | sed '/^[ ]*$/d' | sed 's/^[ ]*//g' > robo_release.p8
 --
 -- :todo: fix transition walking in
--- :todo: treasure
 -- :todo: grass spreads??????
 -- :todo: sound for text characters?
 
@@ -899,7 +898,6 @@ p=blank
 Robo?
 Oh gosh.
 Robo...
-...oof...
 
 call=show_screen
 p=py_down_smile
@@ -1764,8 +1762,6 @@ That's a very pretty|^$1 flower.
 
 p=py_mid_wry
 I am looking for a|^$2, though.
-
-p=py_mid_talk
 Can you grow me|some?
       ]], item.name, penny_want_seed.name)
     else
@@ -2012,7 +2008,6 @@ You sing beautifully.
 tl_saw=tool(140,"saw",i_saw,[[
 p=py_up_talk
 Hey, careful with|that!
-That thing's sharp!
 
 p=py_mid_talk
 You should be using|that to cut trees.
@@ -2021,11 +2016,9 @@ tl_shovel=tool(131,"shovel",i_shovel,[[
 p=py_up_talk
 That's a shovel,|ya dig?
 You can use it to|dig holes!
-
-p=py_mid_wry
 You can also use it|to fill in holes.
 
-p=py_mid_talk
+p=py_mid_wry
 You can probably|pry up stumps, too.
 ]])
 tl_water=tool(143,"water",i_water,[[
@@ -2440,12 +2433,9 @@ Never mind.
 
 p=py_mid_talk
 Anyway we need a|bit more wood.
-
-p=py_down_wry
 And I thought...|well....
 
 p=py_up_talk
-You could get it|for us!
 You've got that|saw!
 Cutting down trees|should be easy!
 

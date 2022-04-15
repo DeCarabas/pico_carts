@@ -472,8 +472,8 @@ function _init()
   -- -- cheatz
   -- menuitem(1,"+energy",function() energy_level=100 end)
   -- menuitem(1,"-energy",function() energy_level=10 end)
-  menuitem(1,"rain",function() raining=not raining end)
-  --menuitem(2,"snow",function() day=2*28 raining=not raining end)
+  -- menuitem(1,"rain",function() raining=not raining end)
+  -- menuitem(2,"snow",function() day=2*28 raining=not raining end)
   -- menuitem(4,"load", function()
   --            if load_game() then
   --              init_game()

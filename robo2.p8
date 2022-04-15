@@ -101,21 +101,17 @@ function new_game()
 end
 
 stream={}
-function stream:new(address,limit)
+function stream:new(address)
    return setmetatable(
-      {buffer=0,write_bits=8,read_bits=0,address=address,limit=limit},
+      {buffer=0,write_bits=8,read_bits=0,address=address},
       {__index=self})
 end
 function stream:read()
-  --assert(self.limit > 0)
-  self.limit-=1
   self.address+=1
 
   return @(self.address-1)
 end
 function stream:read2()
-  --assert(self.limit > 1)
-  self.limit-=2
   self.address+=2
   return %(self.address-2)
 end
@@ -126,8 +122,6 @@ function stream:unpack(width, count)
     result = 0 lw = width
     while lw > 0 do
       if bits == 0 then
-        --assert(self.limit > 0)
-        self.limit -= 1
         buffer = @self.address
         self.address += 1
         bits = 8
@@ -150,16 +144,11 @@ end
 function stream:write(v)
   if (v==nil) v=0
   --assert(v>=0 and v<256)
-  --assert(self.limit > 0)
-  self.limit -= 1
-
   poke(self.address, v)
   self.address+=1
   end
 function stream:write2(v)
   --assert(self.limit > 1)
-  self.limit -= 2
-
   poke2(self.address, v)
   self.address+=2
 end
@@ -177,7 +166,6 @@ function stream:pack(width, ...)
       bits -= consume
       if bits == 0 then
         poke(self.address, buffer)
-        --assert(self.limit > 0) self.limit -= 1
         self.address+=1
         bits = 8
         buffer = 0
@@ -203,7 +191,7 @@ function save_game()
   --       could theoretically use cstore() to let us save
   --       way more data, but that comes with other limits
   -- compare with load_game
-  local w = stream:new(0x5e00,256)
+  local w = stream:new(0x5e00)
 
   w:pack(4,log_count,chapter) -- 1
 
@@ -292,7 +280,7 @@ function save_game()
     end
     w:pack(6, fc, sc)
   end                              -- 244
-  -- assert(w.write_bits==8 and w.buffer==0)
+  --assert(w.write_bits==8 and w.buffer==0)
 
   -- What does penny want?
   local want_seed,want_count=0,penny_want_count or 0
@@ -301,8 +289,8 @@ function save_game()
         want_seed=fi -- values [1,14]
      end
   end
-  w:pack(4, want_seed, want_count) -- 245
-  w:pack(4, treasure_x, treasure_y)-- 246
+
+  w:pack(4, want_seed, want_count, treasure_x, treasure_y) -- 246
   if has_treasure then
     w:write(1)
   else
@@ -314,14 +302,10 @@ end
 
 function load_game()
   -- see save_game for details
-  local w = stream:new(0x5e00,256)
-
-  px = base_x
-  py = base_y
+  local w = stream:new(0x5e00)
 
   log_count,chapter = w:unpack(4, 2)
   day = w:read()
-  hour = 8
   grabbed_item = w:read()
   if grabbed_item == 0 then
     grabbed_item = nil
@@ -329,8 +313,7 @@ function load_game()
 
   flower_seeds={}
   for fi=0,13 do
-     local seed = w:read2()
-     add(flower_seeds, flower:new(flower_size, fi, seed>>16))
+    add(flower_seeds, flower:new(flower_size, fi, w:read2()>>>16))
   end
 
   -- unpack the items. each item gets 6 bits.
@@ -341,7 +324,7 @@ function load_game()
   --                        (0=half grown, 1=full grown)
   --
   -- 16*16*6/8 = 192 bytes
-  flowers={} trees={}
+  flowers,trees={},{}
   all_map(
     function(x,y)
       local encoded = w:unpack(6, 1)
@@ -373,7 +356,6 @@ function load_game()
   for fi=1,#flower_seeds do
     local fc,sc=w:unpack(6, 2)
     if fc>0 or sc>0 then
-      --assert(fi<=#flower_seeds,tostr(fi))
       get_flower(flower_seeds[fi], fc, sc)
     end
   end
@@ -387,6 +369,8 @@ function load_game()
   treasure_x,treasure_y=w:unpack(4, 2)
   has_treasure=w:read()==1
 
+  -- init game
+  px,py,hour = base_x,base_y,8
   penny_start_wander()
 
   -- run chapter-specific init, if we have one
@@ -488,8 +472,8 @@ function _init()
   -- -- cheatz
   -- menuitem(1,"+energy",function() energy_level=100 end)
   -- menuitem(1,"-energy",function() energy_level=10 end)
-  -- menuitem(1,"rain",function() raining=not raining end)
-  -- menuitem(1,"snow",function() day=2*28 raining=not raining end)
+  menuitem(1,"rain",function() raining=not raining end)
+  --menuitem(2,"snow",function() day=2*28 raining=not raining end)
   -- menuitem(4,"load", function()
   --            if load_game() then
   --              init_game()

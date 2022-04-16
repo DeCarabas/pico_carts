@@ -1,5 +1,9 @@
-# RX-Series Automaton
-## Quick Start Guide
+A cozy little game about a rabbit and her robot.
+
+:::: {style="background-color:white; color:#193d3f; padding:2rem"}
+
+# Instructions
+## RX-Series Automaton Quick Start Guide
 
 ### Welcome To Your New RX-Series!
 
@@ -9,7 +13,7 @@ With a little bit of regular maintenance, you and your family will be able to en
 
 ### Activation
 
-The RC-Series is equipped with a voice-activation module.
+The RX-Series is equipped with a voice-activation module.
 To begin the power-on sequence, simply speak the unit's designation followed by the command phrase "activate."
 
 *Note:*
@@ -23,7 +27,7 @@ To begin the power-on sequence, simply speak the unit's designation followed by 
 The unit should understand and obey voice commands.
 
 Should manual override ever become necessary, the directional pad can be used to move the automaton around.
-The ❎ button will open a menu that will allow you to choose from the available set of installed peripherals, and the 🅾 button will activate the currently selected attachment.
+The X button will open a menu that will allow you to choose from the available set of installed peripherals, and the O button will activate the currently selected attachment.
 
 ### Standard Attachments
 
@@ -32,11 +36,13 @@ From lifting boulders to uprooting saplings, the RX-Series can do it all!
 
 *Rotary Saw*- Cut through the toughest tree trunks and logs with this self-straightening, extremely durable saw.
 
-*Pneumatic Shovel*- With this powerful shovel, your RX-Series automaton can dig more in a day than a hundred men could dig ina  week!
+*Pneumatic Shovel*- With this powerful shovel, your RX-Series automaton can dig more in a day than a hundred men could dig in a  week!
 Dig holes, cut trenches, and even pry old tree stumps out of the ground.
 
 ### Next Steps
 
 Be sure to review the full RX-Series Automaton Owner's Guide for more information on installing additional attachments, part maintenance, sapience control, or battery replacement.
 
-## Welcome to the RX-Automaton Family!
+### Welcome to the RX-Automaton Family!
+
+::::

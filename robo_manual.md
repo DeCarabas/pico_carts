@@ -1,4 +1,8 @@
+:::: {style="text-align:center;"}
+
 A cozy little game about a rabbit and her robot.
+
+::::
 
 :::: {style="background-color:white; color:#193d3f; padding:2rem"}
 

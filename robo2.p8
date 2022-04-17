@@ -712,7 +712,7 @@ function update_core(no_chirp, t_inc)
     --assert(chance > 1, tostr(chance).." ??")
     if rnd_int(chance) == 0 then
       raining=true
-      sfx(3,2)
+      if not winter then sfx(3,2) end
     else
       raining=false
       sfx(3,-2)
@@ -3291,4 +3291,3 @@ __music__
 04 22424344
 04 20424344
 04 23424344
-

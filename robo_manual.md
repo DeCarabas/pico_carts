@@ -43,6 +43,8 @@ From lifting boulders to uprooting saplings, the RX-Series can do it all!
 *Pneumatic Shovel*- With this powerful shovel, your RX-Series automaton can dig more in a day than a hundred men could dig in a  week!
 Dig holes, cut trenches, and even pry old tree stumps out of the ground.
 
+<p style="text-align:center"><img src="https://img.itch.zone/aW1nLzg2OTMzMDcucG5n/original/qpTEX0.png" alt="Penny's Note, which reads 'Additional Ideas: Watering Can? Seed Pouch!' and has a diagram with a flower, a name, and two values. The value on the left is labeled 'flowers' and the value on the right is labeled 'seeds'" width="70%"></p>
+
 ### Next Steps
 
 Be sure to review the full RX-Series Automaton Owner's Guide for more information on installing additional attachments, part maintenance, sapience control, or battery replacement.

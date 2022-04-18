@@ -64,8 +64,8 @@ end
 --  chapter 7: end...ish
 --  chapter 8: ever after
 function new_game()
-  chapter,day,hour,px,py,log_count,trees,flower_pockets,flowers,flower_seeds,treasure_x,treasure_y=
-    0,0,8,base_x,base_y,0,{},{},{},{},rnd_int(16),rnd_int(8)+8
+  chapter,day,hour,px,py,log_count,acorn_count,trees,flower_pockets,flowers,flower_seeds,treasure_x,treasure_y=
+    0,0,8,base_x,base_y,0,0,{},{},{},{},rnd_int(16),rnd_int(8)+8
 
   -- init the item sprite layer
   place_rand(20,144) --grass
@@ -291,11 +291,9 @@ function save_game()
   end
 
   w:pack(4, want_seed, want_count, treasure_x, treasure_y) -- 246
-  if has_treasure then
-    w:write(1)
-  else
-    w:write(0)
-  end                              -- 247
+  local ht=0
+  if has_treasure then ht=1 end
+  w:pack(4, ht, acorn_count)       -- 247
 
   -- 9 bytes to spare! tree seeds maybe! :)
 end
@@ -367,7 +365,8 @@ function load_game()
   if penny_want_count==0 then penny_want_count=nil end
 
   treasure_x,treasure_y=w:unpack(4, 2)
-  has_treasure=w:read()==1
+  has_treasure,acorn_count=w:unpack(4,2)
+  has_treasure=has_treasure==1
 
   -- init game
   px,py,hour = base_x,base_y,8
@@ -581,14 +580,10 @@ function collide(px,py,tx,ty)
   return false
 end
 
-buzz_time=0
-buzz_msg=nil
-buzz_msg_time=0
+buzz_time,buzz_msg_time=0,0
 
 function buzz(msg)
-  buzz_time=3
-  buzz_msg=msg
-  buzz_msg_time=9
+  buzz_time,buzz_msg,buzz_msg_time=3,msg,9
   sfx(0,3) -- buzz
 end
 
@@ -629,12 +624,12 @@ function sleep_until_morning()
    end)
 end
 
-function yield_until(until_hour)
-  if until_hour < hour then
+function yield_until_morning()
+  if 8 < hour then
     local today=day
     while day==today do yield() end
   end
-  while hour < until_hour do yield() end
+  while hour < 8 do yield() end
 end
 
 function yield_frames(f)
@@ -644,7 +639,7 @@ function yield_frames(f)
 end
 
 function time_near(t)
-   return abs(hour-t) <= hour_inc * 2
+  return abs(hour-t) <= hour_inc * 2
 end
 
 function update_core(no_chirp, t_inc)
@@ -1083,19 +1078,6 @@ function draw_time()
   printo(dos,64-2*#dos,13,7)
 end
 
-function draw_item()
-  draw_box(96,104,2,1)
-  print("🅾️",103,114,7)
-  if item_sel.icon then
-    spr(item_sel.icon,112,112)
-  else
-    sspr(
-      item_sel.sx,item_sel.sy,
-      flower_size,flower_size,
-      116-flower_size/2,116-flower_size/2)
-  end
-end
-
 function draw_meters()
   draw_box(104,50,1,5)
   if chapter>=5 then
@@ -1175,8 +1157,7 @@ function draw_grabbed_item()
 end
 
 function draw_base()
-   local bsx=8*(base_x-map_left)
-   local bsy=8*base_y
+   local bsx,bsy=8*(base_x-map_left),8*base_y
 
    if chapter < 2 or
       px~=base_x or
@@ -1228,54 +1209,6 @@ descs={
   [149]="stump",
   [250]="tree sprout",
 }
-
-function draw_objective()
-  local lines={}
-
-  local tx,ty=looking_at()
-  local f=find_flower(tx,ty)
-  if f then
-     add(lines, f.seed.name)
-     if f.age>=1.0 then
-        add(lines,"full grown")
-     elseif not map_flag(f.x, f.y, 5) then
-        add(lines,"needs water")
-     else
-        add(lines,"growing")
-     end
-  else
-    local t=find_tree(tx,ty)
-    if t then
-      add(lines,"tree")
-      if t.s==150 then
-        add(lines,"sapling")
-      end
-    else
-      add(lines,descs[get_item(tx,ty)])
-    end
-  end
-
-  local obj=objective
-  if not obj then
-    local has_items = has_wanted_flowers()
-    if has_items then
-      obj="give "..has_items.." to penny"
-    elseif penny_want_seed then
-      obj="get "..penny_want_count.." "..penny_want_seed.name.." flowers"
-    elseif penny_want_count then
-      obj="get "..penny_want_count.." logs"
-    end
-  end
-  if obj then
-    add(lines, "goal: "..obj)
-  end
-
-  local ly=129-8*#lines
-  for l in all(lines) do
-     printo(l, 2, ly, 7)
-     ly+=8
-  end
-end
 
 -- the main rendering function
 -- since almost everything is
@@ -1371,11 +1304,24 @@ function draw_game()
   palt()
   memcpy(0x0000,0xA000,0x2000) -- restore sprites (reload bad!)
 
-  -- now rain and stuff
-  draw_weather()
+  -- ===========================
+  -- draw weather
+  -- ===========================
+  if map_left<=0 then
+    for r in all(rain) do
+      if winter then
+        circ(r.x,r.y,1,7)
+      elseif r.life==0 then
+        circ(r.x,r.y,1,12)
+      else
+        line(r.x,r.y-2,r.x+1,r.y,12)
+      end
+    end
+  end
 
-  -- now draw the ui; it is not
-  -- affected by lighting
+  -- ===========================
+  -- draw UI
+  -- ===========================
   disable_lighting()
 
   if buzz_msg_time>0 and buzz_msg then
@@ -1386,10 +1332,70 @@ function draw_game()
   if menu_mode then
     draw_menu(menu_items,menu_sel)
   elseif idle_time>1 then
-    draw_item()
+    -- ===========================
+    -- draw item
+    -- ===========================
+    draw_box(96,104,2,1)
+    print("🅾️",103,114,7)
+    if item_sel.icon then
+      spr(item_sel.icon,112,112)
+    else
+      sspr(
+        item_sel.sx,item_sel.sy,
+        flower_size,flower_size,
+        116-flower_size/2,116-flower_size/2)
+    end
+
     draw_time()
     draw_meters()
-    draw_objective()
+
+    -- ===========================
+    -- draw objective
+    -- ===========================
+    local lines={}
+    local tx,ty=looking_at()
+    local f=find_flower(tx,ty)
+    if f then
+      add(lines, f.seed.name)
+      if f.age>=1.0 then
+        add(lines,"full grown")
+      elseif not map_flag(f.x, f.y, 5) then
+        add(lines,"needs water")
+      else
+        add(lines,"growing")
+      end
+    else
+      local t=find_tree(tx,ty)
+      if t then
+        add(lines,"tree")
+        if t.s==150 then
+          add(lines,"sapling")
+        end
+      else
+        add(lines,descs[get_item(tx,ty)])
+      end
+    end
+
+    local obj=objective
+    if not obj then
+      local has_items = has_wanted_flowers()
+      if has_items then
+        obj="give "..has_items.." to penny"
+      elseif penny_want_seed then
+        obj="get "..penny_want_count.." "..penny_want_seed.name.." flowers"
+      elseif penny_want_count then
+        obj="get "..penny_want_count.." logs"
+      end
+    end
+    if obj then
+      add(lines, "goal: "..obj)
+    end
+
+    local ly=129-8*#lines
+    for l in all(lines) do
+      printo(l, 2, ly, 7)
+      ly+=8
+    end
   elseif (energy_level/100)<0.25 then
     draw_meters()
   end
@@ -1410,9 +1416,34 @@ function _draw()
     draw_game()
   end
 
+  -- ===========================
+  -- draw text
+  -- ===========================
   -- the little box where people
   -- talk. (in 'cutscene stuff')
-  draw_text()
+  if text then
+    -- outline box
+    draw_box(0,96,14,2)
+
+    -- actual text
+    local ss=sub(text,1,1+text_time)
+    if sub(ss,-1,-1)=="^" then
+      ss=sub(ss,1,-2)
+    end
+    draw_string(ss,28,103,7)
+
+    color(7)
+    if text_time==text_limit and
+      time()%2>1 then
+      print("🅾️",112,114)
+    end
+
+    -- portrait
+    if text_sprite_top then
+      spr(text_sprite_top,8,90,2,2)
+      spr(text_sprite_bot,8,106,2,2)
+    end
+  end
 
   -- tw,th=draw_string(...
   if title_screen then
@@ -1425,7 +1456,7 @@ function _draw()
     if menu_sel==2 then sy=108 end
     printo(">",42,sy,7)
 
-    print("v2.00B",104,122)
+    print("v2.00C",104,122)
   end
 end
 
@@ -1789,15 +1820,19 @@ function i_plant(item,tx,ty)
   elseif item==tl_grass then
     add(plants, {age=0,x=tx,y=ty})
     set_item(tx,ty,144)
-
-    energy_level-=plant_cost
+  elseif item==tl_acorns then
+    set_item(tx,ty,250)
+    acorn_count-=1
+    if acorn_count==0 then
+      item_sel=tl_grab
+    end
   elseif item.seed_count==0 then
-    buzz("no more seeds")
+    buzz("no more seeds") return
   else
     item.seed_count-=1
     add_flower(item.seed, 0.25, tx, ty)
-    energy_level-=plant_cost
   end
+  energy_level-=plant_cost
 end
 
 
@@ -1911,6 +1946,11 @@ end
 function script:whistle_penny_come_over()
   penny_run_to(px,py+1)
   penny_face(px,py)
+  -- penny_start_wait_wander
+  penny__thread = cocreate(function()
+      penny_wander_delay()
+      penny_start_wander()
+  end)
 end
 
 function i_saw(item,tx,ty)
@@ -1926,7 +1966,7 @@ function i_saw(item,tx,ty)
      function()
        local t=find_tree(tx,ty)
        if t then t.angle=0 end
-       log_count=min(log_count+1,8)
+       log_count,acorn_count=min(log_count+1,8),min(acorn_count+2,8)
      end
   )
 end
@@ -2040,7 +2080,19 @@ end
 
 tl_logs=tool(120,"logs",i_logs,give_logs)
 function tl_logs:name_fn()
-  return "logs  "..log_count
+  return "log   "..log_count
+end
+
+tl_acorns=tool(104,"acorns",i_plant,[[
+p=py_mid_talk
+Look at those|acorns!
+Little trees just|waiting to be born.
+
+p=py_up_talk
+Plant them and see|what happens!
+]])
+function tl_acorns:name_fn()
+  return "acorn "..acorn_count
 end
 
 function get_items()
@@ -2051,6 +2103,9 @@ function get_items()
   end
   if log_count>0 then
     add(items,tl_logs)
+  end
+  if acorn_count>0 then
+    add(items,tl_acorns)
   end
   for fp in all(flower_pockets) do
     add(items, fp)
@@ -2093,19 +2148,6 @@ function update_particles()
       if drop.x<128 and drop.y<128 then
         wet_ground(flr(drop.x/8),flr(drop.y/8))
       end
-    end
-  end
-end
-
-function draw_weather()
-  if map_left>0 then return end
-  for r in all(rain) do
-    if winter then
-      circ(r.x,r.y,1,7)
-    elseif r.life==0 then
-      circ(r.x,r.y,1,12)
-    else
-      line(r.x,r.y-2,r.x+1,r.y,12)
     end
   end
 end
@@ -2308,7 +2350,8 @@ function script:intro_penny_turn_back()
 end
 
 function script:intro_post()
-  penny_start_leave()
+  -- penny_start_leave
+  penny__thread = cocreate(penny_leave)
   energy_level,tank_level,chapter =
     walk_cost * 28,0,1
 end
@@ -2327,11 +2370,10 @@ function script:firstcharge_pre()
    fadeout_charge()
 
    penny_show(base_x,base_y+1,0)
-   energy_level=100
+   energy_level,chapter=100,2
 
    -- ♪: set the chapter early
    --     so the base glows.
-   chapter = 2
 end
 
 cs_firstcharge=[[
@@ -2524,7 +2566,8 @@ end
 
 function script:start_ch7()
   chapter,grabbed_item=7
-  penny_start_leave()
+  -- penny_start_leave
+  penny__thread = cocreate(penny_leave)
 end
 
 --
@@ -2656,32 +2699,6 @@ function show_text(t, top, bot)
   return false
 end
 
-function draw_text()
-  if not text then return end
-
-  -- outline box
-  draw_box(0,96,14,2)
-
-  -- actual text
-  local ss=sub(text,1,1+text_time)
-  if sub(ss,-1,-1)=="^" then
-    ss=sub(ss,1,-2)
-  end
-  draw_string(ss,28,103,7)
-
-  color(7)
-  if text_time==text_limit and
-    time()%2>1 then
-    print("🅾️",112,114)
-  end
-
-  -- portrait
-  if text_sprite_top then
-    spr(text_sprite_top,8,90,2,2)
-    spr(text_sprite_bot,8,106,2,2)
-  end
-end
-
 -- =============================
 -- p e n n y
 -- =============================
@@ -2724,9 +2741,6 @@ function draw_penny()
     f)
   palt()
 end
-
---function penny_update()
---end
 
 function penny_face(tx, ty)
   local dx,dy,direction = tx - penny_x, ty - penny_y
@@ -2786,6 +2800,19 @@ function penny_leave()
 end
 script.penny_leave = penny_leave
 
+function penny_wander_delay()
+  local t=rnd(30)+45
+  while daytime and t>0 do
+    if abs(penny_x-px)<=2 and abs(penny_y-py)<=2 then
+      penny_face(px,py)
+      t-=0.1
+    else
+      t-=1
+    end
+    yield()
+  end
+end
+
 function penny_wander_around()
   while daytime do
     local dst, tx, ty = rnd_int(14)+1, penny_x, penny_y
@@ -2825,17 +2852,7 @@ Thanks!
       end
     end
 
-    local t=rnd(30)+45
-    while daytime and t>0 do
-      if abs(penny_x-px)<=2 and abs(penny_y-py)<=2 then
-        --penny is close
-        penny_face(px,py)
-        t-=0.1
-      else
-        t-=1
-      end
-      yield()
-    end
+    penny_wander_delay()
   end
 end
 
@@ -2850,7 +2867,7 @@ function penny_start_wander()
         penny_leave()
 
         -- sleep until the morning.
-        yield_until(8)
+        yield_until_morning()
 
         -- come back to the field
         penny_run_to(old_x, penny_y)
@@ -2858,17 +2875,14 @@ function penny_start_wander()
   end)
 end
 
+--function penny_start_wait_wander()
+--end
+
 function penny_start_leave_then_wander()
   penny__thread = cocreate(function()
       penny_leave()
-      yield_until(8)
+      yield_until_morning()
       penny_start_wander()
-  end)
-end
-
-function penny_start_leave()
-  penny__thread = cocreate(function()
-      penny_leave()
   end)
 end
 
@@ -2916,8 +2930,7 @@ end
 -- render a single glyph at x,y
 -- in the current color.
 function draw_font_glyph(glyph,x,y)
-  local bi,bits=2,0
-  local bmap=glyph.bmap
+  local bi,bits,bmap=2,0,glyph.bmap
   local byte=bmap[bi]
   for iy=8-glyph.h,7 do
     for ix=0,glyph.w-1 do
@@ -2957,8 +2970,7 @@ function draw_string(str,x,y,c)
       lx=x ly+=10
     else
       if c=="^" then
-        c=sub(str,i,i) i+=1
-        c=ord(c)-32
+        c=ord(sub(str,i,i))-32 i+=1
       else
         c=ord(c)
       end
@@ -3019,14 +3031,14 @@ c000000cccc000e00e000ccc0e7007e00e7007e0cc0ee00e0000070ccc0ee0077000070cccc00700
 5511105555110000000000000000000000000000225222223333f333445cccccccccc5441fff77fff11ff1111ff11ffffefff1cccccccccccccccccccccccccc
 66d5106666dd5100000000000000000000000000225252223333f33344555555555555441ff7777ff11ff1cc1ff11fffffefff1ccccccccccccccccccccccccc
 776d1077776dd55000000000000000000000000022522222ffffffffff555555555555ffc11111111c1f1cccc1f1c111111111cccccccccccccccccccccccccc
-88221018888221000000000000000000cccccccccccccccccccccccccccccccc00000000cc11cc11cc1f1cccc1f1cccccccccccccccccccccccccccccccccccc
-9422104c999421000000000000000000cccccccccccccccccccccccccccccccc00000000c1ff11ff1c1ff1cc1ff1cccccccccccccccccccccccccccccccccccc
-a9421047aa9942100000000000000111cccc00cccccccccccccccccccccccccc000000001fef11fef11ff1111ff1cccccccccccccccccccccccccccccccccccc
-bb3310bbbbb3310000000000000001a1ccc0bb0ccccccccccccccccccccccccc000000001fef11fef1c1f1771f1ccccccccccccccccccccccccccccccccccccc
-ccd510ccccdd51100000000000001161cc0bbbb0cccccccccccccccccccccccc000000001fef11fef1c1f7777f1ccccccccccccccccccccccccccccccccccccc
-d55110dddd5110000000000000001aa1c0bb00bb0ccccccccccccccccccccccc000000001fef11fef1c1ff77ff1ccccccccccccccccccccccccccccccccccccc
-ee82101eee8822100000000000111661c03b0c0b0ccccccccccccccccccccccc00000000c1ff11ff1cc1ffffff1ccccccccccccccccccccccccccccccccccccc
-f94210f7fff9421000000000001aaaa1cc0bb0c0cccccccccccccccccccccccc00000000c1ffffff1c1ffffffff1cccccccccccccccccccccccccccccccccccc
+88221018888221000000000000000000cccccccccccccccccccccccccccccccc51055500cc11cc11cc1f1cccc1f1cccccccccccccccccccccccccccccccccccc
+9422104c999421000000000000000000cccccccccccccccccccccccccccccccc15555900c1ff11ff1c1ff1cc1ff1cccccccccccccccccccccccccccccccccccc
+a9421047aa9942100000000000000111cccc00cccccccccccccccccccccccccc055544901fef11fef11ff1111ff1cccccccccccccccccccccccccccccccccccc
+bb3310bbbbb3310000000000000001a1ccc0bb0ccccccccccccccccccccccccc555444491fef11fef1c1f1771f1ccccccccccccccccccccccccccccccccccccc
+ccd510ccccdd51100000000000001161cc0bbbb0cccccccccccccccccccccccc554444491fef11fef1c1f7777f1ccccccccccccccccccccccccccccccccccccc
+d55110dddd5110000000000000001aa1c0bb00bb0ccccccccccccccccccccccc112444441fef11fef1c1ff77ff1ccccccccccccccccccccccccccccccccccccc
+ee82101eee8822100000000000111661c03b0c0b0ccccccccccccccccccccccc01224444c1ff11ff1cc1ffffff1ccccccccccccccccccccccccccccccccccccc
+f94210f7fff9421000000000001aaaa1cc0bb0c0cccccccccccccccccccccccc00122222c1ffffff1c1ffffffff1cccccccccccccccccccccccccccccccccccc
 01011010001010006666666600116661c003b0cccccccccccccccccccccccccc000000001ff7ff7ff11feffffef1cccccccccccccccccccccccccccccccccccc
 1717717101717110666666660001aaa10bb0bb0ccccccccccccc00c00ccccccc001445441f7dffd7f11feffffef1cccccccccccccccccccccccccccccccccccc
 017117100111717166566566011166613bbbbb0cccccccccccc0bb03b0c00ccc005994551fffeefff11feffffef1cccccccccccccccccccccccccccccccccccc

@@ -1,8 +1,8 @@
 pico-8 cartridge // http://www.pico-8.com
 version 35
 __lua__
--- robo gardening game
--- (c) 2020-2022 john doty
+// robo gardening game
+// (c) 2020-2022 john doty
 --
 -- To Release:
 --
@@ -3303,4 +3303,3 @@ __music__
 04 22424344
 04 20424344
 04 23424344
-

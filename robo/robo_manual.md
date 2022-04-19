@@ -1,4 +1,8 @@
-:::: {style="text-align:center;"}
+% Robot Garden
+
+:::: {style="background-color: #327345"}
+
+:::: {style="text-align:center; color: #2ce8f4"}
 
 A cozy little game about a rabbit and her robot.
 
@@ -33,6 +37,10 @@ The unit should understand and obey voice commands.
 Should manual override ever become necessary, the directional pad can be used to move the automaton around.
 The X button will open a menu that will allow you to choose from the available set of installed peripherals, and the O button will activate the currently selected attachment.
 
+Note: If you are using an antique keyboard, don’t panic!
+The "arrow keys" will work in place of the directional pad, and the X and O buttons will be mapped to the "X" and "Z" keys, respectively.
+Press the "Enter" key to access any additional functions of your control device.
+
 ### Standard Attachments
 
 *Manipuators* - The RX-Series is equipped with a strong set of manipulators to lift and carry heavy loads.
@@ -43,12 +51,16 @@ From lifting boulders to uprooting saplings, the RX-Series can do it all!
 *Pneumatic Shovel*- With this powerful shovel, your RX-Series automaton can dig more in a day than a hundred men could dig in a  week!
 Dig holes, cut trenches, and even pry old tree stumps out of the ground.
 
-<p style="text-align:center"><img src="https://img.itch.zone/aW1nLzg2OTMzMDcucG5n/original/qpTEX0.png" alt="Penny's Note, which reads 'Additional Ideas: Watering Can? Seed Pouch!' and has a diagram with a flower, a name, and two values. The value on the left is labeled 'flowers' and the value on the right is labeled 'seeds'" width="70%"></p>
+:::: { .penny-note }
+![](https://img.itch.zone/aW1nLzg2OTMzMDcucG5n/original/qpTEX0.png){ width=70% }
+::::
 
 ### Next Steps
 
 Be sure to review the full RX-Series Automaton Owner's Guide for more information on installing additional attachments, part maintenance, sapience control, or battery replacement.
 
 ### Welcome to the RX-Automaton Family!
+
+::::
 
 ::::

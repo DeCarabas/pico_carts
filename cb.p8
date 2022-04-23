@@ -49,6 +49,7 @@ local player_velocity=vec(0,0)
 local player_position=vec(64,0)
 local player_frame=1
 local jump_grace=0
+local player_state="walking"
 
 -- physics constants, ala 2dengine.com
 -- todo: obviously collapse for tokens
@@ -155,19 +156,26 @@ function _update60()
   -- now they can be all fancy
   -- and stuff.
   local walking
-  if btn(⬅️) and btn(➡️) then
-  elseif btn(⬅️) then
-    if player_grounded then
+  if player_state=="walking" then
+    if btn(⬅️) and btn(➡️) then
+    elseif btn(⬅️) then
       walking = true
       facing = "left"
-    end
-    player_velocity.x -= 1
-  elseif btn(➡️) then
-    if player_grounded then
+      player_velocity.x -= 1
+    elseif btn(➡️) then
       walking = true
       facing = "right"
+      player_velocity.x += 1
     end
-    player_velocity.x += 1
+  elseif player_state=="jumping" then
+    if btn(⬅️) and btn(➡️) then
+    elseif btn(⬅️) then
+      facing = "left"
+      player_velocity.x -= 1
+    elseif btn(➡️) then
+      facing = "right"
+      player_velocity.x += 1
+    end
   end
 
   -- ====================================================
@@ -179,9 +187,9 @@ function _update60()
     player_velocity.y = c_jump_term_velocity
   end
 
-  if player_grounded and jump_grace > 0 then
+  if player_state == "walking" and jump_grace > 0 then
+    player_state = "jumping"
     player_velocity.y = -c_jump_velocity
-    player_grounded = false
   end
   jump_grace = max(jump_grace-1, 0)
 
@@ -197,8 +205,10 @@ function _update60()
   local new_position = player_position + player_velocity
   if player_velocity.y~=0 then
     local bonk_y = vertical_collide(player_position,new_position,player_velocity)
-    player_grounded = bonk_y and player_velocity.y > 0
     if bonk_y then
+      if player_velocity.y >0 then  -- falling and hit the ground
+        player_state = "walking"
+      end
       new_position.y = bonk_y
       player_velocity.y = 0
     end

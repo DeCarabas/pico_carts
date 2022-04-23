@@ -35,7 +35,9 @@ function vec2:length()
   return sqrt(self.x*self.x+self.y*self.y)
 end
 function vec(x,y)
-  return setmetatable({x=x,y=y},vec2)
+  -- todo: if i don't end up using unpack here then
+  -- i can just remove that x,y thingy in there
+  return setmetatable({x,y,x=x,y=y},vec2)
 end
 
 local clock=0
@@ -49,26 +51,20 @@ local player_frame=1
 -- Physics constants, ala 2dengine.com
 -- TODO: obviously collapse for tokens
 local c_jump_height=32 -- in pixels
-local c_time_to_apex=8 -- in frames, not seconds!
+local c_time_to_apex=16 -- in frames, not seconds!
 local c_damping=1
 local c_gravity=2 * c_jump_height / (c_time_to_apex * c_time_to_apex)
 local c_jump_velocity=sqrt(2*c_jump_height*c_gravity)
 
-
-
-
 local dbg_max_mag=0
 
--- return a ground y if we hit one, otherwise nil
+-- todo: I feel like this should all be ... compressable.
+
 function find_ground(old_position,new_position,velocity)
-  -- scan in... direction....?
-  -- let's just scan down for now.
-  assert(velocity.y>0)
   local x,dx=old_position.x,velocity.x/velocity.y
 
-  -- iterate over the tiles in the y direction.
   for ty=old_position.y\8,new_position.y\8 do
-    for tx=(x-4)\8,(x+4)\8 do
+    for tx=(x-3)\8,(x+3)\8 do
       local tile=mget(tx,ty)
       if fget(tile,0) then
         return ty*8
@@ -78,7 +74,50 @@ function find_ground(old_position,new_position,velocity)
   end
 end
 
-function _update()
+function find_ceiling(old_position,new_position,velocity)
+  local x,dx=old_position.x,velocity.x/velocity.y
+
+  for ty=(old_position.y-16)\8,(new_position.y-16)\8,-1 do
+    for tx=(x-3)\8,(x+3)\8 do
+      local tile=mget(tx,ty)
+      if fget(tile,0) then
+        return ty*8+8
+      end
+    end
+    x += dx
+  end
+end
+
+function find_wall_right(old_position,new_position,velocity)
+  local y,dy=old_position.y,velocity.y/velocity.x
+
+  for tx=(old_position.x+4)\8,(new_position.x+4)\8 do
+    for ty=(y-15)\8,(y-1)\8 do
+      local tile=mget(tx,ty)
+      if fget(tile,0) then
+        return tx*8
+      end
+    end
+    y += dy
+  end
+end
+
+function find_wall_left(old_position,new_position,velocity)
+  local y,dy=old_position.y,velocity.y/velocity.x
+
+  for tx=(old_position.x-4)\8,(new_position.x-4)\8,-1 do
+    for ty=(y-15)\8,(y-1)\8 do
+      local tile=mget(tx,ty)
+      if fget(tile,0) then
+        return tx*8+8
+      end
+    end
+    y += dy
+  end
+end
+
+
+function _update60()
   -- ===========================
   -- A global clock to drive
   -- animations and stuff
@@ -90,8 +129,6 @@ function _update()
   -- ===========================
   -- Player input
   -- ===========================
-
-
   -- From 2dplatformer.com
   -- NOTE: These equations
   -- probably will need
@@ -101,11 +138,11 @@ function _update()
   local walking
   if btn(⬅️) then
     walking = true
-    player_velocity.x -= 4
+    player_velocity.x -= 2
   end
   if btn(➡️) then
     walking = true
-    player_velocity.x += 4
+    player_velocity.x += 2
   end
 
   if btn(🅾️) and player_grounded then
@@ -125,12 +162,37 @@ function _update()
   if player_velocity.y>0 then
     local ground_y = find_ground(player_position,new_position,player_velocity)
     if ground_y then
-      -- not: not updating new_position.x here and I slide along the ground
       new_position.y = ground_y
       player_velocity.y = 0
       player_grounded = true
     else
       player_grounded = false
+    end
+  elseif player_velocity.y<0 then
+    local ceiling_y = find_ceiling(player_position,new_position,player_velocity)
+    if ceiling_y then
+      new_position.y = ceiling_y+16
+      player_velocity.y = 0
+    end
+  end
+
+  if player_velocity.x>0 then
+    local wall_x = find_wall_right(player_position,new_position,player_velocity)
+    if wall_x then
+      new_position.x = wall_x - 5
+      player_velocity.x = 0
+      player_wall_right = true
+    else
+      player_wall_right = false
+    end
+  elseif player_velocity.x<0 then
+    local wall_x = find_wall_left(player_position,new_position,player_velocity)
+    if wall_x then
+      new_position.x = wall_x + 5
+      player_velocity.x = 0
+      player_wall_right = true
+    else
+      player_wall_right = false
     end
   end
 

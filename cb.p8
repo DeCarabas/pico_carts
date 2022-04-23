@@ -59,35 +59,30 @@ local c_jump_velocity=sqrt(2*c_jump_height*c_gravity)
 
 local dbg_max_mag=0
 
--- todo: I feel like this should all be ... compressable.
+-- todo: i feel like this should all be ... compressable.
 
-function find_ground(old_position,new_position,velocity)
+-- returns the new center y position if we bonk vertically
+function vertical_collide(old_position,new_position,velocity)
   local x,dx=old_position.x,velocity.x/velocity.y
 
-  for ty=(old_position.y+8)\8,(new_position.y+8)\8 do
+  local sign=velocity.y>0 and 1 or -1
+  local delta=sign*8 -- hh
+
+  for ty=(old_position.y+delta)\8,(new_position.y+delta)\8,sign do
     for tx=(x-3)\8,(x+3)\8 do
       local tile=mget(tx,ty)
       if fget(tile,0) then
-        return ty*8
+        -- this returns +0 if sign is positive (the top edge)
+        -- this returns +8 if sign is negative (the bottom edge)
+        return ty*8 + (4 - 4*sign) - delta
       end
     end
+    -- the outer loop moves along the y axis, this moves us the
+    -- corresponding amount in the x axis
     x += dx
   end
 end
 
-function find_ceiling(old_position,new_position,velocity)
-  local x,dx=old_position.x,velocity.x/velocity.y
-
-  for ty=(old_position.y-8)\8,(new_position.y-8)\8,-1 do
-    for tx=(x-3)\8,(x+3)\8 do
-      local tile=mget(tx,ty)
-      if fget(tile,0) then
-        return ty*8+8
-      end
-    end
-    x += dx
-  end
-end
 
 function find_wall_right(old_position,new_position,velocity)
   local y,dy=old_position.y,velocity.y/velocity.x
@@ -110,7 +105,7 @@ function find_wall_left(old_position,new_position,velocity)
     for ty=(y-7)\8,(y+7)\8 do
       local tile=mget(tx,ty)
       if fget(tile,0) then
-        return tx*8+8
+        return tx*8+7
       end
     end
     y += dy
@@ -166,22 +161,31 @@ function _update60()
   -- collision detection
   -- ====================================================
   local new_position = player_position + player_velocity
-  if player_velocity.y>0 then
-    local ground_y = find_ground(player_position,new_position,player_velocity)
-    if ground_y then
-      new_position.y = ground_y - 8
-      player_velocity.y = 0
-      player_grounded = true
-    else
-      player_grounded = false
-    end
-  elseif player_velocity.y<0 then
-    local ceiling_y = find_ceiling(player_position,new_position,player_velocity)
-    if ceiling_y then
-      new_position.y = ceiling_y + 8
+  if player_velocity.y~=0 then
+    local bonk_y = vertical_collide(player_position,new_position,player_velocity)
+    player_grounded = bonk_y and bonk_y >= player_position.y
+    if bonk_y then
+      new_position.y = bonk_y
       player_velocity.y = 0
     end
   end
+
+  -- if player_velocity.y>0 then
+  --   local ground_y = vertical_collide(player_position,new_position,player_velocity)
+  --   if ground_y then
+  --     new_position.y = ground_y - 8
+
+  --     player_grounded = true
+  --   else
+  --     player_grounded = false
+  --   end
+  -- elseif player_velocity.y<0 then
+  --   local ceiling_y = vertical_collide(player_position,new_position,player_velocity)
+  --   if ceiling_y then
+  --     new_position.y = ceiling_y + 8
+  --     player_velocity.y = 0
+  --   end
+  -- end
 
   if player_velocity.x>0 then
     local wall_x = find_wall_right(player_position,new_position,player_velocity)

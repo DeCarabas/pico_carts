@@ -48,19 +48,18 @@ local frames={1,2,3,2}
 local player_velocity=vec(0,0)
 local player_position=vec(64,0)
 local player_frame=1
+local jump_grace=0
 
 -- physics constants, ala 2dengine.com
 -- todo: obviously collapse for tokens
-local c_jump_height=32 -- in pixels
+local c_jump_height=32    -- in pixels
 local c_min_jump_height=2 -- in pixels
-local c_time_to_apex=16 -- in frames, not seconds!
+local c_time_to_apex=16   -- in frames, not seconds!
 local c_damping=1
 local c_gravity=2 * c_jump_height / (c_time_to_apex * c_time_to_apex)
 local c_jump_velocity=sqrt(2*c_jump_height*c_gravity)
-local c_jump_term_velocity = sqrt(c_jump_velocity^2 - 2 * c_gravity * (c_jump_height - c_min_jump_height))
+local c_jump_term_velocity = -sqrt(c_jump_velocity^2 - 2 * c_gravity * (c_jump_height - c_min_jump_height))
 --                           ^ mumbo jumbo
-
-local dbg_max_mag=0
 
 -- todo: i feel like this should all be ... compressable.
 
@@ -105,6 +104,37 @@ function horizontal_collide(old_position,new_position,velocity)
   end
 end
 
+-- ===========================
+-- button stuff
+-- ===========================
+local buttons={}
+
+function update_btn(button)
+  button.was = button.is
+  button.is = btn(button.key)
+end
+
+-- a more-useful version of btnp() which ignores repeats
+function btnpp(key)
+  local bs = buttons[key]
+  return bs.is and not bs.was
+end
+
+-- button released (just now)
+function btnr(key)
+  local bs = buttons[key]
+  return bs.was and not bs.is
+end
+
+function _init()
+  for k in all{⬅️,➡️,⬆️,⬇️,❎,🅾️} do
+    buttons[k] = {key=k}
+  end
+end
+
+-- ===========================
+-- update
+-- ===========================
 function _update60()
   -- ===========================
   -- A global clock to drive
@@ -113,6 +143,7 @@ function _update60()
   -- (From eevee)
   clock += 1
   clock %= 27720
+  foreach(buttons, update_btn)
 
   -- ===========================
   -- Player input
@@ -142,14 +173,17 @@ function _update60()
   -- ====================================================
   -- jumping
   -- ====================================================
-  if btn(🅾️) then
-    if player_grounded then
-      player_velocity.y = -c_jump_velocity
-      player_grounded = false
-    end
-  elseif player_velocity.y < -c_jump_term_velocity then
-    player_velocity.y = -c_jump_term_velocity
+  if btnpp(🅾️) then
+    jump_grace = 5
+  elseif btnr(🅾️) and player_velocity.y < c_jump_term_velocity then
+    player_velocity.y = c_jump_term_velocity
   end
+
+  if player_grounded and jump_grace > 0 then
+    player_velocity.y = -c_jump_velocity
+    player_grounded = false
+  end
+  jump_grace = max(jump_grace-1, 0)
 
   -- ====================================================
   -- "forces"
@@ -157,16 +191,13 @@ function _update60()
   player_velocity.y += c_gravity
   player_velocity.x /= 1 + c_damping
 
-  local velocity_magnitude = player_velocity:length()
-  dbg_max_mag = max(dbg_max_mag, velocity_magnitude) --dbg
-
   -- ====================================================
   -- collision detection
   -- ====================================================
   local new_position = player_position + player_velocity
   if player_velocity.y~=0 then
     local bonk_y = vertical_collide(player_position,new_position,player_velocity)
-    player_grounded = bonk_y and player_velocity.y>0
+    player_grounded = bonk_y and player_velocity.y > 0
     if bonk_y then
       new_position.y = bonk_y
       player_velocity.y = 0
@@ -202,6 +233,7 @@ function _draw()
   )
   -- pset(player_position.x,player_position.y,12)
   -- print(dbg_max_mag.." p="..tostr(player_position).." v="..tostr(player_velocity))
+  print(jump_grace)
 end
 
 __gfx__

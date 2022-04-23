@@ -10,6 +10,7 @@ __lua__
 -- - Hard-light projector (double-jump)
 -- - Radio (talk over long distances)
 -- - Crypto Module (unlock doors)
+-- - Batman Grapple (vertical and horizontal movement)
 
 -- NOTE: Taking some stuff from eevee's aborted blog series
 
@@ -63,7 +64,7 @@ local dbg_max_mag=0
 function find_ground(old_position,new_position,velocity)
   local x,dx=old_position.x,velocity.x/velocity.y
 
-  for ty=old_position.y\8,new_position.y\8 do
+  for ty=(old_position.y+8)\8,(new_position.y+8)\8 do
     for tx=(x-3)\8,(x+3)\8 do
       local tile=mget(tx,ty)
       if fget(tile,0) then
@@ -77,7 +78,7 @@ end
 function find_ceiling(old_position,new_position,velocity)
   local x,dx=old_position.x,velocity.x/velocity.y
 
-  for ty=(old_position.y-16)\8,(new_position.y-16)\8,-1 do
+  for ty=(old_position.y-8)\8,(new_position.y-8)\8,-1 do
     for tx=(x-3)\8,(x+3)\8 do
       local tile=mget(tx,ty)
       if fget(tile,0) then
@@ -92,7 +93,7 @@ function find_wall_right(old_position,new_position,velocity)
   local y,dy=old_position.y,velocity.y/velocity.x
 
   for tx=(old_position.x+4)\8,(new_position.x+4)\8 do
-    for ty=(y-15)\8,(y-1)\8 do
+    for ty=(y-7)\8,(y+7)\8 do
       local tile=mget(tx,ty)
       if fget(tile,0) then
         return tx*8
@@ -106,7 +107,7 @@ function find_wall_left(old_position,new_position,velocity)
   local y,dy=old_position.y,velocity.y/velocity.x
 
   for tx=(old_position.x-4)\8,(new_position.x-4)\8,-1 do
-    for ty=(y-15)\8,(y-1)\8 do
+    for ty=(y-7)\8,(y+7)\8 do
       local tile=mget(tx,ty)
       if fget(tile,0) then
         return tx*8+8
@@ -168,7 +169,7 @@ function _update60()
   if player_velocity.y>0 then
     local ground_y = find_ground(player_position,new_position,player_velocity)
     if ground_y then
-      new_position.y = ground_y
+      new_position.y = ground_y - 8
       player_velocity.y = 0
       player_grounded = true
     else
@@ -177,7 +178,7 @@ function _update60()
   elseif player_velocity.y<0 then
     local ceiling_y = find_ceiling(player_position,new_position,player_velocity)
     if ceiling_y then
-      new_position.y = ceiling_y+16
+      new_position.y = ceiling_y + 8
       player_velocity.y = 0
     end
   end
@@ -218,7 +219,7 @@ function _draw()
   spr(
     idx,
     player_position.x-4,
-    player_position.y-16,
+    player_position.y-8,
     1, 2,
     facing=="left"
   )

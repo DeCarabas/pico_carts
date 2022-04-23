@@ -74,7 +74,8 @@ function vertical_collide(old_position,new_position,velocity)
       if fget(tile,0) then
         -- this returns +0 if sign is positive (the top edge)
         -- this returns +8 if sign is negative (the bottom edge)
-        return ty*8 + (4 - 4*sign) - delta
+        -- -delta converts it to be the new center position
+        return ty*8 + 4 - 4*sign - delta
       end
     end
     -- the outer loop moves along the y axis, this moves us the
@@ -83,35 +84,23 @@ function vertical_collide(old_position,new_position,velocity)
   end
 end
 
-
-function find_wall_right(old_position,new_position,velocity)
+function horizontal_collide(old_position,new_position,velocity)
   local y,dy=old_position.y,velocity.y/velocity.x
 
-  for tx=(old_position.x+4)\8,(new_position.x+4)\8 do
+  local sign=velocity.x>0 and 1 or -1
+  local delta=sign*4 -- hw
+
+  for tx=(old_position.x+delta)\8,(new_position.x+delta)\8,sign do
     for ty=(y-7)\8,(y+7)\8 do
       local tile=mget(tx,ty)
       if fget(tile,0) then
-        return tx*8
+        -- see vertical_collide
+        return tx*8 + 4 - 4*sign - delta
       end
     end
     y += dy
   end
 end
-
-function find_wall_left(old_position,new_position,velocity)
-  local y,dy=old_position.y,velocity.y/velocity.x
-
-  for tx=(old_position.x-4)\8,(new_position.x-4)\8,-1 do
-    for ty=(y-7)\8,(y+7)\8 do
-      local tile=mget(tx,ty)
-      if fget(tile,0) then
-        return tx*8+7
-      end
-    end
-    y += dy
-  end
-end
-
 
 function _update60()
   -- ===========================
@@ -132,14 +121,14 @@ function _update60()
   -- now they can be all fancy
   -- and stuff.
   local walking
-  if btn(⬅️) then
+  if btn(⬅️) and btn(➡️) then
+  elseif btn(⬅️) then
     if player_grounded then
       walking = true
       facing = "left"
     end
     player_velocity.x -= 1
-  end
-  if btn(➡️) then
+  elseif btn(➡️) then
     if player_grounded then
       walking = true
       facing = "right"
@@ -163,47 +152,17 @@ function _update60()
   local new_position = player_position + player_velocity
   if player_velocity.y~=0 then
     local bonk_y = vertical_collide(player_position,new_position,player_velocity)
-    player_grounded = bonk_y and bonk_y >= player_position.y
+    player_grounded = bonk_y and player_velocity.y>0
     if bonk_y then
       new_position.y = bonk_y
       player_velocity.y = 0
     end
   end
-
-  -- if player_velocity.y>0 then
-  --   local ground_y = vertical_collide(player_position,new_position,player_velocity)
-  --   if ground_y then
-  --     new_position.y = ground_y - 8
-
-  --     player_grounded = true
-  --   else
-  --     player_grounded = false
-  --   end
-  -- elseif player_velocity.y<0 then
-  --   local ceiling_y = vertical_collide(player_position,new_position,player_velocity)
-  --   if ceiling_y then
-  --     new_position.y = ceiling_y + 8
-  --     player_velocity.y = 0
-  --   end
-  -- end
-
-  if player_velocity.x>0 then
-    local wall_x = find_wall_right(player_position,new_position,player_velocity)
-    if wall_x then
-      new_position.x = wall_x - 5
+  if player_velocity.x~=0 then
+    local bonk_x = horizontal_collide(player_position,new_position,player_velocity)
+    if bonk_x then
+      new_position.x = bonk_x
       player_velocity.x = 0
-      player_wall_right = true
-    else
-      player_wall_right = false
-    end
-  elseif player_velocity.x<0 then
-    local wall_x = find_wall_left(player_position,new_position,player_velocity)
-    if wall_x then
-      new_position.x = wall_x + 5
-      player_velocity.x = 0
-      player_wall_right = true
-    else
-      player_wall_right = false
     end
   end
 

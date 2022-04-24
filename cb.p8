@@ -47,15 +47,16 @@ local player_velocity=vec(0,0)
 local player_position=vec(64,0)
 local player_frame=1
 local jump_grace=0
- player_state="walking" -- walking,jumping,batman
- player_batman_end=nil
+local player_state="walking" -- walking,jumping,batman
+local player_batman_end
+local player_batman_len
 
 -- physics constants, ala 2dengine.com
 -- todo: obviously collapse for tokens
 local c_jump_height=32    -- in pixels
 local c_min_jump_height=2 -- in pixels
 local c_time_to_apex=16   -- in frames, not seconds!
-local c_damping=1
+local c_damping_walk=1
 local c_gravity=2 * c_jump_height / (c_time_to_apex * c_time_to_apex)
 local c_jump_velocity=sqrt(2*c_jump_height*c_gravity)
 local c_jump_term_velocity = -sqrt(c_jump_velocity^2 - 2 * c_gravity * (c_jump_height - c_min_jump_height))
@@ -67,7 +68,7 @@ local c_jump_term_velocity = -sqrt(c_jump_velocity^2 - 2 * c_gravity * (c_jump_h
 function vertical_collide(old_position,new_position,velocity)
   local x,dx=old_position.x,velocity.x/velocity.y
 
-  local sign=velocity.y>0 and 1 or -1
+  local sign=sgn(velocity.y)
   local delta=sign*8 -- hh
 
   for ty=(old_position.y+delta)\8,(new_position.y+delta)\8,sign do
@@ -89,7 +90,7 @@ end
 function horizontal_collide(old_position,new_position,velocity)
   local y,dy=old_position.y,velocity.y/velocity.x
 
-  local sign=velocity.x>0 and 1 or -1
+  local sign=sgn(velocity.x)
   local delta=sign*4 -- hw
 
   for tx=(old_position.x+delta)\8,(new_position.x+delta)\8,sign do
@@ -154,6 +155,8 @@ function _update60()
   -- simplified later but for
   -- now they can be all fancy
   -- and stuff.
+  -- todo: this is all repetitive and stupid input handling
+  --       are we chaning the left and right impetus based on state or what?
   local walking
   if player_state=="walking" then
     if btn(⬅️) and btn(➡️) then
@@ -183,19 +186,13 @@ function _update60()
 
       -- velocity is at a right angle to line
       -- this will always be +y
-      local rope = player_batman_end - player_position
-      rope /= rope:length()
-      rope.x,rope.y=rope.y,rope.x
-      player_velocity += rope
+      player_position.x -= 1
     elseif btn(➡️) then
       facing = "right"
 
       -- velocity is at a right angle to line
       -- this will always be +y
-      local rope = player_batman_end - player_position
-      rope /= rope:length()
-      rope.x,rope.y=-rope.y,rope.x
-      player_velocity += rope
+      player_position.x += 1
     end
   end
 
@@ -208,21 +205,36 @@ function _update60()
     player_velocity.y = c_jump_term_velocity
   end
 
-  if player_state == "walking" and jump_grace > 0 then
-    player_state = "jumping"
-    player_velocity.y = -c_jump_velocity
+  if jump_grace > 0 then
+    if player_state == "walking" then
+      player_state = "jumping"
+      player_velocity.y = -c_jump_velocity
+      jump_grace = 0
+    elseif player_state == "batman" then
+      -- jumping while batman means falling instead
+      player_state = "jumping"
+      player_batman_end = nil
+      jump_grace = 0
+    end
   end
   jump_grace = max(jump_grace-1, 0)
 
   -- ====================================================
   -- "forces"
   -- ====================================================
-  if player_state ~= "batman" then
-    player_velocity.y += c_gravity
+  player_velocity.y += c_gravity
+  if player_batman_end then
+    local rope = player_batman_end - (player_position + player_velocity)
+    local rope_mag = rope:length()
+    if rope_mag > player_batman_len then
+      -- whoops! Need to correct that! Pull me in
+      -- correctly....
+      rope *= (rope_mag - player_batman_len) / rope_mag
+      player_velocity += rope
+    end
   else
-    --- hmmmm
+    player_velocity.x /= 1 + c_damping_walk
   end
-  player_velocity.x /= 1 + c_damping
 
   -- ====================================================
   -- collision detection
@@ -231,10 +243,12 @@ function _update60()
   if player_velocity.y~=0 then
     local bonk_y = vertical_collide(player_position,new_position,player_velocity)
     if bonk_y then
-      if player_velocity.y >0 then  -- falling and hit the ground
-        player_state = "walking"
-      else
-        player_state = "jumping"    -- falling and jumping are the same
+      if player_state ~= "batman" then
+        if player_velocity.y >0 then  -- falling and hit the ground
+          player_state = "walking"
+        else
+          player_state = "jumping"    -- falling and jumping are the same
+        end
       end
       new_position.y = bonk_y
       player_velocity.y = 0
@@ -259,21 +273,15 @@ function _update60()
         if fget(tile,7) then
           player_state = "batman"
           player_batman_end = vec(player_position.x,ty*8+8)
+
+          player_batman_len = player_batman_end - player_position
+          player_batman_len = player_batman_len:length()
           break
         end
       end
     end
 
-    if player_batman_end then
-      local rope = player_batman_end - player_position
-      rope /= rope:length()
-      player_velocity += rope
-      --player_velocity.y = -8 --?
-      --player_velocity.x = 0
-    end
-  elseif btnr(❎) then
-    player_state = "jumping"
-    player_batman_end = nil
+    player_batman_len=max(player_batman_len-1, 0)
   end
 
   if walking then
@@ -303,8 +311,8 @@ function _draw()
     facing=="left"
   )
   -- pset(player_position.x,player_position.y,12)
-  -- print(dbg_max_mag.." p="..tostr(player_position).." v="..tostr(player_velocity))
-  print(jump_grace)
+  print("p="..tostr(player_position).." v="..tostr(player_velocity))
+  print(player_state)
 end
 
 __gfx__

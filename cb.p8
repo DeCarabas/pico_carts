@@ -56,7 +56,7 @@ local player_batman_len
 local c_jump_height=32    -- in pixels
 local c_min_jump_height=2 -- in pixels
 local c_time_to_apex=16   -- in frames, not seconds!
-local c_damping_walk=1
+local c_damping_walk=0.5
 local c_gravity=2 * c_jump_height / (c_time_to_apex * c_time_to_apex)
 local c_jump_velocity=sqrt(2*c_jump_height*c_gravity)
 local c_jump_term_velocity = -sqrt(c_jump_velocity^2 - 2 * c_gravity * (c_jump_height - c_min_jump_height))
@@ -205,17 +205,11 @@ function _update60()
     player_velocity.y = c_jump_term_velocity
   end
 
-  if jump_grace > 0 then
-    if player_state == "walking" then
-      player_state = "jumping"
-      player_velocity.y = -c_jump_velocity
-      jump_grace = 0
-    elseif player_state == "batman" then
-      -- jumping while batman means falling instead
-      player_state = "jumping"
-      player_batman_end = nil
-      jump_grace = 0
-    end
+  if jump_grace > 0 and player_state ~= "jumping" then
+    player_state = "jumping"
+    player_velocity.y = -c_jump_velocity
+    jump_grace = 0
+    player_batman_end = nil
   end
   jump_grace = max(jump_grace-1, 0)
 

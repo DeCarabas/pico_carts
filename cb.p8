@@ -5,12 +5,12 @@ __lua__
 // (c) John Doty 2022
 
 -- Items
--- - Inertial Dampener (jump higher)
--- - Inertial Amplifier (push blocks)
--- - Hard-light projector (double-jump)
--- - Radio (talk over long distances)
--- - Crypto Module (unlock doors)
--- - Batman Grapple (vertical and horizontal movement)
+-- [ ] Inertial Dampener (jump higher)
+-- [ ] Inertial Amplifier (push blocks)
+-- [ ] Hard-light projector (double-jump)
+-- [ ] Radio (talk over long distances)
+-- [ ] Crypto Module (unlock doors)
+-- [ ] Batman Grapple (vertical and horizontal movement)
 
 -- NOTE: Taking some stuff from eevee's aborted blog series
 
@@ -36,21 +36,19 @@ function vec2:length()
   return sqrt(self.x^2+self.y^2)
 end
 function vec(x,y)
-  -- todo: if i don't end up using unpack here then
-  -- i can just remove that x,y thingy in there
-  return setmetatable({x,y,x=x,y=y},vec2)
+  return setmetatable({x=x,y=y},vec2)
 end
 
 local clock=0
 
 -- todo: collapse to save tokens obviously
-local frames={1,2,3,2}
+local frames={1,2,4,3,2,5}
 local player_velocity=vec(0,0)
 local player_position=vec(64,0)
 local player_frame=1
 local jump_grace=0
-local player_state="walking"
-local player_batman_end
+ player_state="walking" -- walking,jumping,batman
+ player_batman_end=nil
 
 -- physics constants, ala 2dengine.com
 -- todo: obviously collapse for tokens
@@ -177,6 +175,28 @@ function _update60()
       facing = "right"
       player_velocity.x += 1
     end
+  elseif player_state=="batman" then
+    assert(player_batman_end)
+    if btn(⬅️) and btn(➡️) then
+    elseif btn(⬅️) then
+      facing = "left"
+
+      -- velocity is at a right angle to line
+      -- this will always be +y
+      local rope = player_batman_end - player_position
+      rope /= rope:length()
+      rope.x,rope.y=rope.y,rope.x
+      player_velocity += rope
+    elseif btn(➡️) then
+      facing = "right"
+
+      -- velocity is at a right angle to line
+      -- this will always be +y
+      local rope = player_batman_end - player_position
+      rope /= rope:length()
+      rope.x,rope.y=-rope.y,rope.x
+      player_velocity += rope
+    end
   end
 
   -- ====================================================
@@ -199,8 +219,10 @@ function _update60()
   -- ====================================================
   if player_state ~= "batman" then
     player_velocity.y += c_gravity
-    player_velocity.x /= 1 + c_damping
+  else
+    --- hmmmm
   end
+  player_velocity.x /= 1 + c_damping
 
   -- ====================================================
   -- collision detection
@@ -212,7 +234,7 @@ function _update60()
       if player_velocity.y >0 then  -- falling and hit the ground
         player_state = "walking"
       else
-        player_state = "jumping" -- right?
+        player_state = "jumping"    -- falling and jumping are the same
       end
       new_position.y = bonk_y
       player_velocity.y = 0
@@ -231,21 +253,31 @@ function _update60()
   -- itemmmmm
   -- ====================================================
   if btn(❎) then
-    for ty=player_position.y\8,0,-1 do
-      local tile = mget(player_position.x\8,ty)
-      if fget(tile,7) then
-        player_state = "batman"
-        player_velocity.y = -8 --?
-        player_velocity.x = 0
-        player_batman_end = ty*8+8
-        break
+    if not player_batman_end then
+      for ty=player_position.y\8,0,-1 do
+        local tile = mget(player_position.x\8,ty)
+        if fget(tile,7) then
+          player_state = "batman"
+          player_batman_end = vec(player_position.x,ty*8+8)
+          break
+        end
       end
     end
+
+    if player_batman_end then
+      local rope = player_batman_end - player_position
+      rope /= rope:length()
+      player_velocity += rope
+      --player_velocity.y = -8 --?
+      --player_velocity.x = 0
+    end
+  elseif btnr(❎) then
+    player_state = "jumping"
+    player_batman_end = nil
   end
 
-
   if walking then
-    player_frame=(player_frame+0.2)%2
+    player_frame=(player_frame+0.2)%#frames
   end
 end
 
@@ -254,7 +286,11 @@ function _draw()
   map(0,0)
 
   if player_state == "batman" then
-    line(player_position.x,player_position.y,player_position.x,player_batman_end,7)
+    line(
+      player_position.x,
+      player_position.y,
+      player_batman_end.x,
+      player_batman_end.y,7)
   end
 
   -- TODO: Fix this dang stuff here.
@@ -273,21 +309,21 @@ end
 
 __gfx__
 000000000000000000ee00ee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000e000e00edd0edd00e000e0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-007007000ede0edeedd0edd00ede0ede000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000edddeddded00ed00edddeddd000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00077000ed00ed00edd0ed00ed00ed00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00700700edd0ed00eedeeee0edd0ed00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000eedeeee00eeee7eeeedeeee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000eeee7ee0eeee0ee0eeee7ee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000eeee0ee00eeeee70eeee0ee000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000eeeee700eeeee000eeeee7000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000000eeeee0000eed0000eeeee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-00000000000eed0000eed000000eed00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000eeeee0007eeed0007eeee00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000ddede5007dede0007dedee0000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-000000000150ee00000ed0000de05500000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
-0000000005550eee000eee000eee0055000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000e000e00edd0edd00e000e000ee00ee00ee00ee00000000000000000000000000000000000000000000000000000000000000000000000000000000
+007007000ede0edeedd0edd00ede0ede0edd0edd0edd0edd00000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000edddeddded00ed00edddedddedd0edd0edddedd000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00077000ed00ed00edd0ed00ed00ed00ed00ed00ed00ed0000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00700700edd0ed00eedeeee0edd0ed00edd0ed00edd0ed0000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000eedeeee00eeee7eeeedeeee0eedeeee0eedeeee000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000eeee7ee0eeee0ee0eeee7ee0eeee7ee0eeee7ee00000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000eeee0ee00eeeee70eeee0ee0eeee0ee0eeee0ee00000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000eeeee700eeeee000eeeee700eeeee700eeeee700000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000eeeee0000eed0000eeeee000eeeee000eeeee000000000000000000000000000000000000000000000000000000000000000000000000000000000
+0000000000eed00000eed00000eed00000eed00000eed00000000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000000eeee00007eeed0077eee00077eeee000eeee50000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000eedde50007dede007dedee007dede000eedde00000000000000000000000000000000000000000000000000000000000000000000000000000000000
+00000000150ee000000ed000de055000de00055515000eee00000000000000000000000000000000000000000000000000000000000000000000000000000000
+000000005550eee0000eee00eee00550eee000005550000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000
 00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000

@@ -307,7 +307,9 @@ function _update60()
       end
     end
 
-    player_batman_len=max(player_batman_len-1, 0)
+    if player_batman_len then
+      player_batman_len=max(player_batman_len-1, 0)
+    end
   end
 
   -- ====================================================
@@ -318,12 +320,12 @@ function _update60()
   -- limit is that ok?
   for v in all{"x","y"} do
     local pv,cv=player_position[v],camera_position[v]
-    if pv-cv<32 then cv=pv-32 end
-    if pv-cv>96 then cv=pv-96 end
+    if pv-cv<60 then cv=pv-60 end
+    if pv-cv>68 then cv=pv-68 end
     camera_position[v] = mid(
       cv,
       current_room.top_left[v],
-      current_room.bottom_right[v])
+      current_room.bottom_right[v]-128)
   end
 end
 
@@ -350,9 +352,11 @@ function _draw()
     1, 2,
     facing=="left"
   )
+
+  camera()
   --pset(player_position.x,player_position.y,10)
-  print(current_room.name)
   print("p="..tostr(player_position).." v="..tostr(player_velocity),7)
+  print(current_room.name.." tl="..tostr(current_room.top_left).." br="..tostr(current_room.bottom_right))
   print(player_state)
 end
 
